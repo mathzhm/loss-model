@@ -32,6 +32,19 @@
         mech: 'λ_U = 2 − 2^(1/θ)，θ↑ ⇒ λ_U↑；而 λ_L ≡ 0。',
         formula: '$$C(u,v)=\\exp\\!\\Big\\{-\\big[(-\\ln u)^{\\theta}+(-\\ln v)^{\\theta}\\big]^{1/\\theta}\\Big\\},\\quad \\tau=1-\\tfrac{1}{\\theta}$$',
         hook: '记住它的脸 —— 将来你给<b>巨灾再保</b>定价，认错它，赔的是真金白银。'
+      },
+      dex: {
+        cat: '显式 · Archimedean 族',
+        def: '由生成元 $\\varphi(t)=(-\\ln t)^{\\theta}$ 构造的 Archimedean copula，刻画<b>上尾</b>聚集的相依结构。',
+        cdf: '$$C(u,v)=\\exp\\!\\Big\\{-\\big[(-\\ln u)^{\\theta}+(-\\ln v)^{\\theta}\\big]^{1/\\theta}\\Big\\}$$',
+        param: '$\\theta\\in[1,\\infty)$；$\\theta=1$ 退化为独立 copula，$\\theta\\to\\infty$ 趋于完全正相关。',
+        props: [
+          'Kendall $\\tau = 1-\\dfrac{1}{\\theta}$',
+          '上尾依赖 $\\lambda_U = 2-2^{1/\\theta}>0$；下尾 $\\lambda_L=0$',
+          '不对称：只在右上角（大值）聚集，左下角独立',
+          '仅刻画正相依（$\\theta\\ge 1$）'
+        ],
+        useZh: '巨灾再保险、极端同涨风险（如地震+洪水同时大额索赔）。'
       }
     },
     {
@@ -49,6 +62,19 @@
         mech: 'λ_L = 2^(−1/θ)，θ↑ ⇒ λ_L↑；而 λ_U ≡ 0。',
         formula: '$$C(u,v)=\\big(u^{-\\theta}+v^{-\\theta}-1\\big)^{-1/\\theta},\\quad \\tau=\\tfrac{\\theta}{\\theta+2}$$',
         hook: '<b>信用险</b>里衰退期多个债务人同时违约，就是它的作案现场。'
+      },
+      dex: {
+        cat: '显式 · Archimedean 族',
+        def: '由生成元 $\\varphi(t)=\\tfrac{1}{\\theta}(t^{-\\theta}-1)$ 构造的 Archimedean copula，刻画<b>下尾</b>聚集的相依结构。',
+        cdf: '$$C(u,v)=\\big(u^{-\\theta}+v^{-\\theta}-1\\big)^{-1/\\theta}$$',
+        param: '$\\theta\\in(0,\\infty)$；$\\theta\\to 0$ 趋于独立，$\\theta\\to\\infty$ 趋于完全正相关。',
+        props: [
+          'Kendall $\\tau = \\dfrac{\\theta}{\\theta+2}$',
+          '下尾依赖 $\\lambda_L = 2^{-1/\\theta}>0$；上尾 $\\lambda_U=0$',
+          '不对称：只在左下角（小值/损失）聚集，右上角独立',
+          '与 Gumbel 恰好尾部相反（互为镜像直觉）'
+        ],
+        useZh: '信用违约相依（衰退期多个债务人同时违约）、下行风险传染。'
       }
     },
     {
@@ -69,6 +95,19 @@
         mech: 'ν↓ ⇒ λ_L = λ_U↑；ν→∞ 退化为 Gaussian（无尾）。',
         formula: '$$\\lambda=2\\,t_{\\nu+1}\\!\\Big(-\\sqrt{\\tfrac{(\\nu+1)(1-\\rho)}{1+\\rho}}\\Big),\\quad \\tau=\\tfrac{2}{\\pi}\\arcsin\\rho$$',
         hook: '<b>车险 + 健康险</b>在极端年份同时恶化，得请它出马。'
+      },
+      dex: {
+        cat: '隐式 · 椭圆族',
+        def: '由多元 Student-$t$ 分布经 Sklar 定理反推得到的隐式 copula，具有<b>对称双尾</b>相依。',
+        cdf: '$$C(u,v)=\\mathbf{t}_{\\nu,\\rho}\\!\\big(t_\\nu^{-1}(u),\\,t_\\nu^{-1}(v)\\big)$$',
+        param: '相关参数 $\\rho\\in(-1,1)$，自由度 $\\nu>0$；$\\nu\\to\\infty$ 退化为 Gaussian copula。',
+        props: [
+          'Kendall $\\tau = \\dfrac{2}{\\pi}\\arcsin\\rho$',
+          '上下尾对称 $\\lambda_L=\\lambda_U>0$（$\\nu$ 有限时）',
+          '$\\nu$ 越小尾部越厚（极端共振越强）',
+          '可正可负相关（不同于 Archimedean）'
+        ],
+        useZh: '多险种极端年份共振（车险+健康险同时恶化）、投资组合尾部风险。'
       }
     },
     {
@@ -87,6 +126,19 @@
         mech: '|ρ| < 1 时尾部依赖恒为 0 —— 看着相关，极端时各自逃命。',
         formula: '$$\\lambda_L=\\lambda_U=0\\ (|\\rho|<1),\\quad \\tau=\\tfrac{2}{\\pi}\\arcsin\\rho$$',
         hook: '⚠️ 它是<b>定价陷阱</b>：2008 年信用模型用它低估联合违约，栽了大跟头。别被相关系数大骗了。'
+      },
+      dex: {
+        cat: '隐式 · 椭圆族',
+        def: '由多元正态分布经 Sklar 定理反推得到的隐式 copula，<b>无尾部依赖</b>。',
+        cdf: '$$C(u,v)=\\Phi_{\\rho}\\!\\big(\\Phi^{-1}(u),\\,\\Phi^{-1}(v)\\big)$$',
+        param: '相关参数 $\\rho\\in(-1,1)$；$\\rho=0$ 即独立，$\\rho\\to\\pm1$ 趋于完全相依。',
+        props: [
+          'Kendall $\\tau = \\dfrac{2}{\\pi}\\arcsin\\rho$',
+          '尾部依赖 $\\lambda_L=\\lambda_U=0$（只要 $|\\rho|<1$）',
+          '⚠️「看着相关、极端时各自逃命」——反直觉',
+          't-copula 在 $\\nu\\to\\infty$ 时的极限'
+        ],
+        useZh: '⚠️ 定价陷阱：2008 金融危机中低估联合违约的元凶；仅适用无极端共振的场景。'
       }
     }
   ];
@@ -624,6 +676,8 @@
     wall.innerHTML = SUSPECTS.map(s => {
       const done = unlocked.includes(s.id);
       let kpi; try { kpi = Cop[s.fam].kpi(s.tail === 'none' && s.fam === 'gaussian' ? { rho: 0.9 } : s.fam === 't' ? { rho: 0.5, nu: 2 } : { theta: s.fam === 'clayton' ? 6 : 5 }); } catch (e) { kpi = { lambdaL: 0, lambdaU: 0 }; }
+      const d = s.dex || {};
+      const propsHtml = (d.props || []).map(p => `<li>${p}</li>`).join('');
       return `<div class="dex-card ${done ? 'unlocked' : ''}" id="dexCard_${s.id}">
         <div class="dex-inner">
           <div class="dex-face dex-lock"><div>🔒</div><div class="lk-name">${s.name}</div></div>
@@ -632,12 +686,45 @@
             <div class="nm" style="color:${s.color}">${s.name}</div>
             <div class="ti" style="background:${s.color}">${s.tailZh}依赖</div>
             <div class="lam">λ_L≈${kpi.lambdaL.toFixed(2)}　λ_U≈${kpi.lambdaU.toFixed(2)}</div>
+            ${done ? `<button class="dex-more" data-id="${s.id}">📖 定义与性质</button>` : ''}
           </div>
         </div>
         <div class="stamp">✓</div>
         <div class="shine"></div>
       </div>`;
     }).join('');
+
+    // 图鉴知识面板（点击「定义与性质」展开）——仅已解锁可看
+    wall.querySelectorAll('.dex-more').forEach(btn => {
+      btn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        const s = SUSPECTS.find(x => x.id === btn.dataset.id);
+        if (s) showDexInfo(s);
+      });
+    });
+  }
+
+  // 弹出某 copula 的定义与性质卡片
+  function showDexInfo(s) {
+    const d = s.dex || {};
+    const propsHtml = (d.props || []).map(p => `<li>${p}</li>`).join('');
+    modal.innerHTML =
+      `<div class="dex-info" style="text-align:left">` +
+      `<div class="dex-info-head" style="border-color:${s.color}">` +
+        `<span class="dex-info-emo">${s.emoji}</span>` +
+        `<div><div class="dex-info-nm" style="color:${s.color}">${s.name}</div>` +
+        `<div class="dex-info-cat">${d.cat || ''} · <span style="color:${s.color}">${s.tailZh}依赖</span></div></div>` +
+      `</div>` +
+      `<div class="dex-sec"><div class="dex-lbl">定义</div><div class="dex-txt">${d.def || ''}</div></div>` +
+      (d.cdf ? `<div class="dex-sec"><div class="dex-lbl">分布函数 C(u,v)</div><div class="dex-txt dex-eq">${d.cdf}</div></div>` : '') +
+      (d.param ? `<div class="dex-sec"><div class="dex-lbl">参数范围</div><div class="dex-txt">${d.param}</div></div>` : '') +
+      `<div class="dex-sec"><div class="dex-lbl">核心性质</div><ul class="dex-props">${propsHtml}</ul></div>` +
+      (d.useZh ? `<div class="dex-sec dex-use" style="border-color:${s.color}"><div class="dex-lbl">精算场景</div><div class="dex-txt">${d.useZh}</div></div>` : '') +
+      `<button class="btn gold" id="dexClose" style="margin-top:14px">明白了，收起</button>` +
+      `</div>`;
+    openModal();
+    if (window.MathJax && MathJax.typesetPromise) { MathJax.typesetPromise([modal]).catch(() => {}); }
+    const c = $('#dexClose'); if (c) c.addEventListener('click', closeModal);
   }
   function hex2rgba(hex, a) {
     const n = parseInt(hex.slice(1), 16);

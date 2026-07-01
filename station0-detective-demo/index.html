@@ -237,6 +237,9 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border-radius:50%;bac
 .dex-open .nm{font-weight:800;font-size:15px;margin-top:4px;}
 .dex-open .ti{font-size:11px;color:#fff;padding:2px 8px;border-radius:12px;margin-top:5px;}
 .dex-open .lam{font-size:10.5px;color:var(--muted);margin-top:7px;text-align:center;line-height:1.4;}
+.dex-more{margin-top:8px;font-size:10.5px;padding:3px 9px;border-radius:20px;cursor:pointer;
+  background:rgba(255,255,255,.08);color:#dfe8f6;border:1px solid rgba(255,255,255,.18);transition:.18s;}
+.dex-more:hover{background:rgba(255,255,255,.18);transform:translateY(-1px);}
 .stamp{position:absolute;top:8px;right:8px;width:42px;height:42px;border-radius:50%;
   border:2.5px solid var(--good);color:var(--good);display:flex;align-items:center;justify-content:center;
   font-size:20px;font-weight:900;transform:rotate(-18deg) scale(0);opacity:0;}
@@ -272,6 +275,20 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border-radius:50%;bac
   background:linear-gradient(135deg,var(--good),#27ae60);color:#fff;font-weight:800;padding:11px 20px;border-radius:30px;
   box-shadow:0 10px 30px rgba(0,0,0,.4);transition:transform .4s cubic-bezier(.2,1.4,.4,1);font-size:14px;}
 .pop-toast.show{transform:translateX(-50%) translateY(0);}
+/* ---- 图鉴：定义与性质卡片 ---- */
+.dex-info{max-width:100%;}
+.dex-info-head{display:flex;align-items:center;gap:12px;padding-bottom:10px;margin-bottom:12px;border-bottom:2px solid;}
+.dex-info-emo{font-size:36px;line-height:1;}
+.dex-info-nm{font-size:22px;font-weight:800;}
+.dex-info-cat{font-size:12px;color:var(--muted);margin-top:2px;}
+.dex-sec{margin-bottom:12px;}
+.dex-lbl{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:1px;margin-bottom:4px;text-transform:uppercase;}
+.dex-txt{font-size:13.5px;line-height:1.7;color:#dfe8f6;}
+.dex-eq{overflow-x:auto;overflow-y:hidden;padding:2px 0;}
+.dex-props{margin:0;padding-left:18px;font-size:13px;line-height:1.85;color:#dfe8f6;}
+.dex-props li{margin-bottom:2px;}
+.dex-use{background:rgba(255,255,255,.04);border-left:3px solid;border-radius:0 10px 10px 0;padding:8px 12px;}
+body.theme-light .dex-txt,body.theme-light .dex-props{color:#2a3550;}
 </style>
 </head>
 <body>
