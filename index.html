@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>损失模型 · Ch17 Copula 交互式教学闯关</title>
+<style>
+  :root{
+    --bg:#0f1420; --card:#1a2233; --card2:#212c42; --line:#2c3a58;
+    --txt:#e8eef7; --muted:#8ea3c2; --accent:#4da3ff; --gold:#ffcf5c;
+    --done:#39d98a; --lock:#5a6b8c;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+    background:radial-gradient(1200px 600px at 50% -10%,#1b2740 0%,var(--bg) 60%);
+    color:var(--txt);min-height:100vh;padding:32px 18px 60px}
+  .wrap{max-width:960px;margin:0 auto}
+  header{text-align:center;margin-bottom:8px}
+  h1{font-size:30px;letter-spacing:1px;margin-bottom:8px}
+  h1 .em{color:var(--gold)}
+  .sub{color:var(--muted);font-size:15px;line-height:1.7;max-width:680px;margin:0 auto 6px}
+  .path-note{color:var(--accent);font-size:13px;margin-top:10px}
+  .legend{display:flex;gap:18px;justify-content:center;margin:22px 0 30px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+  .dot.done{background:var(--done)} .dot.lock{background:var(--lock)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+  .card{background:linear-gradient(160deg,var(--card2),var(--card));
+    border:1px solid var(--line);border-radius:16px;padding:18px 18px 16px;
+    position:relative;transition:.22s;display:flex;flex-direction:column;min-height:150px}
+  .card.done{cursor:pointer}
+  .card.done:hover{transform:translateY(-4px);border-color:var(--accent);
+    box-shadow:0 10px 30px rgba(77,163,255,.18)}
+  .card.locked{opacity:.62}
+  .badge{position:absolute;top:14px;right:14px;font-size:11px;padding:3px 9px;
+    border-radius:20px;font-weight:600}
+  .badge.done{background:rgba(57,217,138,.16);color:var(--done);border:1px solid rgba(57,217,138,.4)}
+  .badge.lock{background:rgba(90,107,140,.16);color:var(--lock);border:1px solid rgba(90,107,140,.4)}
+  .stn{font-size:12px;color:var(--accent);font-weight:700;letter-spacing:1px}
+  .ttl{font-size:19px;margin:6px 0 8px;font-weight:700}
+  .desc{font-size:13px;color:var(--muted);line-height:1.6;flex:1}
+  .tag{display:inline-block;margin-top:10px;font-size:11px;color:var(--muted);
+    background:rgba(255,255,255,.04);padding:3px 8px;border-radius:6px;border:1px solid var(--line)}
+  .arrow{text-align:center;color:var(--lock);font-size:13px;margin:2px 0}
+  footer{text-align:center;color:var(--muted);font-size:12px;margin-top:36px;line-height:1.8}
+  footer .k{color:var(--gold)}
+  a.card-link{text-decoration:none;color:inherit}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>📉 损失模型 · <span class="em">Copula 交互式教学</span></h1>
+    <p class="sub">一条从「痛点」到「应用」的闯关主线：为什么 Pearson 不够 → 怎么剥离边缘 → Sklar 解耦 → 认识家族 → 看懂尾巴 → 算联合概率 → 算资本 → 进阶。</p>
+    <p class="path-note">👇 点亮的关卡可直接进入，灰色为建设中。随课程推进逐步解锁。</p>
+    <div class="legend">
+      <span><i class="dot done"></i> 已开放</span>
+      <span><i class="dot lock"></i> 建设中</span>
+    </div>
+  </header>
+
+  <div class="grid" id="grid"></div>
+
+  <footer>
+    <div>面向大三精算学生 · Ch17 Copula 样板模块</div>
+    <div>学习数据（错题本 / 掌握度）<span class="k">仅存于你的浏览器本地</span>，不会上传。</div>
+    <div style="margin-top:6px;opacity:.7">Powered by Nash 🧮 · 学术守护灵</div>
+  </footer>
+</div>
+
+<script>
+  // 8 站主线 + 站0 开胃关。done=true 的可点击进入。
+  var STATIONS = [
+    {n:"站 0", key:"探索发现", href:"station0-detective-demo/index.html", done:true,
+      desc:"精算侦探：还没学理论，先靠观察下注——预测数据往哪个角落抱团，在动手中建立直觉。", tag:"预测下注 · 图鉴收集"},
+    {n:"站 1", key:"依赖的陷阱", href:"", done:false,
+      desc:"Pearson vs 秩相关：为什么线性相关系数会骗人？单调非线性变换下谁才稳健。", tag:"KP-17-1"},
+    {n:"站 2", key:"概率积分变换 PIT", href:"", done:false,
+      desc:"把边缘分布「洗掉」——F(X)~Unif(0,1)，只留下纯粹的依赖结构。", tag:"KP-17-2"},
+    {n:"站 3", key:"Sklar 解耦", href:"", done:false,
+      desc:"联合分布 = copula ∘ 边缘。边缘与依赖可以分别替换的核心定理动画。", tag:"KP-17-3"},
+    {n:"站 4", key:"Copula 家族图鉴", href:"station4-copula-family/index.html", done:true,
+      desc:"基础 / 显式(Archimedean) / 隐式(椭圆) 三大类：Clayton下尾、Gumbel上尾、t双尾……看散点与密度认尾巴。", tag:"本期样板 ★"},
+    {n:"站 5", key:"尾部依赖 λ(q)", href:"", done:false,
+      desc:"上尾/下尾依赖系数的极限定义与推导，λ(q) 如何收敛到 λ_L / λ_U。", tag:"KP-17-5"},
+    {n:"站 6", key:"联合概率计算器", href:"", done:false,
+      desc:"给定边缘与 copula，具体算一笔联合概率 P = C(F_X, F_Y)。", tag:"KP-17-6"},
+    {n:"站 7", key:"聚合损失与资本", href:"", done:false,
+      desc:"换一个 copula，对总损失分布尾部、VaR 与资本要求有什么影响？", tag:"KP-17-7"},
+    {n:"站 8", key:"生成元与极值族", href:"", done:false,
+      desc:"Archimedean 生成元 φ 框架 + 极值族；参数估计三法（MLE/IFM/秩相关）进阶。", tag:"KP-17-8"}
+  ];
+
+  var grid = document.getElementById('grid');
+  STATIONS.forEach(function(s){
+    var inner =
+      '<span class="badge '+(s.done?'done':'lock')+'">'+(s.done?'✓ 已开放':'🔒 建设中')+'</span>'+
+      '<div class="stn">'+s.n+'</div>'+
+      '<div class="ttl">'+s.key+'</div>'+
+      '<div class="desc">'+s.desc+'</div>'+
+      '<span class="tag">'+s.tag+'</span>';
+    if(s.done && s.href){
+      var a = document.createElement('a');
+      a.className = 'card-link';
+      a.href = s.href;
+      a.innerHTML = '<div class="card done">'+inner+'</div>';
+      grid.appendChild(a);
+    } else {
+      var d = document.createElement('div');
+      d.className = 'card locked';
+      d.innerHTML = inner;
+      grid.appendChild(d);
+    }
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>站4 · Copula 家族图鉴 | 损失模型交互教学</title>
+<script>
+MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mhchem.js" async></script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+<style>
+:root{
+  --primary:#2c3e50; --accent:#3498db; --bg:#f4f6f9; --panel:#fff;
+  --upper:#e74c3c; --lower:#2980b9; --none:#95a5a6; --both:#8e44ad;
+  --ok:#27ae60; --warn:#e67e22; --text:#2d3436;
+}
+*{box-sizing:border-box}
+body{font-family:-apple-system,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+  background:var(--bg);color:var(--text);margin:0;padding:0 16px 60px;line-height:1.6}
+.wrap{max-width:1360px;margin:0 auto}
+h1{color:var(--primary);font-size:1.5em;margin:18px 0 4px}
+.subtitle{color:#7f8c8d;font-size:.95em;margin-bottom:14px}
+
+/* 顶部进度条 */
+.pathbar{display:flex;gap:6px;align-items:center;background:var(--panel);
+  padding:10px 14px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:14px;flex-wrap:wrap}
+.path-step{font-size:.8em;color:#b2bec3;padding:3px 8px;border-radius:6px}
+.path-step.cur{background:var(--accent);color:#fff;font-weight:600}
+.role-badge{margin-left:auto;background:#fdf2e9;color:var(--warn);
+  padding:4px 12px;border-radius:20px;font-size:.85em;font-weight:600;border:1px solid #f5cba7}
+
+/* 故事开场 */
+.story{background:linear-gradient(135deg,#fff8f0,#fef5ec);border-left:4px solid var(--warn);
+  border-radius:10px;padding:16px 20px;margin-bottom:16px;font-size:.95em}
+.story h3{margin:0 0 8px;color:var(--warn);font-size:1.05em}
+.story .toggle{float:right;cursor:pointer;color:var(--accent);font-size:.85em;font-weight:600}
+.story.collapsed .story-body{display:none}
+
+/* 关卡导航 */
+.levels{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.level-tab{flex:1;min-width:180px;background:var(--panel);border:2px solid #ecf0f1;
+  border-radius:10px;padding:12px 14px;cursor:pointer;transition:.2s;position:relative;opacity:.55}
+.level-tab.active{border-color:var(--accent);opacity:1;box-shadow:0 4px 12px rgba(52,152,219,.18)}
+.level-tab.done{opacity:1;border-color:var(--ok)}
+.level-tab.locked{cursor:not-allowed}
+.level-tab .ln{font-size:.78em;color:#95a5a6;font-weight:600}
+.level-tab .lt{font-size:1em;font-weight:700;color:var(--primary);margin-top:2px}
+.level-tab .ld{font-size:.8em;color:#7f8c8d;margin-top:3px}
+.level-tab .lock{position:absolute;top:10px;right:12px}
+
+.container{display:flex;gap:16px;flex-wrap:wrap}
+.left{flex:1;min-width:280px;max-width:340px}
+.right{flex:2.4;min-width:640px}
+.panel{background:var(--panel);border-radius:12px;padding:18px;
+  box-shadow:0 2px 10px rgba(0,0,0,.06);margin-bottom:16px}
+.panel h3{margin:0 0 12px;color:var(--primary);font-size:1.05em}
+
+/* 家族选择器：细长下拉菜单 */
+.fam-picker{display:flex;align-items:center;gap:10px}
+.fam-picker select{flex:1;padding:9px 12px;border:2px solid #dfe6e9;border-radius:9px;
+  font-size:.95em;font-weight:600;color:var(--primary);background:#fff;cursor:pointer}
+.fam-picker select:focus{outline:none;border-color:var(--accent)}
+.fam-badge{display:inline-block;font-size:.7em;padding:3px 10px;border-radius:11px;color:#fff;white-space:nowrap}
+.ct{display:inline-block;font-size:.6em;padding:1px 6px;border-radius:9px;color:#fff}
+.ct-upper{background:var(--upper)} .ct-lower{background:var(--lower)}
+.ct-none{background:var(--none)} .ct-both{background:var(--both)}
+
+/* 散点 + 密度 并列 */
+.viz-row{display:flex;gap:14px;flex-wrap:wrap}
+.viz-col{flex:1;min-width:300px}
+.viz-h{margin:0 0 6px;font-size:.9em;color:var(--primary)}
+
+/* 闯关模块（关卡导航 + 题目就地切换，置于可视化正上方） */
+.questline{background:var(--panel);border-radius:12px;padding:14px 16px;
+  box-shadow:0 2px 10px rgba(0,0,0,.06);margin-bottom:14px;border-top:3px solid var(--accent)}
+.task-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.th-title{font-size:1.02em;font-weight:700;color:var(--primary)}
+.th-prog{font-size:.78em;font-weight:600;color:var(--warn);margin-left:8px}
+.th-hint{font-size:.82em;color:#7f8c8d;margin:3px 0 8px}
+.qdots{display:flex;gap:6px}
+.qdot{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:.8em;font-weight:700;background:#ecf0f1;color:#95a5a6;cursor:pointer;transition:.15s}
+.qdot.cur{background:var(--accent);color:#fff}
+.qdot.done{background:var(--ok);color:#fff}
+.qbody{margin-top:4px}
+.qstem{font-size:.95em;margin:6px 0 8px}
+.scn{background:#fef9e7;padding:9px 13px;border-radius:8px;font-size:.9em;margin:6px 0}
+.qopts{display:flex;flex-direction:column;gap:7px}
+.qnav{display:flex;gap:8px;margin-top:12px}
+.qnav .btn{flex:1}
+
+/* 控件 */
+.ctrl{margin:14px 0}
+.ctrl label{display:block;font-weight:600;font-size:.9em;margin-bottom:6px}
+.ctrl input[type=range]{width:100%}
+.valdisp{font-size:.85em;color:#7f8c8d;margin-top:3px}
+.btn-row{display:flex;gap:8px;margin-top:10px}
+.btn{flex:1;padding:8px;border:none;border-radius:8px;background:#ecf0f1;
+  cursor:pointer;font-size:.85em;font-weight:600;color:var(--primary);transition:.15s}
+.btn:hover{background:#dde4e6}
+.btn.primary{background:var(--accent);color:#fff}
+.btn.primary:hover{background:#2980b9}
+
+/* 散点 + 数字面板 */
+.statrow{display:flex;gap:10px;margin-bottom:12px}
+.statbox{flex:1;text-align:center;background:#f8fafb;border-radius:10px;padding:10px 6px;transition:.25s}
+.statbox.flash{background:#fff3cd;transform:scale(1.04)}
+.statval{font-size:1.5em;font-weight:800;color:var(--primary)}
+.statlbl{font-size:.75em;color:#95a5a6;margin-top:2px}
+.context-tag{padding:10px 14px;border-radius:10px;font-size:.92em;font-weight:600;
+  color:#fff;margin-bottom:12px;transition:.3s}
+canvas#scatter{width:100%;height:300px;background:#fff;border-radius:8px;border:1px solid #ecf0f1}
+canvas#density{width:100%;height:300px;background:#fff;border-radius:8px;border:1px solid #ecf0f1}
+.dens-verdict{margin-top:6px;padding:8px 12px;border-radius:8px;background:#f4f8fb;
+  border-left:3px solid var(--accent);font-size:.85em;color:var(--text)}
+
+/* 讲解 */
+.explain{background:#eef7fc;border-left:4px solid var(--accent);border-radius:8px;
+  padding:14px 16px;font-size:.93em;margin-top:6px}
+details{margin-top:8px;border:1px solid #ecf0f1;border-radius:8px;padding:0}
+details summary{cursor:pointer;padding:9px 14px;font-weight:600;font-size:.88em;
+  color:var(--primary);background:#f8fafb;border-radius:8px;user-select:none}
+details[open] summary{border-bottom:1px solid #ecf0f1;border-radius:8px 8px 0 0}
+details .dbody{padding:12px 16px;font-size:.88em}
+code,pre{background:#2d3436;color:#dfe6e9;border-radius:6px}
+pre{padding:12px;overflow:auto;font-size:.82em;line-height:1.5}
+code{padding:2px 5px;font-size:.85em}
+
+/* 任务区 */
+.task{background:#fff;border-radius:12px;padding:18px;box-shadow:0 2px 10px rgba(0,0,0,.06)}
+.task h3{margin:0 0 10px;color:var(--primary)}
+.qopt{display:block;width:100%;text-align:left;margin:7px 0;padding:11px 14px;
+  border:2px solid #ecf0f1;border-radius:9px;background:#fff;cursor:pointer;font-size:.92em;transition:.15s}
+.qopt:hover{border-color:#bdc3c7}
+.qopt.correct{border-color:var(--ok);background:#eafaf1}
+.qopt.wrong{border-color:var(--upper);background:#fdedec}
+.feedback{margin-top:10px;padding:10px 14px;border-radius:8px;font-size:.9em;display:none}
+.feedback.show{display:block}
+.feedback.ok{background:#eafaf1;color:#1e8449}
+.feedback.no{background:#fdedec;color:#c0392b}
+.classbar{font-size:.82em;color:#7f8c8d;margin-top:6px}
+
+/* 决策动画 */
+canvas#sim{width:100%;height:240px;background:#fff;border-radius:8px;border:1px solid #ecf0f1;margin-top:10px}
+.verdict{margin-top:10px;padding:12px 16px;border-radius:8px;font-weight:600;display:none}
+.verdict.show{display:block}
+.verdict.pass{background:#eafaf1;color:#1e8449;border:1px solid #a9dfbf}
+.verdict.fail{background:#fdedec;color:#c0392b;border:1px solid #f5b7b1}
+
+/* 掌握度环 + 连击 */
+.mastery{display:flex;align-items:center;gap:10px;margin-top:8px}
+.ring{position:relative;width:54px;height:54px}
+.combo{font-size:.85em;color:var(--warn);font-weight:700;min-height:20px}
+
+/* AI 学伴 */
+.companion{position:fixed;bottom:18px;right:18px;width:340px;max-width:92vw;
+  background:#fff;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.18);z-index:50;
+  display:flex;flex-direction:column;overflow:hidden;border:1px solid #e8eaed}
+.companion .chead{background:var(--primary);color:#fff;padding:10px 14px;font-weight:700;
+  font-size:.9em;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+.companion .cbody{max-height:300px;overflow:auto;padding:12px;font-size:.86em;display:none}
+.companion.open .cbody{display:block}
+.companion .msg{margin:6px 0;padding:8px 11px;border-radius:9px}
+.companion .msg.u{background:#eef7fc;text-align:right}
+.companion .msg.a{background:#f4f6f9}
+.companion .cinput{display:flex;gap:6px;padding:10px;border-top:1px solid #ecf0f1}
+.companion .cinput input{flex:1;padding:8px;border:1px solid #dfe6e9;border-radius:8px;font-size:.85em}
+.companion .cinput button{padding:8px 12px;border:none;background:var(--accent);color:#fff;border-radius:8px;cursor:pointer}
+.companion .cset{padding:8px 12px;font-size:.75em;color:#95a5a6;border-top:1px solid #f0f0f0}
+.companion .cset a{color:var(--accent);cursor:pointer}
+.notebook-link{display:inline-block;margin:4px 6px 0 0;padding:6px 12px;background:#fff5e6;
+  border:1px solid #f5cba7;border-radius:20px;font-size:.82em;color:var(--warn);cursor:pointer;font-weight:600}
+@media(max-width:680px){.right{min-width:auto}.cards{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <!-- 学习路径进度条 -->
+  <div class="pathbar">
+    <span class="path-step">1 依赖陷阱</span>
+    <span class="path-step">2 PIT</span>
+    <span class="path-step">3 Sklar</span>
+    <span class="path-step cur">4 家族图鉴</span>
+    <span class="path-step">5 尾部依赖</span>
+    <span class="path-step">6 联合概率</span>
+    <span class="path-step">7 聚合损失</span>
+    <span class="path-step">8 进阶</span>
+    <span class="role-badge">🎓 你的身份：财险公司定价精算师</span>
+  </div>
+
+  <h1>站 4 · Copula 家族图鉴</h1>
+  <div class="subtitle">认出每一族的"尾巴"，把它对应到你未来的精算业务场景 —— 选错 copula，代价是真金白银。</div>
+
+  <!-- 故事开场 -->
+  <div class="story" id="story">
+    <span class="toggle" onclick="document.getElementById('story').classList.toggle('collapsed')">收起 ▲</span>
+    <h3>📖 一场飓风，击穿了你的准备金</h3>
+    <div class="story-body">
+      你是一家财险公司的定价精算师，手上有两块业务：<b>A 区房屋财产险</b>、<b>B 区房屋财产险</b>。
+      平时它们的索赔几乎"各过各的"，相关系数只有 0.1——你按"独立"假设算了准备金，老板很满意。<br><br>
+      直到那年夏天，一场飓风<b>同时</b>扫过 A、B 两区，两块业务的大额索赔在同一周一起爆发，<b style="color:#c0392b">准备金瞬间击穿</b>。<br><br>
+      🤔 一个只看"平均相关性（Pearson）"的模型，能预警这种<b>只在极端时刻才手拉手</b>的联合巨灾吗？不能——它会让你系统性低估巨灾年的联合损失。
+      你需要一种工具，专门刻画<b>只在尾部才显形的依赖</b>，这就是 <b>copula 的尾部依赖</b>。
+      <br><br>👇 下面 6 张"家族名片"，每张对应一种<b>业务相依性格</b>。先别看公式，调一调参数，看它们的尾巴怎么动。
+    </div>
+  </div>
+
+  <!-- 3 关任务导航 -->
+  <div class="levels" id="levels">
+    <div class="level-tab active" data-lv="1" onclick="gotoLevel(1)">
+      <div class="ln">第 1 关</div><div class="lt">认尾巴</div>
+      <div class="ld">判断每族尾部归属（上/下/无）</div></div>
+    <div class="level-tab locked" data-lv="2" onclick="gotoLevel(2)">
+      <div class="ln">第 2 关</div><div class="lt">配业务</div>
+      <div class="ld">把精算场景匹配到正确 copula</div>
+      <span class="lock">🔒</span></div>
+    <div class="level-tab locked" data-lv="3" onclick="gotoLevel(3)">
+      <div class="ln">第 3 关</div><div class="lt">做决策</div>
+      <div class="ld">为巨灾联动组合选 copula 定价</div>
+      <span class="lock">🔒</span></div>
+  </div>
+
+  <!-- 闯关答题模块（就在关卡导航正下方，切关即在原地换题，无需滚动） -->
+  <div class="questline"><div id="taskArea"></div></div>
+
+  <div class="container">
+    <!-- 左：控制面板 -->
+    <div class="left">
+      <div class="panel pick-panel">
+        <h3>选一个 Copula 家族</h3>
+        <div class="cards" id="cards"></div>
+      </div>
+      <div class="panel" id="ctrlPanel">
+        <h3>调参数</h3>
+        <div id="ctrls"></div>
+        <div class="ctrl">
+          <label>模拟点数 m：<span id="mVal">2000</span></label>
+          <input type="range" id="mSlider" min="500" max="5000" step="500" value="2000">
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="btnReset" onclick="resetDefault()">恢复默认</button>
+          <button class="btn primary" id="btnResample" onclick="resampleBtn()">重新模拟</button>
+        </div>
+        <div class="mastery">
+          <div class="ring"><canvas id="ring" width="54" height="54"></canvas></div>
+          <div><div style="font-size:.8em;color:#95a5a6">本站掌握度</div>
+          <div class="combo" id="combo"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右：可视化 + 讲解 + 任务 -->
+    <div class="right">
+      <div class="panel">
+        <h3>可视化 — 散点与密度并列看"尾巴"</h3>
+        <div class="context-tag" id="ctxTag">—</div>
+        <div class="statrow">
+          <div class="statbox" id="sbTau"><div class="statval" id="vTau">0</div><div class="statlbl">Kendall τ（整体一致性）</div></div>
+          <div class="statbox" id="sbL"><div class="statval" id="vL">0</div><div class="statlbl">λ_L 下尾依赖</div></div>
+          <div class="statbox" id="sbU"><div class="statval" id="vU">0</div><div class="statlbl">λ_U 上尾依赖</div></div>
+        </div>
+        <div class="viz-row">
+          <div class="viz-col">
+            <h4 class="viz-h">(U, V) 散点 — 看角落抱团</h4>
+            <canvas id="scatter" width="560" height="360"></canvas>
+          </div>
+          <div class="viz-col">
+            <h4 class="viz-h">尾部密度剖面 — 重尾还是轻尾？</h4>
+            <canvas id="density" width="560" height="360"></canvas>
+            <div class="dens-verdict" id="densVerdict">选一个家族，看它的尾部密度相对"独立基准"是抬高还是衰减。</div>
+          </div>
+        </div>
+        <div class="explain" id="explain">选一个家族开始探索。</div>
+        <details><summary>机制 ▸ 参数 → 数学量 → 业务现象</summary><div class="dbody" id="mechBody"></div></details>
+        <details><summary>数学 ▸ C(u,v) / τ / λ 公式</summary><div class="dbody" id="mathBody"></div></details>
+        <details><summary>R 代码 ▸ 用 copula 包复现</summary><div class="dbody"><pre id="rcode"></pre></div></details>
+        <div style="margin-top:10px">
+          <span class="notebook-link" onclick="openNotebook()">📒 我的错题本 (<span id="nbCount">0</span>)</span>
+          <span class="notebook-link" onclick="startReview()">🔁 今日待复习 (<span id="dueCount">0</span>)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AI 学伴 -->
+<div class="companion" id="companion">
+  <div class="chead" onclick="document.getElementById('companion').classList.toggle('open')">
+    <span>🧮 问 Nash（学伴）</span><span id="cToggle">▲</span></div>
+  <div class="cbody" id="cbody">
+    <div class="msg a">嗨，我是 Nash。卡住了随时问我——比如"为什么 Gumbel 只有上尾？""θ 和 τ 啥关系？""这个场景该选谁？"</div>
+  </div>
+  <div class="cinput">
+    <input id="cInput" placeholder="问我任何关于 copula 的问题…" onkeydown="if(event.key==='Enter')askNash()">
+    <button onclick="askNash()">问</button>
+  </div>
+  <div class="cset">答疑模式：<a id="modeLink" onclick="toggleMode()">离线知识点</a>（点击切换 / 配置 API）</div>
+</div>
+
+<script src="copula-core.js"></script>
+<script src="station4.js"></script>
+</body>
+</html>
