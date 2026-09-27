@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CS2-19 风险模型1 练习题库</title>
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},svg:{fontCache:'global'}};</script>
+<script id="MathJax-script" async src="../demos/vendor/mathjax-tex-svg.js"></script>
+<style>
+*{box-sizing:border-box}body{font-family:-apple-system,"Segoe UI","Microsoft YaHei",Arial,sans-serif;margin:0;background:#eef1f6;color:#1f2733;line-height:1.6}
+header{background:linear-gradient(135deg,#2a4d8f,#152e5c);color:#fff;padding:24px 20px;text-align:center}
+header h1{margin:0 0 6px;font-size:22px}header p{margin:0;opacity:.85;font-size:14px}
+.container{max-width:900px;margin:0 auto;padding:20px}
+.toolbar,.picker,.card{background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.toolbar{padding:16px 18px;margin-bottom:18px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.toolbar .label{font-weight:600;margin-right:4px}
+button{cursor:pointer;border:none;border-radius:8px;padding:8px 14px;font-size:14px;background:#152e5c;color:#fff}
+button:hover{opacity:.88}button.ghost{background:#e7ecf4;color:#1f3c6e}
+select{padding:8px 10px;border-radius:8px;border:1px solid #c6d2e4;font-size:14px}
+.picker{padding:16px 18px;margin-bottom:18px}.picker h3{margin:0 0 12px;font-size:15px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1.5px solid #bcccE4;background:#fff;color:#1f3c6e;border-radius:20px;padding:6px 14px;cursor:pointer;font-size:14px;user-select:none}
+.chip.active{background:#2a4d8f;color:#fff;border-color:#2a4d8f}
+.chip.exam::after{content:" ★";color:#f0a500}.chip.active.exam::after{color:#ffe08a}
+.count{margin:12px 0 0;font-size:13px;color:#667}
+.card{padding:18px 20px;margin-bottom:16px}
+.qhead{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.qnum{background:#2a4d8f;color:#fff;border-radius:8px;padding:3px 10px;font-weight:700;font-size:14px}
+.badge{background:#dce8fb;color:#1a4d8a;border-radius:6px;padding:2px 8px;font-size:12px}
+.qbody{font-size:15px}
+.answer{margin-top:14px;padding:14px 16px;background:#eef3fa;border-left:4px solid #3a63a5;border-radius:6px;display:none}
+.answer.show{display:block}.answer .atitle{font-weight:700;color:#2a4d8f;margin-bottom:6px}
+.toggle-ans{margin-top:12px;background:#3a63a5;font-size:13px;padding:6px 12px}
+.empty{text-align:center;color:#889;padding:40px 0}footer{text-align:center;color:#99a;font-size:12px;padding:20px}
+table.tbl{border-collapse:collapse;margin:8px 0;font-size:13px}
+table.tbl th,table.tbl td{border:1px solid #cdd8ea;padding:4px 10px;text-align:center}table.tbl th{background:#eaf0f8}
+</style></head>
+<body>
+<header><h1>CS2-19 风险模型1 · 练习题库</h1><p>Risk Models 1 — Practice Questions（★ 为考试风格题 Exam style）</p></header>
+<div class="container">
+<div class="toolbar"><span class="label">操作：</span>
+<button onclick="selectAll(true)" class="ghost">全选</button>
+<button onclick="selectAll(false)" class="ghost">清空</button>
+<button onclick="randomPick()" class="ghost">随机抽题</button>
+<select id="randCount"><option value="3">随机 3 题</option><option value="4">随机 4 题</option><option value="5">随机 5 题</option></select>
+<span style="flex:1"></span>
+<button onclick="toggleAllAns(true)" class="ghost">展开全部答案</button>
+<button onclick="toggleAllAns(false)" class="ghost">收起全部答案</button></div>
+<div class="picker"><h3>选择题目（点击标签选/取消）</h3><div class="chips" id="chips"></div><p class="count" id="count"></p></div>
+<div id="quiz"></div></div>
+<footer>题目内容摘自 IFE/ActEd CS2-19 (2019) 教材，仅供个人学习使用。</footer>
+<script>
+const questions=[
+{id:"19.1",exam:false,q:`(i) 说明风险可保必须满足的两个条件。<br>(ii) 列出一般保险人认为理想的其他五项风险准则。`,
+a:`<b>(i)</b> ① 投保人对被保风险须有可保利益（以区别保险与赌博）；② 风险须具财务性且可合理量化。<br>
+<b>(ii)</b> ① 各风险相互独立；② 事件发生概率应较小；③ 大量同类风险汇集以降低方差、提高确定性；④ 保险人责任应有上限；⑤ 尽量消除道德风险（难量化、导致逆选择、造成不公）。`},
+{id:"19.2",exam:false,q:`一组保单一年至多产生 2 笔索赔，0、1、2 笔的概率分别为 ½、¼、¼。索赔额为 IID 的 $U(0,10)$。$S$ 为总索赔额。绘制 $S$ 的频率分布。`,
+a:`分三情形叠加：<br>
+$N=0$（概率 ½）：$S=0$，在 0 处有质量 ½ 的质点。<br>
+$N=1$（概率 ¼）：$S\\sim U(0,10)$。<br>
+$N=2$（概率 ¼）：$S=X_1+X_2$，$(0,20)$ 上对称三角形分布，密度：
+
+
+$$f_S(s)=0.01s\\ (0\\le s\\le10),\\quad f_S(s)=0.2-0.01s\\ (10\\le s\\le20)$$
+
+整体图 = 零点质点（½）+ $(0,10)$ 均匀部分 + $(0,20)$ 三角形部分（峰值在 $s=10$）。`},
+{id:"19.3",exam:false,q:`$S$ 服从复合泊松分布，泊松参数 4。个别索赔额为 1（概率 0.3）或 3（概率 0.7）。计算 $P(S=4)$。`,
+a:`总额为 4 的两种方式：(a) 2 笔（一笔 1、一笔 3）；(b) 4 笔（全为 1）。
+
+
+$$P(S=4)=2\\,P(N=2)P(X=1)P(X=3)+P(N=4)[P(X=1)]^4$$
+
+$$=2e^{-4}\\tfrac{4^2}{2!}(0.3)(0.7)+e^{-4}\\tfrac{4^4}{4!}(0.3)^4=0.06312$$`},
+{id:"19.4",exam:false,q:`复合随机变量 $S=X_1+\\cdots+X_N$，索赔次数分布 $P(N=n)=9(n+1)4^{-n-2}$，$n=0,1,2,\\ldots$。个别索赔额 $X\\sim$ 指数，均值 2。计算 $E(S)$ 与 $\\mathrm{var}(S)$。`,
+a:`改写 $P(N=n)=\\binom{n+1}{n}(3/4)^2(1/4)^n$，故 $N\\sim$ Type 2 负二项，$k=2,p=3/4$：
+
+
+$$E(N)=\\tfrac{kq}{p}=\\tfrac{2}{3},\\quad \\mathrm{var}(N)=\\tfrac{kq}{p^2}=\\tfrac{8}{9}$$
+
+指数 $\\lambda=\\tfrac12$：$E(X)=2,\\mathrm{var}(X)=4$。
+
+
+$$E(S)=\\tfrac23\\cdot2=\\tfrac43,\\quad \\mathrm{var}(S)=\\tfrac23\\cdot4+\\tfrac89\\cdot4=\\tfrac{56}{9}$$`},
+{id:"19.5",exam:false,q:`写出复合泊松分布的 MGF，其中个别索赔额服从 $Gamma(\\alpha,\\lambda)$、泊松参数为 $\\mu$。`,
+a:`$N\\sim\\text{Poisson}(\\mu)$：$M_N(u)=\\exp[\\mu(e^u-1)]$。故
+
+
+$$M_S(t)=M_N[\\log M_X(t)]=\\exp\\{\\mu(M_X(t)-1)\\}$$
+
+$X\\sim Gamma(\\alpha,\\lambda)$：$M_X(t)=(\\tfrac{\\lambda}{\\lambda-t})^{\\alpha}$，因此
+
+
+$$M_S(t)=\\exp\\Big\\{\\mu\\Big[\\big(\\tfrac{\\lambda}{\\lambda-t}\\big)^{\\alpha}-1\\Big]\\Big\\}$$`},
+{id:"19.6",exam:false,q:`$S_1,S_2$ 独立，各服从复合泊松，参数 $\\lambda_i$、索赔额分布 $F_i(x)$。关于 $S_1+S_2$ 的分布，下列哪项正确？<br>
+A 复合泊松，参数 $\\lambda_1\\lambda_2$，分布 $F_1(x)F_2(x)$。<br>
+B 复合泊松，参数 $\\lambda_1+\\lambda_2$，分布 $F_1(x)+F_2(x)$。<br>
+C 复合泊松，参数 $\\lambda_1+\\lambda_2$，分布 $\\tfrac{\\lambda_1}{\\lambda_1+\\lambda_2}F_1(x)+\\tfrac{\\lambda_2}{\\lambda_1+\\lambda_2}F_2(x)$。<br>
+D $S_1+S_2$ 不服从复合泊松。`,
+a:`<b>正确答案：C。</b>$S_1+S_2$ 服从复合泊松，参数 $\\lambda=\\lambda_1+\\lambda_2$，个体索赔额分布为加权平均：
+
+
+$$F(x)=\\frac{\\lambda_1}{\\lambda_1+\\lambda_2}F_1(x)+\\frac{\\lambda_2}{\\lambda_1+\\lambda_2}F_2(x)$$`},
+{id:"19.7",exam:true,q:`某类保单索赔按泊松过程发生，参数 $\\lambda_1$；另一独立组的索赔参数 $\\lambda_2$。两组总索赔额分别为 $S_1,S_2$。用矩生成函数（或其他方法）证明 $S=S_1+S_2$ 也服从复合泊松分布，并推导其泊松参数。 [4]`,
+a:`各组 MGF：$M_{S_i}(t)=\\exp\\{\\lambda_i(M_{X_i}(t)-1)\\}$。由独立性：
+
+
+$$M_S(t)=M_{S_1}(t)M_{S_2}(t)=\\exp\\{\\lambda_1(M_{X_1}(t)-1)+\\lambda_2(M_{X_2}(t)-1)\\}=\\exp\\{\\lambda(M_W(t)-1)\\}$$
+
+其中 $\\lambda=\\lambda_1+\\lambda_2$，$M_W(t)=\\tfrac{\\lambda_1}{\\lambda}M_{X_1}(t)+\\tfrac{\\lambda_2}{\\lambda}M_{X_2}(t)$。故 $S$ 为复合泊松，泊松参数 $\\lambda=\\lambda_1+\\lambda_2$。`},
+{id:"19.8",exam:true,q:`某组合总索赔额服从复合负二项分布。<br>(i) 证明若 $S=X_1+\\cdots+X_N$，则 $M_S(t)=M_N[\\log M_X(t)]$。 [3]<br>(ii) 若 $N\\sim$ Type 2 负二项，$k=2,p=0.9$，$X\\sim Gamma(\\alpha=10,\\lambda=0.1)$，求 $M_S(t)$。 [2]<br>(iii)(a) 计算 $S$ 的均值和方差。(b) 用适当近似，估计以 0.1% 概率被超过的总索赔额。 [4]<br>(iv) 保险人实际有 100 个此类独立组合，$T=S_1+\\cdots+S_{100}$。(a) 求 $T$ 的 MGF。(b) 用正态近似估计整体以 0.1% 概率被超过的总索赔额。(c) 对 (iii)(b) 与 (iv)(b) 结果作评论。 [4] [共 13]`,
+a:`<b>(i)</b> $M_S(t)=E[E(e^{tS}\\mid N)]=E([M_X(t)]^N)=E(e^{N\\log M_X(t)})=M_N[\\log M_X(t)]$。<br>
+<b>(ii)</b> $M_X(t)=(1-10t)^{-10}$，$M_N(t)=(\\tfrac{0.9}{1-0.1e^t})^2$，代入：
+
+
+$$M_S(t)=\\Big(\\frac{0.9}{1-0.1(1-10t)^{-10}}\\Big)^2$$
+
+<b>(iii)(a)</b> $E(X)=100,\\mathrm{var}(X)=1000$；$E(N)=\\tfrac{kq}{p}=0.22222,\\mathrm{var}(N)=\\tfrac{kq}{p^2}=0.24691$。
+
+
+$$E(S)=22.222,\\quad \\mathrm{var}(S)=100^2(0.24691)+1000(0.22222)=2691.358$$
+
+<b>(iii)(b)</b> 正态近似，$\\tfrac{k-E(S)}{\\sqrt{\\mathrm{var}(S)}}=3.0902$：$k=22.222+3.0902\\sqrt{2691.358}=182.54$。<br>
+<b>(iv)(a)</b> $M_T(t)=[M_S(t)]^{100}=\\Big(\\tfrac{0.9}{1-0.1(1-10t)^{-10}}\\Big)^{200}$。<br>
+<b>(iv)(b)</b> $E(T)=2222,\\mathrm{var}(T)=269135.8$：$k=2222+3.0902\\sqrt{269135.8}=3825.37$。<br>
+<b>(iv)(c)</b> 该值远小于 (iii)(b) 的 100 倍。由中心极限定理，组合数增加时坏经验被好经验抵消，整体相对波动变小——同类风险汇集降低整体方差。`}
+];
+let selected=new Set();
+function renderChips(){const b=document.getElementById('chips');b.innerHTML='';questions.forEach(q=>{const c=document.createElement('span');c.className='chip'+(q.exam?' exam':'')+(selected.has(q.id)?' active':'');c.textContent='Q '+q.id;c.onclick=()=>{selected.has(q.id)?selected.delete(q.id):selected.add(q.id);renderChips();renderQuiz();};b.appendChild(c);});document.getElementById('count').textContent=`已选 ${selected.size} / ${questions.length} 题（★ 表示 Exam style 考试风格题）`;}
+function renderQuiz(){const z=document.getElementById('quiz');z.innerHTML='';const l=questions.filter(q=>selected.has(q.id));if(!l.length){z.innerHTML='<div class="card empty">还没有选择题目，请在上方点击标签选择。</div>';return;}l.forEach(q=>{const c=document.createElement('div');c.className='card';c.innerHTML=`<div class="qhead"><span class="qnum">Q ${q.id}</span>${q.exam?'<span class="badge">★ Exam style</span>':''}</div><div class="qbody">${q.q}</div><button class="toggle-ans">显示答案</button><div class="answer"><div class="atitle">解答 Solution</div>${q.a}</div>`;const b=c.querySelector('.toggle-ans'),a=c.querySelector('.answer');b.onclick=()=>{a.classList.toggle('show');b.textContent=a.classList.contains('show')?'隐藏答案':'显示答案';};z.appendChild(c);});if(window.MathJax&&MathJax.typesetPromise)MathJax.typesetPromise([z]);}
+function selectAll(v){selected=v?new Set(questions.map(q=>q.id)):new Set();renderChips();renderQuiz();}
+function randomPick(){const n=parseInt(document.getElementById('randCount').value);const p=[...questions.map(q=>q.id)];for(let i=p.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[p[i],p[j]]=[p[j],p[i]];}selected=new Set(p.slice(0,n));renderChips();renderQuiz();}
+function toggleAllAns(s){document.querySelectorAll('.card').forEach(c=>{const a=c.querySelector('.answer'),b=c.querySelector('.toggle-ans');if(!a)return;if(s){a.classList.add('show');if(b)b.textContent='隐藏答案';}else{a.classList.remove('show');if(b)b.textContent='显示答案';}});}
+renderChips();renderQuiz();
+</script></body></html>

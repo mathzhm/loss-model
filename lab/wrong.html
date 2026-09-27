@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LOSS LAB · 错题本</title>
+<link rel="stylesheet" href="style.css">
+<script>try{if(localStorage.getItem('losslab_theme')==='light')document.documentElement.dataset.theme='light';}catch(e){}</script>
+<style>
+  .wrong-head{padding:30px 0 6px;display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap}
+  .wrong-head h1{font-size:34px}
+  .wrong-head .sub{color:var(--muted);margin-top:6px;width:100%}
+  .wi-actions{display:flex;gap:8px;margin-top:12px}
+  .retry-box{margin-top:12px}
+  .filter-row{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}
+  .filter-chip{font-size:13px;font-weight:600;padding:6px 14px;border-radius:20px;border:1px solid var(--line);
+    background:var(--panel);color:var(--ink2);cursor:pointer;transition:.15s}
+  .filter-chip.on{border-color:var(--bad);background:rgba(251,113,133,.12);color:var(--bad)}
+  .data-card{padding:18px 20px;margin:18px 0 4px;border-color:color-mix(in srgb,var(--ch17) 32%,var(--line))}
+  .dc-h{font-weight:700;font-size:15.5px;margin-bottom:8px}
+  .dc-p{font-size:13.5px;color:var(--ink2);line-height:1.75;margin-bottom:12px}
+  .dc-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .dc-count{font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="wrap" id="topbar"></div></div>
+<div class="wrap">
+  <div class="wrong-head rise">
+    <div><h1>📕 错题本</h1></div>
+    <div class="spacer"></div>
+    <button class="btn" onclick="exportCSV()">⬇ 导出 CSV</button>
+    <button class="btn ghost" style="color:var(--bad);border-color:var(--bad)" onclick="clearAll()">🗑 清空</button>
+    <div class="sub">答错的题自动归档到这里 · 按章节/知识点分组 · 重做对了即可移出</div>
+  </div>
+  <div class="card data-card rise">
+    <div class="dc-h">📤 向老师提交学习数据（匿名）</div>
+    <div class="dc-p">完成练习后，点这里把<b>匿名答题记录</b>下载成文件、发给老师，用于统计每道题全班的选择分布与正确率。<b>不含姓名、学号等任何个人信息</b>——只记录：哪一章、哪个知识点、哪道题、你选了哪个选项、是否正确。</div>
+    <div class="dc-row">
+      <button class="btn primary" onclick="exportAttempts()">⬇ 导出我的答题数据（JSON）</button>
+      <span class="dc-count" id="attCount"></span>
+      <button class="btn ghost" onclick="clearAttempts()">清空本地记录</button>
+    </div>
+  </div>
+  <div class="filter-row" id="filters"></div>
+  <div id="list" style="padding-bottom:60px"></div>
+</div>
+
+<script src="course.js"></script>
+<script src="game.js"></script>
+<script>
+Game.renderTopbar(document.getElementById('topbar'),'wrong');
+const LETTER=['A','B','C','D','E','F'];
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function escMath(s){return esc(s).replace(/&lt;(\/?)(sub|sup)&gt;/g,'<$1$2>');}
+let filterCh=null;
+
+function chapterColor(name){
+  const ch=COURSE.chapters.find(c=>c.name===name); return ch?ch.color:'var(--muted)';
+}
+
+function render(){
+  const wrong=Game.getWrong().filter(w=>!filterCh||w.ch===filterCh);
+  // 过滤器
+  const chs=[...new Set(Game.getWrong().map(w=>w.ch))];
+  document.getElementById('filters').innerHTML=
+    '<span class="filter-chip '+(!filterCh?'on':'')+'" onclick="setFilter(null)">全部 ('+Game.getWrong().length+')</span>'+
+    chs.map(c=>'<span class="filter-chip '+(filterCh===c?'on':'')+'" onclick="setFilter(\''+c+'\')">'+c+'</span>').join('');
+
+  const list=document.getElementById('list');
+  if(!wrong.length){
+    list.innerHTML='<div class="empty rise"><div class="big">🎉</div>'+(Game.getWrong().length?'这个章节暂时没有错题。':'错题本是空的——保持下去！')+'</div>';
+    return;
+  }
+  // 按 章节→知识点 分组
+  const groups={};
+  wrong.forEach(w=>{ const k=w.ch+'||'+w.kp; (groups[k]=groups[k]||[]).push(w); });
+  list.innerHTML='';
+  Object.keys(groups).forEach(k=>{
+    const [chName,kpName]=k.split('||');
+    const items=groups[k];
+    const col=chapterColor(chName);
+    const g=document.createElement('div'); g.className='wrong-group rise';
+    g.innerHTML='<div class="g-h"><span style="color:'+col+'">●</span> '+chName+' · '+kpName+' <span class="cnt">'+items.length+' 题</span></div>';
+    items.forEach(w=>{
+      const item=document.createElement('div'); item.className='card wrong-item';
+      item.innerHTML='<div class="wi-stem">'+escMath(w.q)+'</div>'+
+        '<div class="wi-meta"><span class="yours">✗ 你选：'+LETTER[w.chosen]+' · '+escMath(w.opts[w.chosen])+'</span>'+
+        '<span class="right">✓ 正确：'+LETTER[w.ans]+' · '+escMath(w.opts[w.ans])+'</span>'+
+        '<span>'+new Date(w.time).toLocaleDateString()+'</span></div>'+
+        (w.why?'<div class="why" style="margin-top:10px">'+escMath(w.why)+'</div>':'')+
+        '<div class="wi-actions"><button class="btn primary" style="--ch:'+col+';padding:7px 16px;font-size:13px" data-t="'+w.time+'">🔁 重做一遍</button></div>'+
+        '<div class="retry-box" id="retry-'+w.time+'"></div>';
+      g.appendChild(item);
+      // 重做
+      item.querySelector('button').onclick=()=>buildRetry(w,item);
+    });
+    list.appendChild(g);
+  });
+}
+function setFilter(c){filterCh=c;render();}
+
+function buildRetry(w,item){
+  const box=item.querySelector('#retry-'+w.time);
+  if(box.dataset.open){box.innerHTML='';box.dataset.open='';return;}
+  box.dataset.open='1';
+  box.innerHTML='<div style="margin-top:4px">'+w.opts.map((o,oi)=>'<button class="opt" style="margin-bottom:7px"><span class="key">'+LETTER[oi]+'</span>'+escMath(o)+'</button>').join('')+'</div>';
+  [...box.querySelectorAll('.opt')].forEach((b,oi)=>{
+    b.onclick=()=>{
+      const ok=oi===w.ans;
+      [...box.querySelectorAll('.opt')].forEach((x,xi)=>{x.disabled=true; if(xi===w.ans)x.classList.add('correct'); else if(x===b&&!ok)x.classList.add('wrong');});
+      if(ok){ Game.removeWrong(w.time); Game.floatText('✓ 已攻克，移出错题本','#34d399'); Game.awardXP(8,'攻克错题');
+        setTimeout(()=>{item.style.transition='opacity .4s';item.style.opacity='0';setTimeout(()=>render(),400);},600);
+      } else { Game.floatText('还是不对，再看看解析','#fb7185'); }
+    };
+  });
+}
+
+function exportCSV(){
+  const rows=[['章节','知识点','题目','你的答案','正确答案','解析','时间']];
+  Game.getWrong().forEach(w=>rows.push([w.ch,w.kp,w.q,w.opts[w.chosen],w.opts[w.ans],w.why||'',new Date(w.time).toLocaleString()]));
+  const csv='\ufeff'+rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download='losslab_错题本.csv'; a.click();
+}
+function clearAll(){
+  if(!Game.getWrong().length)return;
+  if(confirm('确定清空全部 '+Game.getWrong().length+' 道错题吗？此操作不可撤销。')){Game.clearWrong();render();}
+}
+
+/* ---------- 匿名答题数据导出（供老师汇总） ---------- */
+function exportAttempts(){
+  const att=Game.getAttempts();
+  if(!att.length){ Game.floatText('还没有答题记录，先去做几道题吧','#fb7185'); return; }
+  const payload={app:'LOSS LAB',type:'anonymous_attempts',exported:new Date().toISOString(),count:att.length,attempts:att};
+  const blob=new Blob([JSON.stringify(payload,null,1)],{type:'application/json;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  const d=new Date(); const ds=''+d.getFullYear()+(d.getMonth()+1)+d.getDate();
+  a.download='losslab_答题数据_'+ds+'.json'; a.click();
+  Game.floatText('✓ 已导出 '+att.length+' 条，发给老师即可','#34d399');
+}
+function clearAttempts(){
+  const n=Game.getAttempts().length;
+  if(!n){ Game.floatText('本地暂无答题记录','#7d93b5'); return; }
+  if(confirm('确定清空本地 '+n+' 条答题记录吗？（不影响错题本与经验值）')){Game.clearAttempts();updateAttCount();Game.floatText('已清空本地答题记录','#7d93b5');}
+}
+function updateAttCount(){
+  const n=Game.getAttempts().length;
+  const el=document.getElementById('attCount'); if(el)el.textContent=n?'当前已记录 '+n+' 次答题':'暂无记录';
+}
+render();
+updateAttCount();
+</script>
+</body>
+</html>

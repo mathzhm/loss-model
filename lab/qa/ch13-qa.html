@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CS2-13 时间序列 练习题库</title>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$','$$'],['\\[','\\]']] },
+  svg: { fontCache: 'global' }
+};
+</script>
+<script id="MathJax-script" async src="../demos/vendor/mathjax-tex-svg.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+    margin: 0; background: #f4f6f9; color: #24303f; line-height: 1.6;
+  }
+  header {
+    background: linear-gradient(135deg, #2b5876, #4e4376);
+    color: #fff; padding: 24px 20px; text-align: center;
+  }
+  header h1 { margin: 0 0 6px; font-size: 22px; }
+  header p { margin: 0; opacity: .85; font-size: 14px; }
+  .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+
+  .toolbar {
+    background: #fff; border-radius: 12px; padding: 16px 18px; margin-bottom: 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06); display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+  }
+  .toolbar .label { font-weight: 600; margin-right: 4px; }
+  button {
+    cursor: pointer; border: none; border-radius: 8px; padding: 8px 14px;
+    font-size: 14px; background: #4e4376; color: #fff; transition: .15s;
+  }
+  button:hover { opacity: .88; }
+  button.ghost { background: #e7e9f0; color: #34405a; }
+  select {
+    padding: 8px 10px; border-radius: 8px; border: 1px solid #ccd2df; font-size: 14px;
+  }
+
+  .picker {
+    background: #fff; border-radius: 12px; padding: 16px 18px; margin-bottom: 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  }
+  .picker h3 { margin: 0 0 12px; font-size: 15px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    border: 1.5px solid #c7cede; background: #fff; color: #34405a;
+    border-radius: 20px; padding: 6px 14px; cursor: pointer; font-size: 14px; user-select: none;
+  }
+  .chip.active { background: #4e4376; color: #fff; border-color: #4e4376; }
+  .chip.exam::after { content: " ★"; color: #f0a500; }
+  .chip.active.exam::after { color: #ffd76a; }
+
+  .count { margin: 12px 0 0; font-size: 13px; color: #667; }
+
+  .card {
+    background: #fff; border-radius: 12px; padding: 18px 20px; margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  }
+  .card .qhead {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+  }
+  .qnum {
+    background: #4e4376; color: #fff; border-radius: 8px; padding: 3px 10px;
+    font-weight: 700; font-size: 14px;
+  }
+  .badge {
+    background: #fdecc8; color: #8a5a00; border-radius: 6px; padding: 2px 8px; font-size: 12px;
+  }
+  .qbody { font-size: 15px; }
+  .answer {
+    margin-top: 14px; padding: 14px 16px; background: #f3f8f4;
+    border-left: 4px solid #4caf7d; border-radius: 6px; display: none;
+  }
+  .answer.show { display: block; }
+  .answer .atitle { font-weight: 700; color: #2e7d52; margin-bottom: 6px; }
+  .toggle-ans {
+    margin-top: 12px; background: #4caf7d; font-size: 13px; padding: 6px 12px;
+  }
+  .empty { text-align: center; color: #889; padding: 40px 0; }
+  footer { text-align: center; color: #99a; font-size: 12px; padding: 20px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>CS2-13 时间序列 · 练习题库</h1>
+  <p>Time Series 1 — Practice Questions（★ 为考试风格题 Exam style）</p>
+</header>
+
+<div class="container">
+  <div class="toolbar">
+    <span class="label">操作：</span>
+    <button onclick="selectAll(true)" class="ghost">全选</button>
+    <button onclick="selectAll(false)" class="ghost">清空</button>
+    <button onclick="randomPick()" class="ghost">随机抽题</button>
+    <select id="randCount">
+      <option value="3">随机 3 题</option>
+      <option value="5">随机 5 题</option>
+      <option value="8">随机 8 题</option>
+    </select>
+    <span style="flex:1"></span>
+    <button onclick="toggleAllAns(true)" class="ghost">展开全部答案</button>
+    <button onclick="toggleAllAns(false)" class="ghost">收起全部答案</button>
+  </div>
+
+  <div class="picker">
+    <h3>选择题目（点击标签选/取消）</h3>
+    <div class="chips" id="chips"></div>
+    <p class="count" id="count"></p>
+  </div>
+
+  <div id="quiz"></div>
+</div>
+
+<footer>题目内容摘自 IFE/ActEd CS2-13 (2019) 教材，仅供个人学习使用。</footer>
+
+<script>
+/* ===== 题库数据 ===== */
+const questions = [
+  {
+    id: "13.1", exam: false,
+    q: `给出 $2X_t - 5X_{t-1} + 4X_{t-2} - X_{t-3}$ 用二阶差分表示的表达式。`,
+    a: `$$2X_t-5X_{t-1}+4X_{t-2}-X_{t-3}=2(X_t-X_{t-1})-3(X_{t-1}-X_{t-2})+(X_{t-2}-X_{t-3})$$
+    化简得：$$= 2\\nabla^2 X_t - \\nabla^2 X_{t-1}$$`
+  },
+  {
+    id: "13.2", exam: false,
+    q: `时间序列定义为 $X_t = X_{t-1} + Z_t$，其中 $Z_t$ 是 IID 的 $N(0,\\sigma^2)$ 变量。求 $\\mathrm{var}(X_t)$ 与 $\\mathrm{var}(X_{t-1})$ 的关系，并据此判断该序列是否平稳。`,
+    a: `对两边取方差（$X_{t-1}$ 与 $Z_t$ 不相关）：
+
+
+    $$\\mathrm{var}(X_t)=\\mathrm{var}(X_{t-1})+\\sigma^2$$
+    因此 $\\mathrm{var}(X_t)\\neq\\mathrm{var}(X_{t-1})$，方差随时间增大，与平稳性要求（方差恒定）矛盾。<b>该序列不平稳。</b>`
+  },
+  {
+    id: "13.3", exam: false,
+    q: `判断过程 $X_n = X_{n-1} - \\tfrac12 X_{n-2} + e_n$ 是否平稳。`,
+    a: `AR 部分的特征方程为 $1 - \\lambda + 0.5\\lambda^2 = 0$。<br>
+    根为：
+
+
+    $$\\lambda=\\frac{-(-1)\\pm\\sqrt{(-1)^2-4\\times0.5\\times1}}{2\\times0.5}=\\frac{1\\pm\\sqrt{-1}}{1}=1\\pm i$$
+    因为 $|1\\pm i|=\\sqrt2>1$（两根绝对值都严格大于 1），<b>过程平稳</b>。`
+  },
+  {
+    id: "13.4", exam: false,
+    q: `平稳自回归序列 $W_t = 0.6W_{t-1} + 0.4W_{t-2} + 0.1W_{t-3} + Z_t$，$Z_t$ 为均值 0、方差 $\\sigma^2$ 的不相关随机变量。<br>
+    (i) 说明为何 $\\mathrm{cov}(W_{t-1},Z_t)=0$ 且 $\\mathrm{cov}(W_{t-1},W_t)=\\mathrm{cov}(W_{t-1},W_{t-2})$。<br>
+    (ii) 通过对 $\\mathrm{cov}(W_t,W_{t-k})$（$k=0,1,2,3$）建立 4 个关于自协方差 $\\gamma_k$ 的方程。<br>
+    (iii) 解出滞后 0,1,2,3 的自协方差与自相关函数。`,
+    a: `<b>(i)</b> $W_{t-1}$ 只依赖过去的 $Z$，与未来的 $Z_t$ 不相关，故 $\\mathrm{cov}(W_{t-1},Z_t)=0$；又因 $W_t$ 平稳，协方差仅取决于滞后，故两协方差相等。<br><br>
+    <b>(ii)</b> 分别用 $W_t,W_{t-1},W_{t-2},W_{t-3}$ 取协方差：
+
+
+    $$\\gamma_0=0.6\\gamma_1+0.4\\gamma_2+0.1\\gamma_3+\\sigma^2 \\quad(1)$$
+
+
+    $$\\gamma_1=0.6\\gamma_0+0.4\\gamma_1+0.1\\gamma_2 \\quad(2)$$
+
+
+    $$\\gamma_2=0.6\\gamma_1+0.4\\gamma_0+0.1\\gamma_1 \\quad(3)$$
+
+
+    $$\\gamma_3=0.6\\gamma_2+0.4\\gamma_1+0.1\\gamma_0 \\quad(4)$$
+    <b>(iii)</b> 解得：
+
+
+    $$\\gamma_0=4.4429\\sigma^2,\\ \\gamma_1=3.8278\\sigma^2,\\ \\gamma_2=3.6910\\sigma^2,\\ \\gamma_3=3.3014\\sigma^2$$
+    自相关：$\\rho_0=1,\\ \\rho_1=0.862,\\ \\rho_2=0.831,\\ \\rho_3=0.743$`
+  },
+  {
+    id: "13.5", exam: false,
+    q: `计算过程 $X_n = e_n - 5e_{n-1} + 6e_{n-2}$ 的自相关函数。`,
+    a: `自协方差（MA 过程，两边展开）：
+
+
+    $$\\gamma_0=(1+25+36)\\sigma^2=62\\sigma^2$$
+
+
+    $$\\gamma_1=(-5-30)\\sigma^2=-35\\sigma^2,\\quad \\gamma_2=6\\sigma^2,\\quad \\gamma_k=0\\ (|k|>2)$$
+    自相关函数：
+
+
+    $$\\rho_0=1,\\quad \\rho_1=-\\tfrac{35}{62},\\quad \\rho_2=\\tfrac{6}{62},\\quad \\rho_k=0\\ (|k|>2)$$`
+  },
+  {
+    id: "13.6", exam: false,
+    q: `(i) 时间序列 $X$ 的一阶差分可用 $\\nabla X_n = 0.5\\nabla X_{n-1} + e_n$ 建模，求 $X_n$ 的模型。<br>
+    (ii) 证明 $X_n$ 非平稳。`,
+    a: `<b>(i)</b> 展开：$X_n - X_{n-1} = 0.5(X_{n-1}-X_{n-2}) + e_n$，整理得：
+
+
+    $$X_n = 1.5X_{n-1} - 0.5X_{n-2} + e_n$$
+    <b>(ii)</b> 这是 AR(2)，特征方程 $1-1.5z+0.5z^2=0$，根为 $z=1$ 和 $z=2$。存在根 $=1$（不严格大于 1），<b>故非平稳</b>。`
+  },
+  {
+    id: "13.7", exam: false,
+    q: `(i) 证明关系式 $Y_t = 0.7Y_{t-1} + 0.3Y_{t-2} + Z_t + 0.7Z_{t-1}$（$Z$ 为白噪声）定义了一个 ARIMA(1,1,1) 过程。<br>
+    (ii) 仔细说明关系式 $S_t = 1.5S_{t-1} + 0.5S_{t-3} + Z_t + 0.5Z_{t-1}$ 不能表示为 ARIMA(1,2,1) 过程。`,
+    a: `<b>(i) ARIMA(1,1,1)</b><br>
+    AR 部分特征方程为 $1-0.7\\lambda-0.3\\lambda^2=0$，根为 $1$ 与 $-\\dfrac{10}{3}$。两根须绝对值严格大于 1 才平稳，此处不满足。<br>
+    对定义式两边减 $Y_{t-1}$（差分一次可消去根 1）：
+
+
+    $$Y_t-Y_{t-1}=-0.3Y_{t-1}+0.3Y_{t-2}+Z_t+0.7Z_{t-1}=-0.3(Y_{t-1}-Y_{t-2})+Z_t+0.7Z_{t-1}$$
+    用差分算子表示：$\\nabla Y_t=-0.3\\nabla Y_{t-1}+Z_t+0.7Z_{t-1}$。<br>
+    差分后 AR 部分特征方程 $1+0.3\\lambda=0$，根 $-\\dfrac{10}{3}$，绝对值大于 1。故 $\\nabla Y$ 是平稳 ARMA(1,1)，从而 $Y$ 是 <b>ARIMA(1,1,1)</b>。<br><br>
+    <b>(ii) 不是 ARIMA(1,2,1)</b><br>
+    ARIMA(1,2,1) 一般形式为 $\\nabla^2 S_t=\\alpha\\nabla^2 S_{t-1}+Z_t+\\beta Z_{t-1}$，展开 $\\nabla$ 得：
+
+
+    $$S_t=(2+\\alpha)S_{t-1}-(1+2\\alpha)S_{t-2}+\\alpha S_{t-3}+Z_t+\\beta Z_{t-1}$$
+    给定关系为 $S_t=1.5S_{t-1}+0.5S_{t-3}+Z_t+0.5Z_{t-1}$。对比 $S_{t-1}$ 系数得 $\\alpha=-0.5$，这确实使 $S_{t-2}$ 项消失，但会给出 $S_{t-3}$ 项的<b>错误符号</b>（模型要求系数为 $\\alpha=-0.5$，而给定式为 $+0.5$）。故该定义与 ARIMA(1,2,1) <b>不一致</b>。`
+  },
+  {
+    id: "13.8", exam: false,
+    q: `过程 $X_n = 5X_{n-1} - 4X_{n-2} + X_{n-3} + e_n$，将其写成具有马尔可夫性的向量过程。`,
+    a: `$$\\begin{pmatrix}X_n\\\\X_{n-1}\\\\X_{n-2}\\end{pmatrix}=\\begin{pmatrix}5&-4&1\\\\1&0&0\\\\0&1&0\\end{pmatrix}\\begin{pmatrix}X_{n-1}\\\\X_{n-2}\\\\X_{n-3}\\end{pmatrix}+\\begin{pmatrix}e_n\\\\0\\\\0\\end{pmatrix}$$
+    该向量值过程具有马尔可夫性。`
+  },
+  {
+    id: "13.9", exam: false,
+    q: `设 $X_n = e_n + e_{n-2}$ 为 MA(2) 过程，$e_n\\sim N(0,1)$。<br>
+    (i) 计算 $P(X_n>0 \\mid X_{n-1}>0)$。<br>
+    (ii) 与 $P(X_n>0 \\mid X_{n-1}>0, X_{n-2}>0)$ 比较，据此判断过程是否为马尔可夫过程。`,
+    a: `<b>(i)</b> $e_n+e_{n-2}\\sim N(0,2)$，$X_n$ 与 $X_{n-1}$ 相互独立（无 $e$ 重叠），故
+
+
+    $$P(X_n>0\\mid X_{n-1}>0)=P(X_n>0)=0.5$$
+    <b>(ii)</b> $X_{n-2}$ 提供关于 $e_{n-2}$ 的信息，而 $e_{n-2}$ 影响 $X_n$，因此该条件概率 $\\neq 0.5$。<br>
+    由于 $P(X_n>0\\mid X_{n-1}>0)\\neq P(X_n>0\\mid X_{n-1}>0,X_{n-2}>0)$，<b>过程不是马尔可夫过程</b>。`
+  },
+  {
+    id: "13.10", exam: true,
+    q: `计算平稳 AR(2) 过程 $X_n = 0.8X_{n-1} + 0.1X_{n-2} + \\varepsilon_n$ 的滞后 1、2 的自相关系数 $\\rho_1$、$\\rho_2$。 [4]`,
+    a: `滞后 1：$\\gamma_1 = 0.8\\gamma_0 + 0.1\\gamma_1$，除以 $\\gamma_0$：
+
+
+    $$\\rho_1 = \\tfrac{0.8}{0.9} = \\tfrac{8}{9}$$
+    滞后 2：$\\rho_2 = 0.8\\rho_1 + 0.1 = 0.8\\times\\tfrac89 + 0.1 = \\tfrac{73}{90}$`
+  },
+  {
+    id: "13.11", exam: true,
+    q: `模型 $X_t = \\alpha_1 X_{t-1} + \\alpha_2 X_{t-2} + \\alpha_3 X_{t-3} + \\varepsilon_t$，$\\{\\varepsilon_t\\}$ 为白噪声。<br>
+    (i) 证明滞后 1 自相关系数为 $\\rho_1 = \\dfrac{\\alpha_1 + \\alpha_2\\alpha_3}{1-\\alpha_2-\\alpha_1\\alpha_3-\\alpha_3^2}$。 [3]<br>
+    (ii) 当 $\\alpha_1=\\alpha_2=\\alpha_3=0.2$：(a) 讨论平稳性（提示：$5-x-x^2-x^3=(1.278-x)(3.912+2.278x+x^2)$）；(b) 计算 $\\rho_1,\\rho_2$；(c) 计算偏自相关 $\\phi_1,\\phi_2$；(d) 画 ACF 与 PACF 相关图。 [9]`,
+    a: `<b>(i)</b> 用 Yule-Walker：对 $X_{t-1}$、$X_{t-2}$ 取协方差得两方程，消去 $\\rho_2$ 得
+
+
+    $$\\rho_1=\\frac{\\alpha_1+\\alpha_2\\alpha_3}{1-\\alpha_2-\\alpha_1\\alpha_3-\\alpha_3^2}$$
+    <b>(ii)(a)</b> 特征方程 $1-0.2z-0.2z^2-0.2z^3=0$，即 $5-x-x^2-x^3=0$。实根 $1.278$，复根 $-1.139\\pm1.617i$（模 $\\approx1.98$），均严格大于 1，<b>平稳</b>。<br>
+    <b>(b)</b> $\\rho_1=\\dfrac{0.2+0.04}{1-0.2-0.04-0.04}=\\dfrac{0.24}{0.72}=\\tfrac13$；由第二 Yule-Walker 方程 $\\rho_2=0.2+\\rho_1/3=\\dfrac13$。<br>
+    <b>(c)</b> $\\phi_1=\\rho_1=\\tfrac13$；$\\phi_2=\\dfrac{\\rho_2-\\rho_1^2}{1-\\rho_1^2}=\\tfrac14$。<br>
+    <b>(d)</b> ACF 满足 $\\rho_k=0.2(\\rho_{k-1}+\\rho_{k-2}+\\rho_{k-3})$，取正值并快速衰减到 0；PACF 因是 AR(3)，从滞后 4 起全为 0。`
+  },
+  {
+    id: "13.12", exam: true,
+    q: `$\\{X_t\\}$ 是平稳 ARMA(1,2) 过程：$X_t = \\alpha X_{t-1} + Z_t + \\beta Z_{t-2}$，$\\{Z_t\\}$ 为均值 0、方差 $\\sigma^2$ 的纯随机过程。<br>
+    (i) 定义"弱平稳过程"。 [2]<br>
+    (ii) 假设该过程有很长历史，给出使其 (a) 平稳 (b) 可逆 的 $\\alpha,\\beta$ 条件。 [2]<br>
+    (iii) 证明对任意整数 $s$：$\\mathrm{cov}(X_s,Z_s)=\\sigma^2$，$\\mathrm{cov}(X_s,Z_{s-1})=\\alpha\\sigma^2$，$\\mathrm{cov}(X_s,Z_{s-2})=(\\alpha^2+\\beta)\\sigma^2$。 [3]<br>
+    (iv) (a) 通过考虑 $\\mathrm{cov}(X_t,X_t)$、$\\mathrm{cov}(X_t,X_{t-1})$、$\\mathrm{cov}(X_t,X_{t-2})$ 写出三个关于 $\\gamma_0,\\gamma_1,\\gamma_2$ 的方程；(b) 求 $\\gamma_0,\\gamma_1,\\gamma_2$（用 $\\alpha,\\beta,\\sigma^2$ 表示）。 [7]<br>
+    (v) 当 $\\alpha=-0.4,\\beta=-0.9$ 时计算 $\\rho_0,\\rho_1,\\rho_2,\\rho_3$ 并画 ACF 图。 [5]`,
+    a: `<b>(i)</b> 弱平稳过程：均值恒定，且每个固定滞后的协方差恒定（方差作为特例也恒定）。<br><br>
+    <b>(ii)</b> (a) 平稳：AR 部分特征方程 $1-\\alpha\\lambda=0$ 的根须绝对值大于 1，即 $|\\alpha|<1$；(b) 可逆：MA 部分 $1-\\beta\\lambda^2=0$ 的根须绝对值大于 1，即 $|\\beta|<1$。<br><br>
+    <b>(iii)</b> 用 $t=s$ 的定义式：
+
+
+    $$\\mathrm{cov}(X_s,Z_s)=\\mathrm{cov}(\\alpha X_{s-1}+Z_s+\\beta Z_{s-2},Z_s)=\\mathrm{cov}(Z_s,Z_s)=\\sigma^2$$
+    （首项因 $Z_s$ 与序列过去值不相关为 0，$\\beta$ 项因纯随机过程为 0。）
+
+
+    $$\\mathrm{cov}(X_s,Z_{s-1})=\\alpha\\,\\mathrm{cov}(X_{s-1},Z_{s-1})=\\alpha\\sigma^2$$
+
+
+    $$\\mathrm{cov}(X_s,Z_{s-2})=\\alpha\\,\\mathrm{cov}(X_{s-1},Z_{s-2})+\\beta\\,\\mathrm{cov}(Z_{s-2},Z_{s-2})=\\alpha\\cdot\\alpha\\sigma^2+\\beta\\sigma^2=(\\alpha^2+\\beta)\\sigma^2$$
+    <b>(iv)(a)</b> 分别用 $X_t,X_{t-1},X_{t-2}$ 取协方差（用 (iii) 的结果）：
+
+
+    $$\\gamma_0=\\alpha\\gamma_1+\\sigma^2+\\beta(\\alpha^2+\\beta)\\sigma^2=\\alpha\\gamma_1+(1+\\alpha^2\\beta+\\beta^2)\\sigma^2\\quad(1)$$
+
+
+    $$\\gamma_1=\\alpha\\gamma_0+\\alpha\\beta\\sigma^2\\quad(2)$$
+
+
+    $$\\gamma_2=\\alpha\\gamma_1+\\beta\\sigma^2\\quad(3)$$
+    <b>(b)</b> 将 (2) 代入 (1) 整理：
+
+
+    $$\\gamma_0=\\frac{1+\\beta^2+2\\alpha^2\\beta}{1-\\alpha^2}\\sigma^2$$
+    代回 (2)：
+
+
+    $$\\gamma_1=\\frac{\\alpha(1+\\beta+\\beta^2+\\alpha^2\\beta)}{1-\\alpha^2}\\sigma^2$$
+    代回 (3)：
+
+
+    $$\\gamma_2=\\frac{\\beta+\\alpha^2+\\alpha^2\\beta^2+\\alpha^4\\beta}{1-\\alpha^2}\\sigma^2$$
+    <b>(v)(a)</b> 代入 $\\alpha=-0.4,\\beta=-0.9$，$\\gamma_0,\\gamma_1,\\gamma_2$ 的分子（乘 $\\sigma^2$、公共分母 $1-\\alpha^2=0.84$ 在求 $\\rho$ 时约去）分别正比于 $1.522$、$-0.3064$、$-0.63344$，故
+
+
+    $$\\rho_0=1,\\quad \\rho_1=\\frac{-0.3064}{1.522}=-0.201,\\quad \\rho_2=\\frac{-0.63344}{1.522}=-0.416$$
+    此后每步多乘一个 $\\alpha$：$\\rho_k=-0.416\\times(-0.4)^{k-2}$（$k\\geq2$），故
+
+
+    $$\\rho_3=-0.416\\times(-0.4)=0.166$$
+    <b>(b)</b> ACF 图：$\\rho_0=1$，$\\rho_1\\approx-0.20$，$\\rho_2\\approx-0.42$；从 $k\\geq2$ 起符号交替、幅度按 $|\\alpha|=0.4$ 递减，迅速趋于 0（$\\rho_3\\approx0.17$，$\\rho_4\\approx-0.07$……）。`
+  }
+];
+
+/* ===== 状态 ===== */
+let selected = new Set(); // 默认全不选
+
+/* ===== 渲染标签 ===== */
+function renderChips(){
+  const box = document.getElementById('chips');
+  box.innerHTML = '';
+  questions.forEach(q => {
+    const c = document.createElement('span');
+    c.className = 'chip' + (q.exam ? ' exam' : '') + (selected.has(q.id) ? ' active' : '');
+    c.textContent = 'Q ' + q.id;
+    c.onclick = () => {
+      if(selected.has(q.id)) selected.delete(q.id); else selected.add(q.id);
+      renderChips(); renderQuiz();
+    };
+    box.appendChild(c);
+  });
+  document.getElementById('count').textContent =
+    `已选 ${selected.size} / ${questions.length} 题（★ 表示 Exam style 考试风格题）`;
+}
+
+/* ===== 渲染题目 ===== */
+function renderQuiz(){
+  const quiz = document.getElementById('quiz');
+  quiz.innerHTML = '';
+  const list = questions.filter(q => selected.has(q.id));
+  if(list.length === 0){
+    quiz.innerHTML = '<div class="card empty">还没有选择题目，请在上方点击标签选择。</div>';
+    return;
+  }
+  list.forEach(q => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="qhead">
+        <span class="qnum">Q ${q.id}</span>
+        ${q.exam ? '<span class="badge">★ Exam style</span>' : ''}
+      </div>
+      <div class="qbody">${q.q}</div>
+      <button class="toggle-ans">显示答案</button>
+      <div class="answer"><div class="atitle">解答 Solution</div>${q.a}</div>
+    `;
+    const btn = card.querySelector('.toggle-ans');
+    const ans = card.querySelector('.answer');
+    btn.onclick = () => {
+      ans.classList.toggle('show');
+      btn.textContent = ans.classList.contains('show') ? '隐藏答案' : '显示答案';
+    };
+    quiz.appendChild(card);
+  });
+  if(window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([quiz]);
+}
+
+/* ===== 工具函数 ===== */
+function selectAll(v){
+  selected = v ? new Set(questions.map(q=>q.id)) : new Set();
+  renderChips(); renderQuiz();
+}
+function randomPick(){
+  const n = parseInt(document.getElementById('randCount').value);
+  const pool = [...questions.map(q=>q.id)];
+  for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
+  selected = new Set(pool.slice(0, n));
+  renderChips(); renderQuiz();
+}
+function toggleAllAns(show){
+  document.querySelectorAll('.card').forEach(card=>{
+    const ans = card.querySelector('.answer');
+    const btn = card.querySelector('.toggle-ans');
+    if(!ans) return;
+    if(show){ ans.classList.add('show'); if(btn) btn.textContent='隐藏答案'; }
+    else { ans.classList.remove('show'); if(btn) btn.textContent='显示答案'; }
+  });
+}
+
+/* ===== 初始化 ===== */
+renderChips();
+renderQuiz();
+</script>
+</body>
+</html>

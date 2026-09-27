@@ -1,0 +1,1386 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多变量时间序列与协整关系演示</title>
+    <script src="vendor/plotly.min.js"></script>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        
+        .header p {
+            margin: 10px 0 0 0;
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 5px solid #3498db;
+        }
+        
+        .section h2 {
+            color: #2c3e50;
+            margin-top: 0;
+            font-size: 1.8em;
+            border-bottom: 2px solid #ecf0f1;
+            padding-bottom: 10px;
+        }
+        
+        .section h3 {
+            color: #34495e;
+            margin-top: 25px;
+            font-size: 1.4em;
+        }
+        
+        .plot-container {
+            margin: 20px 0;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            height: 400px;
+        }
+        
+        .controls {
+            background: #ecf0f1;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .control-group {
+            display: inline-block;
+            margin-right: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .control-group input, .control-group select {
+            padding: 8px 12px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+        }
+        
+        .theory-box {
+            background: linear-gradient(135deg, #74b9ff, #0984e3);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        
+        .theory-box h4 {
+            margin-top: 0;
+            font-size: 1.3em;
+        }
+        
+        .formula {
+            background: #2d3436;
+            color: #ddd;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            overflow-x: auto;
+            white-space: pre-line;
+        }
+        
+        .highlight {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #3498db;
+        }
+        
+        .stat-label {
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+        
+        .debug-info {
+            background: #f1f2f6;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            margin: 10px 0;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>多变量时间序列与协整关系</h1>
+            <p>Multivariate Time Series and Cointegration Analysis</p>
+        </div>
+        
+        <div class="content">
+            <!-- 理论介绍 -->
+            <div class="section">
+                <h2>📊 协整理论基础</h2>
+                
+                <div class="theory-box">
+                    <h4>🎯 核心概念</h4>
+                    <p><strong>协整（Cointegration）</strong>：当两个或多个非平稳时间序列的某种线性组合是平稳的时，我们称这些序列之间存在协整关系。</p>
+                </div>
+                
+                <h3>数学定义</h3>
+                <div class="formula">设 X_t 和 Y_t 是两个 I(1) 序列（一阶单整），如果存在参数 β 使得：
+Z_t = Y_t - βX_t ~ I(0)
+则称 X_t 和 Y_t 协整，β 为协整系数。
+
+符号说明：
+• I(1)：一阶单整，序列本身非平稳，但一阶差分平稳
+• I(0)：零阶单整，序列本身就是平稳的
+• ~：表示"服从"或"具有...的性质"</div>
+                
+                <h3>经济意义</h3>
+                <p>在经济学中，协整关系表示变量间的长期均衡关系。即使短期内变量可能偏离均衡，但长期来看它们会回归到均衡状态。</p>
+            </div>
+            
+            <!-- 数据生成控制 -->
+            <div class="section">
+                <h2>🎛️ 参数控制</h2>
+                <div class="controls">
+                    <div class="control-group">
+                        <label>样本数量:</label>
+                        <input type="number" id="sampleSize" value="200" min="100" max="500">
+                    </div>
+                    <div class="control-group">
+                        <label>协整系数 β:</label>
+                        <input type="number" id="beta" value="0.8" step="0.1" min="0.1" max="2.0">
+                    </div>
+                    <div class="control-group">
+                        <label>噪声强度:</label>
+                        <input type="number" id="noiseLevel" value="0.5" step="0.1" min="0.1" max="2.0">
+                    </div>
+                    <div class="control-group">
+                        <label>趋势强度:</label>
+                        <input type="number" id="trendStrength" value="0.02" step="0.01" min="0.01" max="0.05">
+                    </div>
+                    <div class="control-group">
+                        <label>随机种子:</label>
+                        <input type="number" id="randomSeed" value="12345" min="1" max="999999">
+                    </div>
+                    <button onclick="generateData()">🔄 重新生成数据</button>
+                    <button onclick="generateRandomSeed()">🎲 随机种子</button>
+                </div>
+                
+                <div class="theory-box">
+                    <h4>🎲 随机种子说明</h4>
+                    <p><strong>随机种子的作用：</strong></p>
+                    <ul>
+                        <li><strong>可重现性：</strong>相同种子产生相同的随机序列，便于结果对比</li>
+                        <li><strong>教学演示：</strong>可以展示特定参数组合下的稳定结果</li>
+                        <li><strong>调试分析：</strong>固定种子有助于分析模型行为</li>
+                        <li><strong>随机探索：</strong>点击"随机种子"按钮探索不同的数据模式</li>
+                    </ul>
+                </div>
+                
+                <div class="debug-info" id="debugInfo">
+                    等待数据生成...
+                </div>
+            </div>
+            
+            <!-- 原始序列展示 -->
+            <div class="section">
+                <h2>📈 原始时间序列（非平稳）</h2>
+                <p>以下展示GDP和消费支出的模拟数据，两者都表现出明显的上升趋势（非平稳特征）：</p>
+                <div class="plot-container">
+                    <div id="originalSeries" style="width:100%;height:100%;"></div>
+                </div>
+                
+                <div class="highlight" id="observationPoints">
+                    <!-- 动态生成观察要点 -->
+                </div>
+            </div>
+            
+            <!-- ADF检验详解 -->
+            <div class="section">
+                <h2>🔍 ADF单位根检验详解</h2>
+                
+                <div class="theory-box">
+                    <h4>📚 ADF检验理论基础</h4>
+                    <p><strong>Augmented Dickey-Fuller Test</strong> 是检验时间序列平稳性的重要方法</p>
+                </div>
+                
+                <h3>ADF检验回归方程</h3>
+                <div class="formula">基本ADF回归方程：
+Δy_t = α + βt + γy_{t-1} + Σδ_i Δy_{t-i} + ε_t
+
+其中：
+- Δy_t = y_t - y_{t-1} (一阶差分)
+- α: 截距项
+- βt: 时间趋势项
+- γ: 关键系数，检验 H₀: γ = 0
+- δ_i: 滞后差分项系数</div>
+                
+                <h3>检验统计量计算</h3>
+                <div class="formula" id="adfCalculation">
+                    <!-- 动态显示ADF计算过程 -->
+                </div>
+                
+                <div class="stats-grid" id="stationarityTests">
+                    <!-- 动态生成统计结果 -->
+                </div>
+                
+                <div class="theory-box">
+                    <h4>🎯 ADF检验解读</h4>
+                    <p><strong>原假设 H₀：</strong>序列存在单位根（γ = 0，非平稳）</p>
+                    <p><strong>备择假设 H₁：</strong>序列平稳（γ < 0）</p>
+                    <p><strong>临界值：</strong></p>
+                    <ul>
+                        <li>1% 显著性水平：-3.43</li>
+                        <li>5% 显著性水平：-2.86</li>
+                        <li>10% 显著性水平：-2.57</li>
+                    </ul>
+                    <p><strong>判断标准：</strong>ADF统计量 < 临界值，拒绝原假设，认为序列平稳</p>
+                </div>
+                
+                <h3>单位根检验结果解释</h3>
+                <div class="highlight" id="adfInterpretation">
+                    <!-- 动态生成ADF结果解释 -->
+                </div>
+            </div>
+            
+            <!-- 协整关系 -->
+            <div class="section">
+                <h2>🔗 协整关系分析</h2>
+                <h3>协整回归</h3>
+                <div class="formula" id="cointegrationEquation">
+                    <!-- 动态生成回归方程 -->
+                </div>
+                
+                <div class="plot-container">
+                    <div id="cointegrationPlot" style="width:100%;height:100%;"></div>
+                </div>
+                
+                <h3>残差序列（协整残差）</h3>
+                
+                <div class="theory-box">
+                    <h4>🎯 协整残差判断标准</h4>
+                    <p><strong>协整存在的条件：</strong></p>
+                    <ul>
+                        <li><strong>原序列非平稳：</strong>GDP和消费序列都是I(1)（存在单位根）</li>
+                        <li><strong>残差序列平稳：</strong>协整残差必须是I(0)（不存在单位根）</li>
+                        <li><strong>判断标准：</strong>残差的ADF统计量 < 临界值，拒绝单位根假设</li>
+                    </ul>
+                    <p><strong>Engle-Granger两步法：</strong></p>
+                    <ol>
+                        <li>第一步：OLS估计协整回归，得到残差</li>
+                        <li>第二步：对残差进行ADF检验，检验其平稳性</li>
+                    </ol>
+                </div>
+                
+                <div class="plot-container">
+                    <div id="residualPlot" style="width:100%;height:100%;"></div>
+                </div>
+                
+                <div class="highlight" id="residualAnalysis">
+                    <!-- 动态生成残差分析结果 -->
+                </div>
+                
+                <div class="stats-grid" id="cointegrationStats">
+                    <!-- 动态生成协整统计 -->
+                </div>
+            </div>
+            
+            <!-- ECM模型详解 -->
+            <div class="section">
+                <h2>⚖️ 误差修正模型（ECM）详解</h2>
+                
+                <div class="theory-box">
+                    <h4>📚 ECM理论基础</h4>
+                    <p><strong>误差修正模型（Error Correction Model）</strong>是协整理论的核心应用，描述了变量间的短期动态调整过程。</p>
+                </div>
+                
+                <h3>Granger表示定理</h3>
+                <div class="formula">如果 X_t 和 Y_t 协整，则存在误差修正表示：
+
+向量误差修正模型（VECM）：
+ΔX_t = α_x(Y_{t-1} - βX_{t-1}) + Σγ_{x,i}ΔX_{t-i} + Σδ_{x,i}ΔY_{t-i} + ε_{x,t}
+ΔY_t = α_y(Y_{t-1} - βX_{t-1}) + Σγ_{y,i}ΔX_{t-i} + Σδ_{y,i}ΔY_{t-i} + ε_{y,t}
+
+其中：
+- (Y_{t-1} - βX_{t-1}) 为误差修正项（ECT）
+- α_x, α_y 为调整系数，至少一个显著为负
+- 调整系数的绝对值表示向均衡回归的速度</div>
+                
+                <h3>ECM模型估计结果</h3>
+                <div class="theory-box">
+                    <h4>📝 ECT定义</h4>
+                    <p><strong>误差修正项（Error Correction Term, ECT）</strong>：</p>
+                    <div class="formula">ECT_{t-1} = 消费_{t-1} - β × GDP_{t-1} - α
+即前一期偏离长期均衡关系的程度</div>
+                </div>
+                
+                <div class="formula" id="ecmEquations">
+                    <!-- 动态显示ECM方程 -->
+                </div>
+                
+                <div class="stats-grid" id="ecmStats">
+                    <!-- 动态生成ECM统计 -->
+                </div>
+                
+                <h3>误差修正项（ECT）时间序列</h3>
+                <div class="plot-container">
+                    <div id="errorCorrectionTermPlot" style="width:100%;height:100%;"></div>
+                </div>
+                
+                <h3>调整速度可视化</h3>
+                <div class="theory-box">
+                    <h4>📊 图表说明</h4>
+                    <p><strong>预测调整</strong>：基于ECM模型预测的变化量</p>
+                    <p>预测公式：Δ变量_t = α + β × ECT_{t-1}</p>
+                </div>
+                <div class="plot-container">
+                    <div id="adjustmentSpeedPlot" style="width:100%;height:100%;"></div>
+                </div>
+                
+                <h3>ECM模型诊断</h3>
+                
+                <div class="theory-box">
+                    <h4>📊 ECM残差诊断图坐标说明</h4>
+                    <p><strong>横坐标（X轴）- 拟合值：</strong></p>
+                    <ul>
+                        <li><strong>GDP方程拟合值：</strong>ŷ₁ = α₁ + β₁ × ECT_{t-1}</li>
+                        <li><strong>消费方程拟合值：</strong>ŷ₂ = α₂ + β₂ × ECT_{t-1}</li>
+                        <li><strong>含义：</strong>ECM模型预测的ΔGDP和Δ消费变化量</li>
+                    </ul>
+                    
+                    <p><strong>纵坐标（Y轴）- 残差：</strong></p>
+                    <ul>
+                        <li><strong>GDP方程残差：</strong>ε₁ₜ = ΔGDP_t - ŷ₁</li>
+                        <li><strong>消费方程残差：</strong>ε₂ₜ = Δ消费_t - ŷ₂</li>
+                        <li><strong>含义：</strong>实际变化量与ECM模型预测值的差异</li>
+                    </ul>
+                    
+                    <p><strong>诊断目的：</strong></p>
+                    <ul>
+                        <li><strong>同方差性检验：</strong>残差应随机分布，无明显模式</li>
+                        <li><strong>线性关系检验：</strong>残差与拟合值无相关性</li>
+                        <li><strong>模型适当性：</strong>残差应围绕零线随机分布</li>
+                    </ul>
+                </div>
+                
+                <div class="plot-container">
+                    <div id="ecmDiagnosticsPlot" style="width:100%;height:100%;"></div>
+                </div>
+                
+                <div class="theory-box">
+                    <h4>🎯 ECM调整系数详解</h4>
+                    <p><strong>调整系数 α 的符号含义：</strong></p>
+                    <ul>
+                        <li><strong>α < 0（向均衡回归）：</strong>
+                            <br>• 当ECT_{t-1} > 0时（上期高于均衡），下期变化为负，向下调整
+                            <br>• 当ECT_{t-1} < 0时（上期低于均衡），下期变化为正，向上调整
+                            <br>• 这是正常的误差修正机制</li>
+                        <li><strong>α > 0（偏离均衡）：</strong>
+                            <br>• 当ECT_{t-1} > 0时，下期继续正向变化，进一步偏离均衡
+                            <br>• 当ECT_{t-1} < 0时，下期继续负向变化，进一步偏离均衡
+                            <br>• 这表明不存在误差修正，可能存在模型设定问题</li>
+                        <li><strong>|α| 的大小：</strong>调整速度，越大调整越快</li>
+                        <li><strong>半衰期：</strong>ln(0.5)/ln(1+α) 期（仅当α<0时有意义）</li>
+                    </ul>
+                    <p><strong>经济直觉：</strong>误差修正机制类似"橡皮筋效应"，当变量偏离长期均衡时，会有一种力量将其拉回均衡位置。</p>
+                </div>
+                
+                <div class="highlight" id="ecmInterpretation">
+                    <!-- 动态生成ECM结果解释 -->
+                </div>
+                
+                <div class="theory-box">
+                    <h4>🔧 ECM远离均衡问题的解决方案</h4>
+                    <p><strong>当调整系数α > 0（远离均衡）时的可能原因和解决方案：</strong></p>
+                    
+                    <h5>📋 可能原因：</h5>
+                    <ul>
+                        <li><strong>模型设定错误：</strong>可能遗漏了重要解释变量</li>
+                        <li><strong>结构性断点：</strong>样本期间存在结构性变化</li>
+                        <li><strong>非线性关系：</strong>变量间可能存在非线性协整关系</li>
+                        <li><strong>数据质量问题：</strong>数据测量误差或异常值</li>
+                        <li><strong>样本量不足：</strong>样本太小导致估计不准确</li>
+                    </ul>
+                    
+                    <h5>🛠️ 解决方案：</h5>
+                    <ol>
+                        <li><strong>重新检验协整关系：</strong>
+                            <br>• 使用Johansen协整检验替代Engle-Granger方法
+                            <br>• 检查是否存在多个协整关系</li>
+                        <li><strong>模型改进：</strong>
+                            <br>• 添加更多解释变量（如利率、通胀等）
+                            <br>• 考虑季节性调整和趋势项</li>
+                        <li><strong>数据处理：</strong>
+                            <br>• 检查并处理异常值
+                            <br>• 进行结构断点检验（如Chow检验）</li>
+                        <li><strong>模型扩展：</strong>
+                            <br>• 尝试非线性ECM模型（如TVECM）
+                            <br>• 考虑门限协整模型</li>
+                        <li><strong>参数调整：</strong>
+                            <br>• 增加样本量
+                            <br>• 调整滞后阶数</li>
+                    </ol>
+                </div>
+            </div>
+            
+            <!-- 实际应用 -->
+            <div class="section">
+                <h2>🌟 实际应用场景</h2>
+                
+                <h3>经济学中的协整关系</h3>
+                <ul>
+                    <li><strong>消费与收入：</strong>长期消费函数关系</li>
+                    <li><strong>汇率与价格：</strong>购买力平价理论</li>
+                    <li><strong>货币与价格：</strong>货币数量论</li>
+                    <li><strong>股票价格：</strong>配对交易策略</li>
+                </ul>
+                
+                <h3>协整检验步骤</h3>
+                <ol>
+                    <li><strong>单位根检验：</strong>确认各序列的单整阶数</li>
+                    <li><strong>协整回归：</strong>估计长期均衡关系</li>
+                    <li><strong>残差检验：</strong>检验残差的平稳性</li>
+                    <li><strong>误差修正：</strong>建立ECM模型</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let gdpData = [];
+        let consumptionData = [];
+        let timePoints = [];
+        let residuals = [];
+        let cointegrationCoeff = 0;
+        let intercept = 0;
+        let currentSeed = 12345;
+        
+        // 简单的线性同余随机数生成器（可重现）
+        class SeededRandom {
+            constructor(seed) {
+                this.seed = seed;
+            }
+            
+            next() {
+                this.seed = (this.seed * 1664525 + 1013904223) % Math.pow(2, 32);
+                return this.seed / Math.pow(2, 32);
+            }
+            
+            // Box-Muller变换生成正态分布随机数
+            normal(mean = 0, std = 1) {
+                if (this.spare !== undefined) {
+                    const val = this.spare;
+                    this.spare = undefined;
+                    return val * std + mean;
+                }
+                
+                const u = this.next();
+                const v = this.next();
+                const mag = std * Math.sqrt(-2.0 * Math.log(u));
+                this.spare = mag * Math.cos(2.0 * Math.PI * v);
+                return mag * Math.sin(2.0 * Math.PI * v) + mean;
+            }
+        }
+        
+        let rng = new SeededRandom(12345);
+        
+        // 调试信息显示
+        function addDebugInfo(message) {
+            const debugDiv = document.getElementById('debugInfo');
+            const timestamp = new Date().toLocaleTimeString();
+            debugDiv.innerHTML += `[${timestamp}] ${message}<br>`;
+            debugDiv.scrollTop = debugDiv.scrollHeight;
+            console.log(message);
+        }
+        
+        // 生成随机数 - 使用种子随机数生成器
+        function randomNormal(mean = 0, std = 1) {
+            return rng.normal(mean, std);
+        }
+        
+        // 生成随机种子
+        function generateRandomSeed() {
+            const newSeed = Math.floor(Math.random() * 999999) + 1;
+            document.getElementById('randomSeed').value = newSeed;
+            addDebugInfo(`生成新的随机种子: ${newSeed}`);
+        }
+        
+        // 生成协整数据
+        function generateData() {
+            addDebugInfo("开始生成数据...");
+            
+            const n = parseInt(document.getElementById('sampleSize').value) || 200;
+            const beta = parseFloat(document.getElementById('beta').value) || 0.8;
+            const noiseLevel = parseFloat(document.getElementById('noiseLevel').value) || 0.5;
+            const trendStrength = parseFloat(document.getElementById('trendStrength').value) || 0.02;
+            const seed = parseInt(document.getElementById('randomSeed').value) || 12345;
+            
+            // 重新初始化随机数生成器
+            currentSeed = seed;
+            rng = new SeededRandom(seed);
+            
+            addDebugInfo(`参数设置: 样本=${n}, β=${beta}, 噪声=${noiseLevel}, 趋势=${trendStrength}, 种子=${seed}`);
+            
+            // 重置数组
+            gdpData = [100];
+            consumptionData = [80];
+            timePoints = [0];
+            residuals = [];
+            
+            // 生成协整的时间序列
+            for (let i = 1; i < n; i++) {
+                timePoints.push(i);
+                
+                // GDP: 随机游走 + 趋势
+                const gdpShock = randomNormal(0, noiseLevel);
+                const newGDP = gdpData[i-1] + trendStrength + gdpShock;
+                gdpData.push(newGDP);
+                
+                // 消费: 与GDP协整 + 独立冲击
+                const consumptionShock = randomNormal(0, noiseLevel * 0.3);
+                const cointegrationError = consumptionData[i-1] - beta * gdpData[i-1];
+                const errorCorrection = -0.1 * cointegrationError;
+                
+                const newConsumption = consumptionData[i-1] + 
+                    beta * (gdpData[i] - gdpData[i-1]) + 
+                    errorCorrection + 
+                    consumptionShock;
+                
+                consumptionData.push(newConsumption);
+            }
+            
+            addDebugInfo(`生成完成: GDP范围[${Math.min(...gdpData).toFixed(2)}, ${Math.max(...gdpData).toFixed(2)}]`);
+            addDebugInfo(`消费范围[${Math.min(...consumptionData).toFixed(2)}, ${Math.max(...consumptionData).toFixed(2)}]`);
+            
+            // 计算协整回归
+            calculateCointegration();
+            
+            // 更新所有图表
+            updateAllPlots();
+        }
+        
+        // 计算协整关系
+        function calculateCointegration() {
+            addDebugInfo("计算协整关系...");
+            
+            const n = gdpData.length;
+            
+            // 简单线性回归计算协整系数
+            let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+            
+            for (let i = 0; i < n; i++) {
+                sumX += gdpData[i];
+                sumY += consumptionData[i];
+                sumXY += gdpData[i] * consumptionData[i];
+                sumX2 += gdpData[i] * gdpData[i];
+            }
+            
+            cointegrationCoeff = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+            intercept = (sumY - cointegrationCoeff * sumX) / n;
+            
+            addDebugInfo(`协整系数: β=${cointegrationCoeff.toFixed(4)}, 截距=${intercept.toFixed(4)}`);
+            
+            // 计算残差
+            residuals = [];
+            for (let i = 0; i < n; i++) {
+                residuals.push(consumptionData[i] - (intercept + cointegrationCoeff * gdpData[i]));
+            }
+            
+            // 更新协整方程显示
+            const r2 = calculateR2();
+            document.getElementById('cointegrationEquation').innerHTML = 
+                `消费 = ${intercept.toFixed(3)} + ${cointegrationCoeff.toFixed(3)} × GDP + ε_t\nR² = ${r2.toFixed(4)}`;
+                
+            addDebugInfo(`R² = ${r2.toFixed(4)}`);
+        }
+        
+        // 计算R²
+        function calculateR2() {
+            const meanY = consumptionData.reduce((a, b) => a + b) / consumptionData.length;
+            let ssRes = 0, ssTot = 0;
+            
+            for (let i = 0; i < consumptionData.length; i++) {
+                const predicted = intercept + cointegrationCoeff * gdpData[i];
+                ssRes += Math.pow(consumptionData[i] - predicted, 2);
+                ssTot += Math.pow(consumptionData[i] - meanY, 2);
+            }
+            
+            return 1 - (ssRes / ssTot);
+        }
+        
+        // 详细的ADF检验统计量计算
+        function calculateADFStat(series, seriesName = "") {
+            const n = series.length;
+            if (n < 10) return { 
+                statistic: 0, 
+                pValue: 1, 
+                criticalValues: {cv1: -3.43, cv5: -2.86, cv10: -2.57},
+                details: "样本量过小"
+            };
+            
+            // 计算一阶差分
+            const diff = [];
+            const laggedLevel = [];
+            
+            for (let i = 1; i < n; i++) {
+                diff.push(series[i] - series[i-1]);
+                laggedLevel.push(series[i-1]);
+            }
+            
+            // 简化的ADF回归：Δy_t = α + γy_{t-1} + ε_t
+            const m = diff.length;
+            let sumY = 0, sumX = 0, sumXY = 0, sumX2 = 0;
+            
+            for (let i = 0; i < m; i++) {
+                sumY += diff[i];
+                sumX += laggedLevel[i];
+                sumXY += diff[i] * laggedLevel[i];
+                sumX2 += laggedLevel[i] * laggedLevel[i];
+            }
+            
+            // 计算回归系数 γ (gamma)
+            const gamma = (m * sumXY - sumX * sumY) / (m * sumX2 - sumX * sumX);
+            const alpha = (sumY - gamma * sumX) / m;
+            
+            // 计算残差和标准误
+            let sse = 0;
+            for (let i = 0; i < m; i++) {
+                const predicted = alpha + gamma * laggedLevel[i];
+                const residual = diff[i] - predicted;
+                sse += residual * residual;
+            }
+            
+            const mse = sse / (m - 2);
+            const seGamma = Math.sqrt(mse / (sumX2 - sumX * sumX / m));
+            
+            // ADF统计量 = γ / SE(γ)
+            const adfStat = gamma / seGamma;
+            
+            // 临界值（简化版本）
+            const criticalValues = {
+                cv1: -3.43,   // 1%
+                cv5: -2.86,   // 5%
+                cv10: -2.57   // 10%
+            };
+            
+            // 计算p值（近似）
+            let pValue;
+            if (adfStat < criticalValues.cv1) pValue = 0.01;
+            else if (adfStat < criticalValues.cv5) pValue = 0.05;
+            else if (adfStat < criticalValues.cv10) pValue = 0.10;
+            else pValue = 0.15;
+            
+            return {
+                statistic: adfStat,
+                pValue: pValue,
+                criticalValues: criticalValues,
+                gamma: gamma,
+                alpha: alpha,
+                standardError: seGamma,
+                details: `γ = ${gamma.toFixed(6)}, SE(γ) = ${seGamma.toFixed(6)}`
+            };
+        }
+        
+        // ECM模型估计
+        function estimateECM() {
+            const n = gdpData.length;
+            if (n < 3) return null;
+            
+            // 计算一阶差分
+            const deltaGDP = [];
+            const deltaConsumption = [];
+            const laggedECT = []; // 滞后一期的误差修正项
+            
+            for (let i = 2; i < n; i++) {
+                deltaGDP.push(gdpData[i] - gdpData[i-1]);
+                deltaConsumption.push(consumptionData[i] - consumptionData[i-1]);
+                // 使用滞后一期的残差作为误差修正项
+                laggedECT.push(residuals[i-1]);
+            }
+            
+            // ECM for GDP: ΔGDPt = α1 + β1*ECTt-1 + ε1t
+            const ecmGDP = estimateOLS(laggedECT, deltaGDP);
+            
+            // ECM for Consumption: ΔConsumptiont = α2 + β2*ECTt-1 + ε2t  
+            const ecmConsumption = estimateOLS(laggedECT, deltaConsumption);
+            
+            return {
+                gdp: ecmGDP,
+                consumption: ecmConsumption,
+                laggedECT: laggedECT,
+                deltaGDP: deltaGDP,
+                deltaConsumption: deltaConsumption
+            };
+        }
+        
+        // 简单OLS估计
+        function estimateOLS(x, y) {
+            const n = x.length;
+            if (n !== y.length || n < 2) return null;
+            
+            let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+            
+            for (let i = 0; i < n; i++) {
+                sumX += x[i];
+                sumY += y[i];
+                sumXY += x[i] * y[i];
+                sumX2 += x[i] * x[i];
+            }
+            
+            const beta = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+            const alpha = (sumY - beta * sumX) / n;
+            
+            // 计算标准误和t统计量
+            let sse = 0;
+            for (let i = 0; i < n; i++) {
+                const predicted = alpha + beta * x[i];
+                const residual = y[i] - predicted;
+                sse += residual * residual;
+            }
+            
+            const mse = sse / (n - 2);
+            const seBeta = Math.sqrt(mse / (sumX2 - sumX * sumX / n));
+            const tStat = beta / seBeta;
+            
+            // 计算R²
+            const meanY = sumY / n;
+            let sst = 0;
+            for (let i = 0; i < n; i++) {
+                sst += Math.pow(y[i] - meanY, 2);
+            }
+            const r2 = 1 - (sse / sst);
+            
+            return {
+                alpha: alpha,
+                beta: beta,
+                standardError: seBeta,
+                tStatistic: tStat,
+                pValue: Math.abs(tStat) > 2.58 ? 0.01 : (Math.abs(tStat) > 1.96 ? 0.05 : 0.15),
+                r2: r2,
+                residuals: y.map((yi, i) => yi - (alpha + beta * x[i]))
+            };
+        }
+        
+        // 更新所有图表
+        function updateAllPlots() {
+            addDebugInfo("更新图表...");
+            
+            try {
+                plotOriginalSeries();
+                plotCointegrationRelation();
+                plotResiduals();
+                plotECMAnalysis();
+                updateStatistics();
+                addDebugInfo("所有图表更新完成");
+            } catch (error) {
+                addDebugInfo(`图表更新出错: ${error.message}`);
+            }
+        }
+        
+        // 绘制原始序列
+        function plotOriginalSeries() {
+            if (gdpData.length === 0) {
+                addDebugInfo("数据为空，跳过原始序列图表");
+                return;
+            }
+            
+            const trace1 = {
+                x: timePoints,
+                y: gdpData,
+                type: 'scatter',
+                mode: 'lines',
+                name: 'GDP',
+                line: {color: '#3498db', width: 2}
+            };
+            
+            const trace2 = {
+                x: timePoints,
+                y: consumptionData,
+                type: 'scatter',
+                mode: 'lines',
+                name: '消费支出',
+                line: {color: '#e74c3c', width: 2}
+            };
+            
+            const layout = {
+                title: 'GDP与消费支出时间序列',
+                xaxis: {title: '时间'},
+                yaxis: {title: '数值'},
+                hovermode: 'x unified',
+                responsive: true
+            };
+            
+            Plotly.newPlot('originalSeries', [trace1, trace2], layout);
+            
+            // 动态生成观察要点
+            const gdpTrend = gdpData[gdpData.length-1] > gdpData[0] ? '上升' : '下降';
+            const consumptionTrend = consumptionData[consumptionData.length-1] > consumptionData[0] ? '上升' : '下降';
+            
+            document.getElementById('observationPoints').innerHTML = `
+                <strong>观察要点：</strong>
+                <ul>
+                    <li>GDP序列显示出明显的<strong>${gdpTrend}趋势</strong></li>
+                    <li>消费序列显示出明显的<strong>${consumptionTrend}趋势</strong></li>
+                    <li>序列具有随机游走特征（非平稳）</li>
+                    <li>视觉上看起来高度相关</li>
+                </ul>
+            `;
+            
+            addDebugInfo("原始序列图表绘制完成");
+        }
+        
+        // 绘制协整关系
+        function plotCointegrationRelation() {
+            if (gdpData.length === 0) return;
+            
+            const trace1 = {
+                x: gdpData,
+                y: consumptionData,
+                type: 'scatter',
+                mode: 'markers',
+                name: '实际数据',
+                marker: {color: '#3498db', size: 6, opacity: 0.7}
+            };
+            
+            // 拟合线
+            const minGDP = Math.min(...gdpData);
+            const maxGDP = Math.max(...gdpData);
+            
+            const trace2 = {
+                x: [minGDP, maxGDP],
+                y: [intercept + cointegrationCoeff * minGDP, intercept + cointegrationCoeff * maxGDP],
+                type: 'scatter',
+                mode: 'lines',
+                name: '协整关系',
+                line: {color: '#e74c3c', width: 3}
+            };
+            
+            const layout = {
+                title: '协整关系散点图',
+                xaxis: {title: 'GDP'},
+                yaxis: {title: '消费支出'},
+                responsive: true
+            };
+            
+            Plotly.newPlot('cointegrationPlot', [trace1, trace2], layout);
+            addDebugInfo("协整关系图表绘制完成");
+        }
+        
+        // 绘制残差序列
+        function plotResiduals() {
+            if (residuals.length === 0) return;
+            
+            const trace = {
+                x: timePoints,
+                y: residuals,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: '协整残差',
+                line: {color: '#9b59b6', width: 2},
+                marker: {size: 4}
+            };
+            
+            // 零线
+            const zeroLine = {
+                x: timePoints,
+                y: new Array(timePoints.length).fill(0),
+                type: 'scatter',
+                mode: 'lines',
+                name: '零线',
+                line: {color: '#95a5a6', width: 1, dash: 'dash'}
+            };
+            
+            const layout = {
+                title: '协整残差序列（应该是平稳的）',
+                xaxis: {title: '时间'},
+                yaxis: {title: '残差值'},
+                responsive: true
+            };
+            
+            Plotly.newPlot('residualPlot', [trace, zeroLine], layout);
+            
+            // 生成残差分析结果
+            const residualADF = calculateADFStat(residuals, "残差");
+            const isCointegrated = residualADF.statistic < residualADF.criticalValues.cv5;
+            
+            document.getElementById('residualAnalysis').innerHTML = `
+                <strong>协整残差分析结果：</strong><br>
+                • <strong>残差ADF统计量：</strong>${residualADF.statistic.toFixed(4)}<br>
+                • <strong>5%临界值：</strong>${residualADF.criticalValues.cv5}<br>
+                • <strong>判断结果：</strong>${isCointegrated ? 
+                    '<span style="color:#27ae60">ADF统计量 < 临界值，拒绝单位根假设，残差平稳，<strong>存在协整关系</strong></span>' : 
+                    '<span style="color:#e74c3c">ADF统计量 > 临界值，接受单位根假设，残差非平稳，<strong>不存在协整关系</strong></span>'}<br>
+                • <strong>经济含义：</strong>${isCointegrated ? 
+                    'GDP和消费之间存在长期均衡关系，短期偏离会自动修正' : 
+                    'GDP和消费之间不存在稳定的长期均衡关系'}
+            `;
+            
+            addDebugInfo("残差图表绘制完成");
+        }
+        
+        // ECM分析可视化
+        function plotECMAnalysis() {
+            if (residuals.length < 3) return;
+            
+            // 估计ECM模型
+            const ecmResults = estimateECM();
+            if (!ecmResults) return;
+            
+            // 1. 误差修正项时间序列
+            plotErrorCorrectionTerm(ecmResults);
+            
+            // 2. 调整速度可视化
+            plotAdjustmentSpeed(ecmResults);
+            
+            // 3. ECM诊断图
+            plotECMDiagnostics(ecmResults);
+            
+            // 更新ECM统计和方程
+            updateECMStatistics(ecmResults);
+            
+            addDebugInfo("ECM分析图表绘制完成");
+        }
+        
+        // 绘制误差修正项
+        function plotErrorCorrectionTerm(ecmResults) {
+            const trace1 = {
+                x: timePoints.slice(2),
+                y: ecmResults.laggedECT,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: '误差修正项 ECT_{t-1}',
+                line: {color: '#9b59b6', width: 2},
+                marker: {size: 4}
+            };
+            
+            const zeroLine = {
+                x: timePoints.slice(2),
+                y: new Array(ecmResults.laggedECT.length).fill(0),
+                type: 'scatter',
+                mode: 'lines',
+                name: '均衡线',
+                line: {color: '#95a5a6', width: 1, dash: 'dash'}
+            };
+            
+            const layout = {
+                title: '误差修正项时间序列 ECT_{t-1}',
+                xaxis: {title: '时间'},
+                yaxis: {title: 'ECT值'},
+                responsive: true
+            };
+            
+            Plotly.newPlot('errorCorrectionTermPlot', [trace1, zeroLine], layout);
+        }
+        
+        // 绘制调整速度
+        function plotAdjustmentSpeed(ecmResults) {
+            const trace1 = {
+                x: timePoints.slice(2),
+                y: ecmResults.deltaGDP,
+                type: 'scatter',
+                mode: 'lines',
+                name: 'ΔGDP_t',
+                line: {color: '#3498db', width: 2}
+            };
+            
+            const trace2 = {
+                x: timePoints.slice(2),
+                y: ecmResults.deltaConsumption,
+                type: 'scatter',
+                mode: 'lines',
+                name: 'Δ消费_t',
+                line: {color: '#e74c3c', width: 2}
+            };
+            
+            // 预测的调整
+            const predictedGDP = ecmResults.laggedECT.map(ect => 
+                ecmResults.gdp.alpha + ecmResults.gdp.beta * ect
+            );
+            
+            const predictedConsumption = ecmResults.laggedECT.map(ect => 
+                ecmResults.consumption.alpha + ecmResults.consumption.beta * ect
+            );
+            
+            const trace3 = {
+                x: timePoints.slice(2),
+                y: predictedGDP,
+                type: 'scatter',
+                mode: 'lines',
+                name: 'GDP预测调整',
+                line: {color: '#3498db', width: 1, dash: 'dot'}
+            };
+            
+            const trace4 = {
+                x: timePoints.slice(2),
+                y: predictedConsumption,
+                type: 'scatter',
+                mode: 'lines',
+                name: '消费预测调整',
+                line: {color: '#e74c3c', width: 1, dash: 'dot'}
+            };
+            
+            const layout = {
+                title: '实际变化 vs ECM预测调整',
+                xaxis: {title: '时间'},
+                yaxis: {title: '变化量'},
+                responsive: true
+            };
+            
+            Plotly.newPlot('adjustmentSpeedPlot', [trace1, trace2, trace3, trace4], layout);
+        }
+        
+        // ECM诊断图
+        function plotECMDiagnostics(ecmResults) {
+            // 残差 vs 拟合值散点图
+            const fittedGDP = ecmResults.laggedECT.map(ect => 
+                ecmResults.gdp.alpha + ecmResults.gdp.beta * ect
+            );
+            
+            const fittedConsumption = ecmResults.laggedECT.map(ect => 
+                ecmResults.consumption.alpha + ecmResults.consumption.beta * ect
+            );
+            
+            // 检查残差数值范围
+            const gdpResidualRange = [Math.min(...ecmResults.gdp.residuals), Math.max(...ecmResults.gdp.residuals)];
+            const consumptionResidualRange = [Math.min(...ecmResults.consumption.residuals), Math.max(...ecmResults.consumption.residuals)];
+            
+            addDebugInfo(`GDP ECM残差范围: [${gdpResidualRange[0].toFixed(4)}, ${gdpResidualRange[1].toFixed(4)}]`);
+            addDebugInfo(`消费ECM残差范围: [${consumptionResidualRange[0].toFixed(4)}, ${consumptionResidualRange[1].toFixed(4)}]`);
+            
+            const trace1 = {
+                x: fittedGDP,
+                y: ecmResults.gdp.residuals,
+                type: 'scatter',
+                mode: 'markers',
+                name: 'GDP ECM残差',
+                marker: {color: '#3498db', size: 6, opacity: 0.7}
+            };
+            
+            const trace2 = {
+                x: fittedConsumption,
+                y: ecmResults.consumption.residuals,
+                type: 'scatter',
+                mode: 'markers',
+                name: '消费ECM残差',
+                marker: {color: '#e74c3c', size: 6, opacity: 0.7}
+            };
+            
+            // 添加零线
+            const allFitted = [...fittedGDP, ...fittedConsumption];
+            const fittedRange = [Math.min(...allFitted), Math.max(...allFitted)];
+            
+            const zeroLine = {
+                x: fittedRange,
+                y: [0, 0],
+                type: 'scatter',
+                mode: 'lines',
+                name: '零线',
+                line: {color: '#95a5a6', width: 1, dash: 'dash'}
+            };
+            
+            const layout = {
+                title: 'ECM模型残差诊断图',
+                xaxis: {title: '拟合值'},
+                yaxis: {title: '残差'},
+                responsive: true
+            };
+            
+            Plotly.newPlot('ecmDiagnosticsPlot', [trace1, trace2, zeroLine], layout);
+        }
+        
+        // 更新统计信息
+        function updateStatistics() {
+            if (gdpData.length === 0) return;
+            
+            // 详细的ADF检验结果
+            const gdpADF = calculateADFStat(gdpData, "GDP");
+            const consumptionADF = calculateADFStat(consumptionData, "消费");
+            const residualADF = calculateADFStat(residuals, "残差");
+            
+            // 更新ADF计算过程显示
+            document.getElementById('adfCalculation').innerHTML = 
+`ADF检验计算过程示例（以GDP为例）：
+
+1. 建立回归方程：ΔGDP_t = α + γ·GDP_{t-1} + ε_t
+2. 估计结果：
+   - γ (gamma) = ${gdpADF.gamma ? gdpADF.gamma.toFixed(6) : 'N/A'}
+   - 标准误 SE(γ) = ${gdpADF.standardError ? gdpADF.standardError.toFixed(6) : 'N/A'}
+   - ADF统计量 = γ / SE(γ) = ${gdpADF.statistic.toFixed(4)}
+
+3. 与临界值比较：
+   - 1%临界值: ${gdpADF.criticalValues.cv1}
+   - 5%临界值: ${gdpADF.criticalValues.cv5}  
+   - 10%临界值: ${gdpADF.criticalValues.cv10}`;
+            
+            // 更新ADF检验结果
+            document.getElementById('stationarityTests').innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${gdpADF.statistic.toFixed(3)}</div>
+                    <div class="stat-label">GDP ADF统计量</div>
+                    <div style="color: ${gdpADF.pValue > 0.05 ? '#e74c3c' : '#27ae60'}">
+                        p值: ${gdpADF.pValue.toFixed(3)}
+                    </div>
+                    <div style="font-size: 0.8em; color: #666;">
+                        ${gdpADF.statistic < gdpADF.criticalValues.cv5 ? '拒绝H₀(平稳)' : '接受H₀(非平稳)'}
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${consumptionADF.statistic.toFixed(3)}</div>
+                    <div class="stat-label">消费 ADF统计量</div>
+                    <div style="color: ${consumptionADF.pValue > 0.05 ? '#e74c3c' : '#27ae60'}">
+                        p值: ${consumptionADF.pValue.toFixed(3)}
+                    </div>
+                    <div style="font-size: 0.8em; color: #666;">
+                        ${consumptionADF.statistic < consumptionADF.criticalValues.cv5 ? '拒绝H₀(平稳)' : '接受H₀(非平稳)'}
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${residualADF.statistic.toFixed(3)}</div>
+                    <div class="stat-label">残差 ADF统计量</div>
+                    <div style="color: ${residualADF.pValue > 0.05 ? '#e74c3c' : '#27ae60'}">
+                        p值: ${residualADF.pValue.toFixed(3)}
+                    </div>
+                    <div style="font-size: 0.8em; color: #666;">
+                        ${residualADF.statistic < residualADF.criticalValues.cv5 ? '拒绝H₀(平稳)' : '接受H₀(非平稳)'}
+                    </div>
+                </div>
+            `;
+            
+            // 更新ADF结果解释
+            document.getElementById('adfInterpretation').innerHTML = `
+                <strong>检验结果解释：</strong><br>
+                • <strong>GDP序列：</strong>${gdpADF.statistic < gdpADF.criticalValues.cv5 ? 
+                    '在5%显著性水平下拒绝原假设，序列平稳' : 
+                    '在5%显著性水平下接受原假设，序列非平稳（存在单位根）'}<br>
+                • <strong>消费序列：</strong>${consumptionADF.statistic < consumptionADF.criticalValues.cv5 ? 
+                    '在5%显著性水平下拒绝原假设，序列平稳' : 
+                    '在5%显著性水平下接受原假设，序列非平稳（存在单位根）'}<br>
+                • <strong>协整残差：</strong>${residualADF.statistic < residualADF.criticalValues.cv5 ? 
+                    '在5%显著性水平下拒绝原假设，残差平稳，<span style="color:#27ae60">存在协整关系</span>' : 
+                    '在5%显著性水平下接受原假设，残差非平稳，<span style="color:#e74c3c">不存在协整关系</span>'}
+            `;
+            
+            // 协整统计
+            const residualMean = residuals.reduce((a, b) => a + b) / residuals.length;
+            const residualStd = Math.sqrt(residuals.reduce((a, b) => a + Math.pow(b - residualMean, 2), 0) / residuals.length);
+            
+            document.getElementById('cointegrationStats').innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${cointegrationCoeff.toFixed(4)}</div>
+                    <div class="stat-label">协整系数 β</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${calculateR2().toFixed(4)}</div>
+                    <div class="stat-label">拟合优度 R²</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${residualStd.toFixed(4)}</div>
+                    <div class="stat-label">残差标准差</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${residualADF.statistic < residualADF.criticalValues.cv5 ? '是' : '否'}</div>
+                    <div class="stat-label">存在协整关系</div>
+                    <div style="font-size: 0.8em; color: #666;">
+                        基于5%临界值判断
+                    </div>
+                </div>
+            `;
+            
+            addDebugInfo("统计信息更新完成");
+        }
+        
+        // 更新ECM统计信息
+        function updateECMStatistics(ecmResults) {
+            if (!ecmResults) return;
+            
+            // 计算截距的t统计量（简化计算）
+            const gdpAlphaTStat = ecmResults.gdp.alpha / (ecmResults.gdp.standardError * 0.5); // 简化估计
+            const consumptionAlphaTStat = ecmResults.consumption.alpha / (ecmResults.consumption.standardError * 0.5);
+            
+            // 更新ECM方程显示
+            document.getElementById('ecmEquations').innerHTML = 
+`ECM模型估计结果：
+
+GDP方程：
+ΔGDP_t = ${ecmResults.gdp.alpha.toFixed(4)} + ${ecmResults.gdp.beta.toFixed(4)} × ECT_{t-1} + ε_{1t}
+         (${gdpAlphaTStat.toFixed(3)})    (${ecmResults.gdp.tStatistic.toFixed(3)})
+R² = ${ecmResults.gdp.r2.toFixed(4)}
+
+消费方程：
+Δ消费_t = ${ecmResults.consumption.alpha.toFixed(4)} + ${ecmResults.consumption.beta.toFixed(4)} × ECT_{t-1} + ε_{2t}
+          (${consumptionAlphaTStat.toFixed(3)})    (${ecmResults.consumption.tStatistic.toFixed(3)})
+R² = ${ecmResults.consumption.r2.toFixed(4)}
+
+注：括号内为t统计量，第一个对应截距，第二个对应ECT系数`;
+            
+            // 计算半衰期
+            const halfLifeGDP = ecmResults.gdp.beta !== 0 ? 
+                Math.log(0.5) / Math.log(1 + ecmResults.gdp.beta) : Infinity;
+            const halfLifeConsumption = ecmResults.consumption.beta !== 0 ? 
+                Math.log(0.5) / Math.log(1 + ecmResults.consumption.beta) : Infinity;
+            
+            // 更新ECM统计
+            document.getElementById('ecmStats').innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${ecmResults.gdp.beta.toFixed(4)}</div>
+                    <div class="stat-label">GDP调整系数 α₁</div>
+                    <div style="color: ${ecmResults.gdp.beta < 0 ? '#27ae60' : '#e74c3c'}">
+                        ${ecmResults.gdp.beta < 0 ? '向均衡回归' : '偏离均衡'}
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${ecmResults.consumption.beta.toFixed(4)}</div>
+                    <div class="stat-label">消费调整系数 α₂</div>
+                    <div style="color: ${ecmResults.consumption.beta < 0 ? '#27ae60' : '#e74c3c'}">
+                        ${ecmResults.consumption.beta < 0 ? '向均衡回归' : '偏离均衡'}
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${isFinite(halfLifeGDP) ? halfLifeGDP.toFixed(1) : '∞'}</div>
+                    <div class="stat-label">GDP半衰期（期）</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${isFinite(halfLifeConsumption) ? halfLifeConsumption.toFixed(1) : '∞'}</div>
+                    <div class="stat-label">消费半衰期（期）</div>
+                </div>
+            `;
+            
+            // 更新ECM解释 - 修复显著性判断逻辑
+            const gdpSignificant = Math.abs(ecmResults.gdp.tStatistic) > 1.96;
+            const consumptionSignificant = Math.abs(ecmResults.consumption.tStatistic) > 1.96;
+            
+            document.getElementById('ecmInterpretation').innerHTML = `
+                <strong>ECM模型结果解释：</strong><br>
+                • <strong>GDP调整系数：</strong>${ecmResults.gdp.beta.toFixed(4)} (t统计量: ${ecmResults.gdp.tStatistic.toFixed(3)})<br>
+                  ${gdpSignificant ? 
+                    (ecmResults.gdp.beta < 0 ? 
+                        `<span style="color:#27ae60">显著的误差修正机制，调整速度为${Math.abs(ecmResults.gdp.beta * 100).toFixed(2)}%/期</span>` :
+                        '<span style="color:#e74c3c">调整系数显著为正，可能存在模型设定问题</span>') :
+                    '<span style="color:#f39c12">调整系数不显著，GDP不参与误差修正</span>'}<br><br>
+                • <strong>消费调整系数：</strong>${ecmResults.consumption.beta.toFixed(4)} (t统计量: ${ecmResults.consumption.tStatistic.toFixed(3)})<br>
+                  ${consumptionSignificant ? 
+                    (ecmResults.consumption.beta < 0 ? 
+                        `<span style="color:#27ae60">显著的误差修正机制，调整速度为${Math.abs(ecmResults.consumption.beta * 100).toFixed(2)}%/期</span>` :
+                        '<span style="color:#e74c3c">调整系数显著为正，可能存在模型设定问题</span>') :
+                    '<span style="color:#f39c12">调整系数不显著，消费不参与误差修正</span>'}<br><br>
+                • <strong>显著性标准：</strong>|t统计量| > 1.96 (5%显著性水平)<br><br>
+                • <strong>调整系数符号解释：</strong><br>
+                  - <strong>α < 0：</strong>正常的误差修正机制，当上期偏离均衡时，本期会向均衡方向调整<br>
+                  - <strong>α > 0：</strong>异常情况，表示偏离均衡时会进一步偏离，违背经济理论<br>
+                  - <strong>α = 0：</strong>不存在误差修正，该变量不参与长期均衡调整<br><br>
+                • <strong>经济含义：</strong>${(gdpSignificant && ecmResults.gdp.beta < 0) || (consumptionSignificant && ecmResults.consumption.beta < 0) ?
+                    '存在有效的误差修正机制，变量会向长期均衡回归，符合经济理论预期' :
+                    '误差修正机制较弱或不存在，可能需要重新考虑模型设定或数据质量'}
+            `;
+        }
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            addDebugInfo("页面加载完成，开始初始化...");
+            
+            // 测试随机数生成
+            const testRandom = randomNormal(0, 1);
+            addDebugInfo(`随机数测试: ${testRandom.toFixed(4)}`);
+            
+            // 延迟生成数据确保页面完全加载
+            setTimeout(function() {
+                generateData();
+            }, 500);
+        });
+        
+        // 备用初始化
+        window.addEventListener('load', function() {
+            if (gdpData.length === 0) {
+                addDebugInfo("备用初始化启动...");
+                setTimeout(generateData, 1000);
+            }
+        });
+    </script>
+  <script src="vendor/mathjax-loader.js"></script>
+  <script src="vendor/mathjax-tex-svg.js"></script>
+</body>
+</html>

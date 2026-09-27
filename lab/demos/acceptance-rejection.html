@@ -1,0 +1,1435 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>伽马分布接受-拒绝采样演示</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 8px;
+        }
+        
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .content {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding: 15px;
+        }
+        
+        .control-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        @media (max-width: 768px) {
+            .control-panel {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .panel {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+        }
+        
+        .panel h2 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 8px;
+        }
+        
+        .parameter-control {
+            margin-bottom: 20px;
+        }
+        
+        .parameter-control label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .slider-container input[type="range"] {
+            flex: 1;
+            height: 6px;
+            background: #ddd;
+            border-radius: 3px;
+            outline: none;
+        }
+        
+        .slider-container input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #3498db;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        
+        .slider-container span {
+            min-width: 60px;
+            text-align: center;
+            font-weight: 600;
+            color: #3498db;
+        }
+        
+        .info-box {
+            background: #e8f4fd;
+            border-left: 4px solid #3498db;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 0 6px 6px 0;
+        }
+        
+        .warning {
+            background: #ffeaa7;
+            border-left: 4px solid #fdcb6e;
+            color: #d63031;
+        }
+        
+        .control-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+        
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+        
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+        
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .stat-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #3498db;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+        
+        canvas {
+            width: 100%;
+            height: 40vh;
+            max-height: 350px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+        
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin: 15px 0;
+        }
+        
+        .speed-control label {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .log {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 8px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+        
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-radius: 4px;
+        }
+        
+        .log-accepted {
+            background: #27ae60;
+        }
+        
+        .log-rejected {
+            background: #e74c3c;
+        }
+        
+        .theory {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            margin-top: 30px;
+        }
+        
+        .theory h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+        
+        .theory p {
+            margin-bottom: 15px;
+            text-align: justify;
+        }
+        
+        .math {
+            background: #e8f4fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-family: 'Cambria Math', serif;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>伽马分布接受-拒绝采样演示</h1>
+            <p>使用指数分布作为建议分布生成伽马分布样本</p>
+        </div>
+        
+        <div class="content">
+            <div class="control-panel">
+                <div class="panel">
+                    <h2>参数设置</h2>
+                    
+                    <div class="parameter-control">
+                        <label for="shape">形状参数 α (建议范围: 0.5-10)</label>
+                        <div class="slider-container">
+                            <input type="range" id="shape" min="0.5" max="10" step="0.1" value="2">
+                            <span id="shape-value">2.0</span>
+                        </div>
+                    </div>
+                    
+                    <div class="parameter-control">
+                        <label for="rate">速率参数 β (建议范围: 0.1-5)</label>
+                        <div class="slider-container">
+                            <input type="range" id="rate" min="0.1" max="5" step="0.1" value="1">
+                            <span id="rate-value">1.0</span>
+                        </div>
+                    </div>
+                    
+                    <div class="parameter-control">
+                        <label for="sample-count">样本数量 (建议范围: 10-5000)</label>
+                        <div class="slider-container">
+                            <input type="range" id="sample-count" min="10" max="5000" step="10" value="500">
+                            <span id="sample-count-value">500</span>
+                        </div>
+                    </div>
+                    
+                    <div class="info-box" id="parameter-info">
+                        <strong>参数说明：</strong> α > 0 控制分布形状，β > 0 控制分布尺度。
+                    </div>
+                    
+                    <div class="warning" id="parameter-warning" style="display: none;">
+                        <strong>警告：</strong> 当前参数设置可能导致效率较低，建议调整参数。
+                    </div>
+                </div>
+                
+                <div class="panel">
+                    <h2>采样控制操作台</h2>
+                    <div class="control-buttons">
+                        <button class="btn btn-success" id="results-btn">生成结果</button>
+                        <button class="btn btn-primary" id="demo-start-btn">开始采样</button>
+                        <button class="btn btn-primary" id="demo-step-btn">单步采样</button>
+                        <button class="btn btn-warning" id="demo-pause-btn" disabled>暂停采样</button>
+                        <button class="btn btn-primary" id="demo-continue-btn" disabled>继续采样</button>
+                        <button class="btn btn-danger" id="demo-stop-btn">结束采样</button>
+                    </div>
+                    
+                    <div class="speed-control">
+                        <label for="demo-speed">演示速度:</label>
+                        <input type="range" id="demo-speed" min="1" max="10" value="5">
+                        <span id="demo-speed-value">中等</span>
+                    </div>
+                    
+                    <div class="stats">
+                        <div class="stat-item">
+                            <div class="stat-value" id="total-samples">0</div>
+                            <div class="stat-label">总样本数</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="accepted-samples">0</div>
+                            <div class="stat-label">接受样本</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="acceptance-rate">0%</div>
+                            <div class="stat-label">接受比例</div>
+                        </div>
+                    </div>
+                    
+                    <div class="demo-info" style="margin-top: 15px; padding: 15px; background: #e8f4fd; border-radius: 8px;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+                            <div><strong>当前状态:</strong> <span id="demo-status">等待开始</span></div>
+                            <div><strong>已生成样本:</strong> <span id="demo-sample-count">0</span></div>
+                            <div><strong>接受比例:</strong> <span id="demo-acceptance-rate">0%</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="panel">
+                <h2>图形展示</h2>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+                    <div>
+                        <h3>采样结果</h3>
+                        <canvas id="distribution-canvas" style="height: 40vh; max-height: 350px;"></canvas>
+                    </div>
+                    
+                    <div>
+                        <h3>采样过程</h3>
+                        <canvas id="demo-canvas" style="height: 40vh; max-height: 350px;"></canvas>
+                    </div>
+                    
+                    <div>
+                        <h3>采样日志</h3>
+                        <div class="log" id="sampling-log" style="height: 40vh; max-height: 350px;">
+                            <div class="log-entry">等待开始采样...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="theory">
+            <h3>原理讲解</h3>
+            
+            <p><strong>伽马分布概率密度函数：</strong></p>
+            <div class="math">
+                f(x) = (β^α / Γ(α)) * x^(α-1) * e^(-βx), 其中 x > 0, α > 0, β > 0
+            </div>
+            
+            <p><strong>接受-拒绝采样原理：</strong></p>
+            <p>接受-拒绝采样是一种从复杂分布中生成样本的方法。我们需要：</p>
+            <ol>
+                <li>选择一个容易采样的建议分布 g(x)</li>
+                <li>找到常数 M，使得 f(x) ≤ M * g(x) 对所有 x 成立</li>
+                <li>从 g(x) 中采样得到候选样本 x</li>
+                <li>从均匀分布 U(0,1) 采样得到 u</li>
+                <li>如果 u ≤ f(x) / (M * g(x))，则接受 x，否则拒绝</li>
+            </ol>
+            
+            <p><strong>使用指数分布作为建议分布：</strong></p>
+            <p>当 α ≥ 1 时，我们可以使用指数分布 Exp(β) 作为建议分布。常数 M 的选择为：</p>
+            <div class="math">
+                M = (α^α * e^(-α)) / (Γ(α) * β^(α-1))
+            </div>
+            
+            <p><strong>效率分析：</strong></p>
+            <p>接受比例约为 1/M。当 α 接近 1 时效率最高，随着 α 增大效率降低。</p>
+        </div>
+    </div>
+
+    <script>
+        class GammaSamplingDemo {
+            constructor() {
+                this.canvas = document.getElementById('distribution-canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.demoCanvas = document.getElementById('demo-canvas');
+                this.demoCtx = this.demoCanvas.getContext('2d');
+                this.setupEventListeners();
+                this.initializeParameters();
+                this.setupCanvas();
+                
+                this.sampling = false;
+                this.paused = false;
+                this.animationId = null;
+                this.samples = [];
+                this.acceptedSamples = [];
+                this.rejectedSamples = [];
+                this.logEntries = [];
+                
+                this.updateCanvas();
+                this.updateDemoCanvas();
+            }
+            
+            setupEventListeners() {
+                // 参数滑块事件
+                document.getElementById('shape').addEventListener('input', (e) => {
+                    document.getElementById('shape-value').textContent = e.target.value;
+                    this.shape = parseFloat(e.target.value);
+                    this.updateParameterInfo();
+                    this.updateCanvas();
+                });
+                
+                document.getElementById('rate').addEventListener('input', (e) => {
+                    document.getElementById('rate-value').textContent = e.target.value;
+                    this.rate = parseFloat(e.target.value);
+                    this.updateParameterInfo();
+                    this.updateCanvas();
+                });
+                
+                document.getElementById('sample-count').addEventListener('input', (e) => {
+                    document.getElementById('sample-count-value').textContent = e.target.value;
+                    this.sampleCount = parseInt(e.target.value);
+                    this.updateParameterInfo();
+                });
+                
+                document.getElementById('demo-speed').addEventListener('input', (e) => {
+                    const speed = parseInt(e.target.value);
+                    const speedText = ['极慢', '很慢', '慢', '较慢', '中等', '较快', '快', '很快', '极快', '最快'][speed-1];
+                    document.getElementById('demo-speed-value').textContent = speedText;
+                    this.demoSpeed = speed;
+                });
+                
+                // 生成结果按钮事件
+                document.getElementById('results-btn').addEventListener('click', () => {
+                    this.generateResults();
+                });
+                
+                // 演示控制按钮事件
+                document.getElementById('demo-start-btn').addEventListener('click', () => {
+                    this.demoStartSampling();
+                });
+                
+                document.getElementById('demo-pause-btn').addEventListener('click', () => {
+                    this.demoPauseSampling();
+                });
+                
+                document.getElementById('demo-step-btn').addEventListener('click', () => {
+                    this.demoSingleStep();
+                });
+                
+                document.getElementById('demo-continue-btn').addEventListener('click', () => {
+                    this.demoContinueSampling();
+                });
+                
+                document.getElementById('demo-stop-btn').addEventListener('click', () => {
+                    this.demoStopSampling();
+                });
+                
+                // 窗口大小变化时重新设置canvas
+                window.addEventListener('resize', () => {
+                    this.setupCanvas();
+                    this.updateCanvas();
+                    this.updateDemoCanvas();
+                });
+            }
+            
+            initializeParameters() {
+                this.shape = 2;
+                this.rate = 1;
+                this.sampleCount = 500;
+                this.speed = 5;
+                this.demoSpeed = 5;
+                this.showHistogram = false;
+                this.demoSampling = false;
+                this.demoPaused = false;
+                this.demoAnimationId = null;
+                this.demoSamples = [];
+                this.demoAcceptedSamples = [];
+                this.demoRejectedSamples = [];
+            }
+            
+            setupCanvas() {
+                const container = this.canvas.parentElement;
+                this.canvas.width = container.clientWidth;
+                this.canvas.height = Math.round(this.canvas.width * 0.75); // 4:3比例
+                
+                const demoContainer = this.demoCanvas.parentElement;
+                this.demoCanvas.width = demoContainer.clientWidth;
+                this.demoCanvas.height = Math.round(this.demoCanvas.width * 0.75); // 4:3比例
+                
+                // 设置高质量渲染
+                this.ctx.imageSmoothingEnabled = true;
+                this.ctx.imageSmoothingQuality = 'high';
+                this.demoCtx.imageSmoothingEnabled = true;
+                this.demoCtx.imageSmoothingQuality = 'high';
+            }
+            
+            updateParameterInfo() {
+                const warningElement = document.getElementById('parameter-warning');
+                const infoElement = document.getElementById('parameter-info');
+                
+                let warningText = '';
+                let infoText = '参数设置合理，采样效率良好。';
+                
+                if (this.shape < 0.5) {
+                    warningText = '形状参数α过小，建议设置为0.5以上';
+                } else if (this.shape > 8) {
+                    warningText = '形状参数α较大，采样效率可能较低';
+                }
+                
+                if (this.rate < 0.1) {
+                    warningText = '速率参数β过小，建议设置为0.1以上';
+                } else if (this.rate > 3) {
+                    warningText = '速率参数β较大，分布较为集中';
+                }
+                
+                if (this.sampleCount < 50) {
+                    warningText = '样本数量较少，统计结果可能不够稳定';
+                } else if (this.sampleCount > 2000) {
+                    warningText = '样本数量较大，计算可能需要较长时间';
+                }
+                
+                if (warningText) {
+                    warningElement.style.display = 'block';
+                    warningElement.innerHTML = `<strong>警告：</strong> ${warningText}`;
+                    infoElement.innerHTML = `<strong>建议：</strong> ${infoText}`;
+                } else {
+                    warningElement.style.display = 'none';
+                    infoElement.innerHTML = `<strong>参数说明：</strong> 当前参数设置合理，采样效率良好。`;
+                }
+            }
+            
+            // 伽马分布PDF
+            gammaPDF(x, shape, rate) {
+                if (x <= 0) return 0;
+                
+                // 使用对数计算避免数值溢出
+                const logPDF = shape * Math.log(rate) - this.logGamma(shape) + 
+                             (shape - 1) * Math.log(x) - rate * x;
+                return Math.exp(logPDF);
+            }
+            
+            // 对数伽马函数近似
+            logGamma(z) {
+                // Lanczos近似
+                const p = [
+                    676.5203681218851, -1259.1392167224028, 771.32342877765313,
+                    -176.61502916214059, 12.507343278686905, -0.13857109526572012,
+                    9.9843695780195716e-6, 1.5056327351493116e-7
+                ];
+                
+                if (z < 0.5) {
+                    return Math.log(Math.PI) - Math.log(Math.sin(Math.PI * z)) - this.logGamma(1 - z);
+                }
+                
+                z -= 1;
+                let x = 0.99999999999980993;
+                for (let i = 0; i < p.length; i++) {
+                    x += p[i] / (z + i + 1);
+                }
+                
+                const t = z + p.length - 0.5;
+                return 0.5 * Math.log(2 * Math.PI) + (z + 0.5) * Math.log(t) - t + Math.log(x);
+            }
+            
+            // 指数分布PDF
+            exponentialPDF(x, rate) {
+                return x >= 0 ? rate * Math.exp(-rate * x) : 0;
+            }
+            
+            // 从指数分布采样
+            sampleExponential(rate) {
+                return -Math.log(1 - Math.random()) / rate;
+            }
+            
+            // 计算常数M
+            calculateM(shape, rate) {
+                if (shape >= 1) {
+                    return Math.pow(shape, shape) * Math.exp(-shape) / 
+                           (Math.exp(this.logGamma(shape)) * Math.pow(rate, shape - 1));
+                } else {
+                    // 对于shape < 1的情况，使用更复杂的边界
+                    return 2 / (rate * Math.exp(this.logGamma(shape)));
+                }
+            }
+            
+            // 单次采样
+            singleSample() {
+                const M = this.calculateM(this.shape, this.rate);
+                let accepted = false;
+                let candidate, u;
+                
+                do {
+                    // 从指数分布采样候选样本
+                    candidate = this.sampleExponential(this.rate);
+                    
+                    // 从均匀分布采样
+                    u = Math.random();
+                    
+                    // 计算接受概率
+                    const targetPDF = this.gammaPDF(candidate, this.shape, this.rate);
+                    const proposalPDF = this.exponentialPDF(candidate, this.rate);
+                    const acceptanceProb = targetPDF / (M * proposalPDF);
+                    
+                    accepted = u <= acceptanceProb;
+                    
+                    // 记录采样信息
+                    this.samples.push({
+                        candidate: candidate,
+                        u: u,
+                        acceptanceProb: acceptanceProb,
+                        accepted: accepted,
+                        timestamp: Date.now()
+                    });
+                    
+                    if (accepted) {
+                        this.acceptedSamples.push(candidate);
+                    } else {
+                        this.rejectedSamples.push(candidate);
+                    }
+                    
+                    // 添加日志
+                    this.addLogEntry(candidate, u, acceptanceProb, accepted);
+                    
+                } while (!accepted);
+                
+                this.updateStats();
+                this.updateCanvas();
+            }
+            
+            // 添加日志条目
+            addLogEntry(candidate, u, acceptanceProb, accepted) {
+                const logElement = document.getElementById('sampling-log');
+                const entry = document.createElement('div');
+                
+                entry.className = `log-entry ${accepted ? 'log-accepted' : 'log-rejected'}`;
+                entry.innerHTML = `候选: ${candidate.toFixed(3)}, u: ${u.toFixed(3)}, 接受概率: ${(acceptanceProb*100).toFixed(1)}% - ${accepted ? '接受' : '拒绝'}`;
+                
+                this.logEntries.push(entry);
+                
+                // 保持日志长度
+                if (this.logEntries.length > 20) {
+                    const removed = this.logEntries.shift();
+                    if (removed.parentNode === logElement) {
+                        logElement.removeChild(removed);
+                    }
+                }
+                
+                logElement.appendChild(entry);
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+            
+            // 更新统计信息
+            updateStats() {
+                const total = this.samples.length;
+                const accepted = this.acceptedSamples.length;
+                const rate = total > 0 ? (accepted / total * 100).toFixed(1) : 0;
+                
+                document.getElementById('total-samples').textContent = total;
+                document.getElementById('accepted-samples').textContent = accepted;
+                document.getElementById('acceptance-rate').textContent = `${rate}%`;
+            }
+            
+            // 开始连续采样
+            startSampling() {
+                this.sampling = true;
+                this.paused = false;
+                
+                document.getElementById('start-btn').disabled = true;
+                document.getElementById('pause-btn').disabled = false;
+                document.getElementById('continue-btn').disabled = true;
+                document.getElementById('stop-btn').disabled = false;
+                
+                this.runSamplingLoop();
+            }
+            
+            // 暂停采样
+            pauseSampling() {
+                this.paused = true;
+                document.getElementById('pause-btn').disabled = true;
+                document.getElementById('continue-btn').disabled = false;
+            }
+            
+            // 继续采样
+            continueSampling() {
+                this.paused = false;
+                document.getElementById('pause-btn').disabled = false;
+                document.getElementById('continue-btn').disabled = true;
+                this.runSamplingLoop();
+            }
+            
+            // 生成采样结果
+            generateResults() {
+                // 停止当前采样
+                this.sampling = false;
+                this.paused = false;
+                
+                if (this.animationId) {
+                    cancelAnimationFrame(this.animationId);
+                    this.animationId = null;
+                }
+                
+                // 清空现有数据
+                this.samples = [];
+                this.acceptedSamples = [];
+                this.rejectedSamples = [];
+                
+                // 显示加载状态
+                const logElement = document.getElementById('sampling-log');
+                logElement.innerHTML = '<div class="log-entry">正在生成采样结果，请稍候...</div>';
+                
+                // 批量生成样本
+                this.batchGenerateSamples();
+                
+                // 更新统计信息
+                this.updateStats();
+                
+                // 显示柱形图
+                this.showHistogram = true;
+                this.updateCanvas();
+                
+                // 更新日志
+                logElement.innerHTML = '<div class="log-entry">采样完成！已生成 ' + this.sampleCount + ' 个样本。</div>';
+            }
+            
+            // 批量生成样本
+            batchGenerateSamples() {
+                const M = this.calculateM(this.shape, this.rate);
+                let generatedCount = 0;
+                
+                while (generatedCount < this.sampleCount) {
+                    // 从指数分布采样候选样本
+                    const candidate = this.sampleExponential(this.rate);
+                    
+                    // 从均匀分布采样
+                    const u = Math.random();
+                    
+                    // 计算接受概率
+                    const targetPDF = this.gammaPDF(candidate, this.shape, this.rate);
+                    const proposalPDF = this.exponentialPDF(candidate, this.rate);
+                    const acceptanceProb = targetPDF / (M * proposalPDF);
+                    
+                    const accepted = u <= acceptanceProb;
+                    
+                    // 记录采样信息
+                    this.samples.push({
+                        candidate: candidate,
+                        u: u,
+                        acceptanceProb: acceptanceProb,
+                        accepted: accepted,
+                        timestamp: Date.now()
+                    });
+                    
+                    if (accepted) {
+                        this.acceptedSamples.push(candidate);
+                        generatedCount++;
+                    } else {
+                        this.rejectedSamples.push(candidate);
+                    }
+                }
+            }
+            
+            // 演示采样 - 开始采样
+            demoStartSampling() {
+                this.demoSampling = true;
+                this.demoPaused = false;
+                
+                // 清空演示数据
+                this.demoSamples = [];
+                this.demoAcceptedSamples = [];
+                this.demoRejectedSamples = [];
+                
+                // 更新按钮状态
+                document.getElementById('demo-start-btn').disabled = true;
+                document.getElementById('demo-pause-btn').disabled = false;
+                document.getElementById('demo-step-btn').disabled = true;
+                document.getElementById('demo-continue-btn').disabled = true;
+                document.getElementById('demo-stop-btn').disabled = false;
+                
+                // 更新状态
+                this.updateDemoStatus('正在采样...');
+                
+                // 开始采样循环
+                this.demoRunSamplingLoop();
+            }
+            
+            // 演示采样 - 暂停采样
+            demoPauseSampling() {
+                this.demoPaused = true;
+                
+                document.getElementById('demo-pause-btn').disabled = true;
+                document.getElementById('demo-continue-btn').disabled = false;
+                document.getElementById('demo-step-btn').disabled = false;
+                
+                this.updateDemoStatus('已暂停');
+            }
+            
+            // 演示采样 - 单步采样
+            demoSingleStep() {
+                if (!this.demoPaused) return;
+                
+                this.demoGenerateSample();
+                this.updateDemoStats();
+                this.updateDemoCanvas();
+            }
+            
+            // 演示采样 - 继续采样
+            demoContinueSampling() {
+                this.demoPaused = false;
+                
+                document.getElementById('demo-pause-btn').disabled = false;
+                document.getElementById('demo-continue-btn').disabled = true;
+                document.getElementById('demo-step-btn').disabled = true;
+                
+                this.updateDemoStatus('正在采样...');
+                this.demoRunSamplingLoop();
+            }
+            
+            // 演示采样 - 结束采样
+            demoStopSampling() {
+                this.demoSampling = false;
+                this.demoPaused = false;
+                
+                if (this.demoAnimationId) {
+                    clearTimeout(this.demoAnimationId);
+                    this.demoAnimationId = null;
+                }
+                
+                // 重置按钮状态
+                document.getElementById('demo-start-btn').disabled = false;
+                document.getElementById('demo-pause-btn').disabled = true;
+                document.getElementById('demo-step-btn').disabled = false;
+                document.getElementById('demo-continue-btn').disabled = true;
+                document.getElementById('demo-stop-btn').disabled = true;
+                
+                this.updateDemoStatus('已结束');
+            }
+            
+            // 演示采样循环
+            demoRunSamplingLoop() {
+                if (!this.demoSampling || this.demoPaused) return;
+                
+                const samplesPerFrame = Math.max(1, Math.floor(this.demoSpeed / 3));
+                
+                for (let i = 0; i < samplesPerFrame; i++) {
+                    this.demoGenerateSample();
+                }
+                
+                this.updateDemoStats();
+                this.updateDemoCanvas();
+                
+                const delay = Math.max(100, 1000 - this.demoSpeed * 90);
+                
+                this.demoAnimationId = setTimeout(() => {
+                    this.demoRunSamplingLoop();
+                }, delay);
+            }
+            
+            // 生成单个演示样本
+            demoGenerateSample() {
+                const M = this.calculateM(this.shape, this.rate);
+                let accepted = false;
+                let candidate, u;
+                
+                do {
+                    // 从指数分布采样候选样本
+                    candidate = this.sampleExponential(this.rate);
+                    
+                    // 从均匀分布采样
+                    u = Math.random();
+                    
+                    // 计算接受概率
+                    const targetPDF = this.gammaPDF(candidate, this.shape, this.rate);
+                    const proposalPDF = this.exponentialPDF(candidate, this.rate);
+                    const acceptanceProb = targetPDF / (M * proposalPDF);
+                    
+                    accepted = u <= acceptanceProb;
+                    
+                    // 记录采样信息
+                    this.demoSamples.push({
+                        candidate: candidate,
+                        u: u,
+                        acceptanceProb: acceptanceProb,
+                        accepted: accepted,
+                        timestamp: Date.now()
+                    });
+                    
+                    if (accepted) {
+                        this.demoAcceptedSamples.push(candidate);
+                    } else {
+                        this.demoRejectedSamples.push(candidate);
+                    }
+                    
+                    // 添加日志
+                    this.addDemoLogEntry(candidate, u, acceptanceProb, accepted);
+                    
+                } while (!accepted);
+            }
+            
+            // 添加演示日志条目
+            addDemoLogEntry(candidate, u, acceptanceProb, accepted) {
+                const logElement = document.getElementById('sampling-log');
+                const entry = document.createElement('div');
+                
+                entry.className = `log-entry ${accepted ? 'log-accepted' : 'log-rejected'}`;
+                entry.innerHTML = `候选: ${candidate.toFixed(3)}, u: ${u.toFixed(3)}, 接受概率: ${(acceptanceProb*100).toFixed(1)}% - ${accepted ? '接受' : '拒绝'}`;
+                
+                this.logEntries.push(entry);
+                
+                // 保持日志长度
+                if (this.logEntries.length > 20) {
+                    const removed = this.logEntries.shift();
+                    if (removed.parentNode === logElement) {
+                        logElement.removeChild(removed);
+                    }
+                }
+                
+                logElement.appendChild(entry);
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+            
+            // 更新演示状态
+            updateDemoStatus(status) {
+                document.getElementById('demo-status').textContent = status;
+            }
+            
+            // 更新演示统计信息
+            updateDemoStats() {
+                const total = this.demoSamples.length;
+                const accepted = this.demoAcceptedSamples.length;
+                const rate = total > 0 ? (accepted / total * 100).toFixed(1) : 0;
+                
+                document.getElementById('demo-sample-count').textContent = accepted;
+                document.getElementById('demo-acceptance-rate').textContent = `${rate}%`;
+            }
+            
+            // 重置参数
+            resetParameters() {
+                // 停止当前采样
+                this.sampling = false;
+                this.paused = false;
+                this.demoSampling = false;
+                this.demoPaused = false;
+                
+                if (this.animationId) {
+                    cancelAnimationFrame(this.animationId);
+                    this.animationId = null;
+                }
+                
+                if (this.demoAnimationId) {
+                    clearTimeout(this.demoAnimationId);
+                    this.demoAnimationId = null;
+                }
+                
+                // 重置参数到默认值
+                this.shape = 2;
+                this.rate = 1;
+                this.sampleCount = 500;
+                this.showHistogram = false;
+                
+                // 更新滑块和显示值
+                document.getElementById('shape').value = this.shape;
+                document.getElementById('shape-value').textContent = this.shape.toFixed(1);
+                document.getElementById('rate').value = this.rate;
+                document.getElementById('rate-value').textContent = this.rate.toFixed(1);
+                document.getElementById('sample-count').value = this.sampleCount;
+                document.getElementById('sample-count-value').textContent = this.sampleCount;
+                
+                // 清空样本数据
+                this.samples = [];
+                this.acceptedSamples = [];
+                this.rejectedSamples = [];
+                this.demoSamples = [];
+                this.demoAcceptedSamples = [];
+                this.demoRejectedSamples = [];
+                this.logEntries = [];
+                
+                // 清空日志
+                const logElement = document.getElementById('sampling-log');
+                logElement.innerHTML = '<div class="log-entry">参数已重置，等待开始采样...</div>';
+                
+                // 更新统计信息
+                this.updateStats();
+                this.updateDemoStats();
+                
+                // 重置按钮状态
+                document.getElementById('results-btn').disabled = false;
+                document.getElementById('pause-btn').disabled = true;
+                document.getElementById('continue-btn').disabled = true;
+                document.getElementById('demo-start-btn').disabled = false;
+                document.getElementById('demo-pause-btn').disabled = true;
+                document.getElementById('demo-step-btn').disabled = false;
+                document.getElementById('demo-continue-btn').disabled = true;
+                document.getElementById('demo-stop-btn').disabled = true;
+                
+                // 更新状态
+                this.updateDemoStatus('等待开始');
+                
+                // 更新画布
+                this.updateParameterInfo();
+                this.updateCanvas();
+                this.updateDemoCanvas();
+            }
+            
+            // 采样循环
+            runSamplingLoop() {
+                if (!this.sampling || this.paused) return;
+                
+                const samplesPerFrame = Math.max(1, Math.floor(this.speed / 2));
+                
+                for (let i = 0; i < samplesPerFrame; i++) {
+                    this.singleSample();
+                }
+                
+                const delay = Math.max(50, 500 - this.speed * 45);
+                
+                this.animationId = setTimeout(() => {
+                    this.runSamplingLoop();
+                }, delay);
+            }
+            
+            // 更新画布
+            updateCanvas() {
+                const width = this.canvas.width;
+                const height = this.canvas.height;
+                const padding = 60;
+                const plotWidth = width - 2 * padding;
+                const plotHeight = height - 2 * padding;
+                
+                // 清空画布
+                this.ctx.clearRect(0, 0, width, height);
+                
+                if (this.showHistogram && this.acceptedSamples.length > 0) {
+                    // 显示柱形图
+                    this.drawHistogram(width, height, padding, plotWidth, plotHeight);
+                } else {
+                    // 显示理论分布和采样点
+                    this.drawDistribution(width, height, padding, plotWidth, plotHeight);
+                }
+            }
+            
+            // 绘制理论分布和采样点
+            drawDistribution(width, height, padding, plotWidth, plotHeight) {
+                // 调整内边距以适应较小的画布
+                const adjustedPadding = Math.min(40, padding);
+                const adjustedPlotWidth = width - 2 * adjustedPadding;
+                const adjustedPlotHeight = height - 2 * adjustedPadding;
+                
+                // 绘制背景
+                this.ctx.fillStyle = '#f8f9fa';
+                this.ctx.fillRect(adjustedPadding, adjustedPadding, adjustedPlotWidth, adjustedPlotHeight);
+                
+                // 计算x轴范围
+                const maxX = Math.max(10, this.shape * 3 / this.rate);
+                const xScale = adjustedPlotWidth / maxX;
+                
+                // 计算y轴最大值
+                let maxY = 0;
+                const step = maxX / 200;
+                for (let x = 0; x <= maxX; x += step) {
+                    const pdf = this.gammaPDF(x, this.shape, this.rate);
+                    maxY = Math.max(maxY, pdf);
+                }
+                maxY *= 1.1; // 留出一些空间
+                const yScale = adjustedPlotHeight / maxY;
+                
+                // 绘制坐标轴
+                this.ctx.strokeStyle = '#2c3e50';
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                this.ctx.moveTo(adjustedPadding, adjustedPadding + adjustedPlotHeight);
+                this.ctx.lineTo(adjustedPadding + adjustedPlotWidth, adjustedPadding + adjustedPlotHeight);
+                this.ctx.moveTo(adjustedPadding, adjustedPadding);
+                this.ctx.lineTo(adjustedPadding, adjustedPadding + adjustedPlotHeight);
+                this.ctx.stroke();
+                
+                // 绘制刻度
+                this.ctx.fillStyle = '#2c3e50';
+                this.ctx.font = '10px Arial'; // 减小字体大小
+                this.ctx.textAlign = 'center';
+                
+                // x轴刻度
+                for (let i = 0; i <= 5; i++) {
+                    const x = adjustedPadding + (i * adjustedPlotWidth / 5);
+                    const value = (i * maxX / 5).toFixed(1);
+                    
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(x, adjustedPadding + adjustedPlotHeight);
+                    this.ctx.lineTo(x, adjustedPadding + adjustedPlotHeight + 5);
+                    this.ctx.stroke();
+                    
+                    this.ctx.fillText(value, x, adjustedPadding + adjustedPlotHeight + 15);
+                }
+                
+                // y轴刻度
+                this.ctx.textAlign = 'right';
+                for (let i = 0; i <= 5; i++) {
+                    const y = adjustedPadding + adjustedPlotHeight - (i * adjustedPlotHeight / 5);
+                    const value = (i * maxY / 5).toFixed(2);
+                    
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(adjustedPadding, y);
+                    this.ctx.lineTo(adjustedPadding - 5, y);
+                    this.ctx.stroke();
+                    
+                    this.ctx.fillText(value, adjustedPadding - 8, y + 3);
+                }
+                
+                // 绘制理论分布曲线
+                this.ctx.strokeStyle = '#3498db';
+                this.ctx.lineWidth = 2; // 减小线宽
+                this.ctx.beginPath();
+                
+                for (let x = 0; x <= maxX; x += step) {
+                    const pdf = this.gammaPDF(x, this.shape, this.rate);
+                    const plotX = adjustedPadding + x * xScale;
+                    const plotY = adjustedPadding + adjustedPlotHeight - pdf * yScale;
+                    
+                    if (x === 0) {
+                        this.ctx.moveTo(plotX, plotY);
+                    } else {
+                        this.ctx.lineTo(plotX, plotY);
+                    }
+                }
+                this.ctx.stroke();
+                
+                // 绘制接受和拒绝的样本点
+                if (this.samples.length > 0) {
+                    const recentSamples = this.samples.slice(-100); // 只显示最近100个样本
+                    
+                    recentSamples.forEach(sample => {
+                        const x = sample.candidate;
+                        const pdf = this.gammaPDF(x, this.shape, this.rate);
+                        const plotX = adjustedPadding + x * xScale;
+                        const plotY = adjustedPadding + adjustedPlotHeight - pdf * yScale;
+                        
+                        this.ctx.fillStyle = sample.accepted ? '#27ae60' : '#e74c3c';
+                        this.ctx.beginPath();
+                        this.ctx.arc(plotX, plotY, 3, 0, 2 * Math.PI); // 减小点的大小
+                        this.ctx.fill();
+                    });
+                }
+                
+                // 添加图例 - 调整位置和大小
+                this.ctx.fillStyle = '#2c3e50';
+                this.ctx.font = '11px Arial'; // 减小字体大小
+                this.ctx.textAlign = 'left';
+                
+                this.ctx.fillText(`伽马分布 Gamma(${this.shape.toFixed(1)}, ${this.rate.toFixed(1)})`, adjustedPadding + 5, adjustedPadding - 5);
+                
+                // 绘制图例标记
+                this.ctx.fillStyle = '#27ae60';
+                this.ctx.fillRect(adjustedPadding + 150, adjustedPadding - 15, 12, 12);
+                this.ctx.fillStyle = '#2c3e50';
+                this.ctx.fillText('接受样本', adjustedPadding + 165, adjustedPadding - 4);
+                
+                this.ctx.fillStyle = '#e74c3c';
+                this.ctx.fillRect(adjustedPadding + 220, adjustedPadding - 15, 12, 12);
+                this.ctx.fillStyle = '#2c3e50';
+                this.ctx.fillText('拒绝样本', adjustedPadding + 235, adjustedPadding - 4);
+            }
+            
+            // 绘制柱形图
+            drawHistogram(width, height, padding, plotWidth, plotHeight) {
+                // 调整内边距以适应较小的画布
+                const adjustedPadding = Math.min(40, padding);
+                const adjustedPlotWidth = width - 2 * adjustedPadding;
+                const adjustedPlotHeight = height - 2 * adjustedPadding;
+                
+                // 绘制背景
+                this.ctx.fillStyle = '#f8f9fa';
+                this.ctx.fillRect(adjustedPadding, adjustedPadding, adjustedPlotWidth, adjustedPlotHeight);
+                
+                // 计算x轴范围
+                const maxX = Math.max(10, this.shape * 3 / this.rate);
+                const xScale = adjustedPlotWidth / maxX;
+                
+                // 创建直方图数据
+                const numBins = 25; // 减少柱子的数量
+                const binWidth = maxX / numBins;
+                const histogram = new Array(numBins).fill(0);
+                
+                // 统计每个区间的样本数量
+                this.acceptedSamples.forEach(sample => {
+                    const binIndex = Math.min(Math.floor(sample / binWidth), numBins - 1);
+                    histogram[binIndex]++;
+                });
+                
+                // 找到最大频数
+                const maxFrequency = Math.max(...histogram);
+                const yScale = adjustedPlotHeight / maxFrequency;
+                
+                // 绘制坐标轴
+                this.ctx.strokeStyle = '#2c3e50';
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                this.ctx.moveTo(adjustedPadding, adjustedPadding + adjustedPlotHeight);
+                this.ctx.lineTo(adjustedPadding + adjustedPlotWidth, adjustedPadding + adjustedPlotHeight);
+                this.ctx.moveTo(adjustedPadding, adjustedPadding);
+                this.ctx.lineTo(adjustedPadding, adjustedPadding + adjustedPlotHeight);
+                this.ctx.stroke();
+                
+                // 绘制刻度
+                this.ctx.fillStyle = '#2c3e50';
+                this.ctx.font = '10px Arial'; // 减小字体大小
+                this.ctx.textAlign = 'center';
+                
+                // x轴刻度
+                for (let i = 0; i <= 5; i++) {
+                    const x = adjustedPadding + (i * adjustedPlotWidth / 5);
+                    const value = (i * maxX / 5).toFixed(1);
+                    
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(x, adjustedPadding + adjustedPlotHeight);
+                    this.ctx.lineTo(x, adjustedPadding + adjustedPlotHeight + 5);
+                    this.ctx.stroke();
+                    
+                    this.ctx.fillText(value, x, adjustedPadding + adjustedPlotHeight + 15);
+                }
+                
+                // y轴刻度
+                this.ctx.textAlign = 'right';
+                for (let i = 0; i <= 5; i++) {
+                    const y = adjustedPadding + adjustedPlotHeight - (i * adjustedPlotHeight / 5);
+                    const value = Math.round(i * maxFrequency / 5);
+                    
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(adjustedPadding, y);
+                    this.ctx.lineTo(adjustedPadding - 5, y);
+                    this.ctx.stroke();
+                    
+                    this.ctx.fillText(value, adjustedPadding - 8, y + 3);
+                }
+                
+                // 绘制柱形图
+                this.ctx.fillStyle = '#3498db';
+                histogram.forEach((frequency, index) => {
+                    const x = adjustedPadding + index * binWidth * xScale;
+                    const barWidth = binWidth * xScale * 0.7; // 减小柱子宽度
+                    const barHeight = frequency * yScale;
+                    
+                    this.ctx.fillRect(x, adjustedPadding + adjustedPlotHeight - barHeight, barWidth, barHeight);
+                });
+                
+                // 绘制理论分布曲线
+                this.ctx.strokeStyle = '#e74c3c';
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                
+                const step = maxX / 200;
+                for (let x = 0; x <= maxX; x += step) {
+                    const pdf = this.gammaPDF(x, this.shape, this.rate);
+                    const scaledPDF = pdf * this.acceptedSamples.length * binWidth;
+                    const plotX = adjustedPadding + x * xScale;
+                    const plotY = padding + plotHeight - scaledPDF * yScale;
+                    
+                    if (x === 0) {
+                        this.ctx.moveTo(plotX, plotY);
+                    } else {
+                        this.ctx.lineTo(plotX, plotY);
+                    }
+                }
+                this.ctx.stroke();
+                
+
+            }
+            
+            // 更新演示画布
+            updateDemoCanvas() {
+                const width = this.demoCanvas.width;
+                const height = this.demoCanvas.height;
+                const padding = 60;
+                const plotWidth = width - 2 * padding;
+                const plotHeight = height - 2 * padding;
+                
+                // 清空画布
+                this.demoCtx.clearRect(0, 0, width, height);
+                
+                // 绘制背景
+                this.demoCtx.fillStyle = '#f8f9fa';
+                this.demoCtx.fillRect(padding, padding, plotWidth, plotHeight);
+                
+                // 计算x轴范围
+                const maxX = Math.max(10, this.shape * 3 / this.rate);
+                const xScale = plotWidth / maxX;
+                
+                // 计算y轴最大值
+                let maxY = 0;
+                const step = maxX / 200;
+                for (let x = 0; x <= maxX; x += step) {
+                    const pdf = this.gammaPDF(x, this.shape, this.rate);
+                    maxY = Math.max(maxY, pdf);
+                }
+                maxY *= 1.1; // 留出一些空间
+                const yScale = plotHeight / maxY;
+                
+                // 绘制坐标轴
+                this.demoCtx.strokeStyle = '#2c3e50';
+                this.demoCtx.lineWidth = 2;
+                this.demoCtx.beginPath();
+                this.demoCtx.moveTo(padding, padding + plotHeight);
+                this.demoCtx.lineTo(padding + plotWidth, padding + plotHeight);
+                this.demoCtx.moveTo(padding, padding);
+                this.demoCtx.lineTo(padding, padding + plotHeight);
+                this.demoCtx.stroke();
+                
+                // 绘制刻度
+                this.demoCtx.fillStyle = '#2c3e50';
+                this.demoCtx.font = '12px Arial';
+                this.demoCtx.textAlign = 'center';
+                
+                // x轴刻度
+                for (let i = 0; i <= 5; i++) {
+                    const x = padding + (i * plotWidth / 5);
+                    const value = (i * maxX / 5).toFixed(1);
+                    
+                    this.demoCtx.beginPath();
+                    this.demoCtx.moveTo(x, padding + plotHeight);
+                    this.demoCtx.lineTo(x, padding + plotHeight + 5);
+                    this.demoCtx.stroke();
+                    
+                    this.demoCtx.fillText(value, x, padding + plotHeight + 20);
+                }
+                
+                // y轴刻度
+                this.demoCtx.textAlign = 'right';
+                for (let i = 0; i <= 5; i++) {
+                    const y = padding + plotHeight - (i * plotHeight / 5);
+                    const value = (i * maxY / 5).toFixed(2);
+                    
+                    this.demoCtx.beginPath();
+                    this.demoCtx.moveTo(padding, y);
+                    this.demoCtx.lineTo(padding - 5, y);
+                    this.demoCtx.stroke();
+                    
+                    this.demoCtx.fillText(value, padding - 10, y + 4);
+                }
+                
+                // 绘制理论分布曲线
+                this.demoCtx.strokeStyle = '#3498db';
+                this.demoCtx.lineWidth = 3;
+                this.demoCtx.beginPath();
+                
+                for (let x = 0; x <= maxX; x += step) {
+                    const pdf = this.gammaPDF(x, this.shape, this.rate);
+                    const plotX = padding + x * xScale;
+                    const plotY = padding + plotHeight - pdf * yScale;
+                    
+                    if (x === 0) {
+                        this.demoCtx.moveTo(plotX, plotY);
+                    } else {
+                        this.demoCtx.lineTo(plotX, plotY);
+                    }
+                }
+                this.demoCtx.stroke();
+                
+                // 绘制演示采样点
+                if (this.demoSamples.length > 0) {
+                    const recentSamples = this.demoSamples.slice(-50); // 只显示最近50个样本
+                    
+                    recentSamples.forEach(sample => {
+                        const x = sample.candidate;
+                        const pdf = this.gammaPDF(x, this.shape, this.rate);
+                        const plotX = padding + x * xScale;
+                        const plotY = padding + plotHeight - pdf * yScale;
+                        
+                        this.demoCtx.fillStyle = sample.accepted ? '#27ae60' : '#e74c3c';
+                        this.demoCtx.beginPath();
+                        this.demoCtx.arc(plotX, plotY, 4, 0, 2 * Math.PI);
+                        this.demoCtx.fill();
+                    });
+                }
+                
+
+            }
+        }
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            new GammaSamplingDemo();
+        });
+    </script>
+</body>
+</html>

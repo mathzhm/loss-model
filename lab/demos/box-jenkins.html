@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Box-Jenkins 方法：原理与互动实验</title>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f8ff;
+            background-image: linear-gradient(to bottom right, #f0f8ff, #e6f2ff);
+        }
+        
+        /* 基础样式 */
+        .container {
+            background-color: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            margin-bottom: 30px;
+            border: 1px solid #3498db;
+            border-top: 5px solid #3498db;
+        }
+        
+        h1 {
+            text-align: center;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 30px;
+            color: #2c3e50;
+        }
+        
+        h2 {
+            border-left: 5px solid #3498db;
+            padding-left: 15px;
+            margin-top: 40px;
+            color: #2c3e50;
+            background: linear-gradient(to right, rgba(52, 152, 219, 0.1), transparent);
+            padding: 10px 15px;
+        }
+
+        h3 {
+            color: #2980b9;
+            margin-top: 25px;
+        }
+        
+        /* Tab 样式 */
+        .tab-container {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #3498db;
+        }
+        .tab-button {
+            padding: 12px 24px;
+            cursor: pointer;
+            background-color: #f1f1f1;
+            border: none;
+            outline: none;
+            transition: 0.3s;
+            font-size: 16px;
+            font-weight: bold;
+            color: #555;
+            border-radius: 5px 5px 0 0;
+            margin-right: 5px;
+        }
+        .tab-button:hover {
+            background-color: #ddd;
+        }
+        .tab-button.active {
+            background-color: #3498db;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+            animation: fadeEffect 0.5s;
+            padding: 20px 0;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        @keyframes fadeEffect {
+            from {opacity: 0;}
+            to {opacity: 1;}
+        }
+
+        /* 理论部分样式 */
+        .process-step {
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2ecc71;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .step-title {
+            font-weight: bold;
+            font-size: 1.1em;
+            color: #27ae60;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+        .step-number {
+            background-color: #2ecc71;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 30px;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+
+        /* 互动实验样式 */
+        .panel {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .panel-header {
+            background-color: #f8f9fa;
+            padding: 10px 15px;
+            margin: -20px -20px 20px -20px;
+            border-bottom: 1px solid #ddd;
+            border-radius: 8px 8px 0 0;
+            font-weight: bold;
+            color: #34495e;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .control-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .control-item label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+            color: #555;
+            font-weight: bold;
+        }
+        .control-item input[type="range"] {
+            width: 100%;
+        }
+        .control-item select, .control-item input[type="number"] {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .value-display {
+            float: right;
+            color: #3498db;
+            font-weight: normal;
+        }
+        
+        .chart-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-top: 15px;
+        }
+        .chart-box {
+            flex: 1;
+            min-width: 300px;
+            background: #fff;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            padding: 10px;
+        }
+        canvas {
+            width: 100%;
+            height: 250px;
+        }
+        
+        .btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        .btn:hover {
+            background-color: #2980b9;
+        }
+        .btn-success {
+            background-color: #2ecc71;
+        }
+        .btn-success:hover {
+            background-color: #27ae60;
+        }
+
+        .metric-box {
+            background-color: #34495e;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+            font-family: monospace;
+            font-size: 1.1em;
+        }
+        
+        .hint-box {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 10px 0;
+            font-size: 0.95em;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Box-Jenkins 方法：时间序列建模全流程</h1>
+    
+    <div class="tab-container">
+        <button class="tab-button active" onclick="switchTab('theory')">📖 理论详解</button>
+        <button class="tab-button" onclick="switchTab('experiment')">🧪 互动实验</button>
+    </div>
+
+    <!-- 理论部分 -->
+    <div id="theory-tab" class="tab-content active">
+        <p>Box-Jenkins 方法是由 George Box 和 Gwilym Jenkins 提出的一套系统化的时间序列建模方法。该方法主要用于构建 ARIMA（自回归积分滑动平均）模型，核心思想是通过迭代的步骤找到最适合数据的模型。</p>
+        
+        <div class="process-step">
+            <div class="step-title"><div class="step-number">1</div> 识别与平稳化 (Identification)</div>
+            <p><strong>目标：</strong> 确定模型的形式 (AR, MA, ARMA) 和阶数 (p, d, q)。</p>
+            <ul>
+                <li><strong>平稳性检查：</strong> 观察时间序列图，如果数据有趋势或季节性，它就是非平稳的。</li>
+                <li><strong>差分 (d)：</strong> 通过差分运算（当前值减去前一个值）消除趋势，直到数据变得平稳。差分的次数即为参数 d。</li>
+                <li><strong>定阶 (p, q)：</strong> 观察平稳后数据的 ACF（自相关函数）和 PACF（偏自相关函数）。
+                    <ul>
+                        <li><strong>AR(p)：</strong> PACF 在 p 阶后截尾（变为0），ACF 拖尾（指数衰减）。</li>
+                        <li><strong>MA(q)：</strong> ACF 在 q 阶后截尾，PACF 拖尾。</li>
+                        <li><strong>ARMA(p, q)：</strong> ACF 和 PACF 都拖尾。</li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+
+        <div class="process-step">
+            <div class="step-title"><div class="step-number">2</div> 参数估计 (Estimation)</div>
+            <p><strong>目标：</strong> 估计模型中的系数（φ 和 θ）。</p>
+            <ul>
+                <li>一旦确定了 p, d, q，就使用最大似然估计（MLE）或最小二乘法（CLS）来计算参数的最佳数值。</li>
+                <li>在我们的互动实验中，你将通过手动调整滑块来扮演"估计算法"的角色，试图最小化残差。</li>
+            </ul>
+        </div>
+
+        <div class="process-step">
+            <div class="step-title"><div class="step-number">3</div> 模型诊断 (Diagnostic Checking)</div>
+            <p><strong>目标：</strong> 验证模型是否充分提取了数据中的信息。</p>
+            <ul>
+                <li><strong>残差分析：</strong> 如果模型是好的，残差（实际值 - 预测值）应该看起来像白噪声（无规律的随机波动）。</li>
+                <li><strong>Ljung-Box 检验：</strong> 检查残差的 ACF。如果残差之间仍有显著的相关性，说明模型还需要改进（可能需要增加 p 或 q）。</li>
+            </ul>
+        </div>
+
+        <div class="process-step">
+            <div class="step-title"><div class="step-number">4</div> 预测 (Forecasting)</div>
+            <p>一旦模型通过诊断，就可以用来预测未来的值，并给出置信区间。</p>
+        </div>
+    </div>
+
+    <!-- 互动实验部分 -->
+    <div id="experiment-tab" class="tab-content">
+        <div class="hint-box">
+            <strong>实验指南：</strong> 这是一个"侦探游戏"。首先生成一个未知的时间序列，然后通过 Box-Jenkins 的步骤来"破解"它的生成机制。
+        </div>
+
+        <!-- 第一阶段：数据生成 -->
+        <div class="panel" style="border-left: 5px solid #3498db;">
+            <div class="panel-header">
+                <span>第一步：生成数据（上帝视角）</span>
+                <button class="btn" onclick="generateData()">🔄 重新生成数据</button>
+            </div>
+            <div class="control-grid">
+                <div class="control-item">
+                    <label>AR 阶数 (p)</label>
+                    <input type="number" id="gen-p" min="0" max="4" value="1" onchange="updateGenControls()">
+                </div>
+                <div class="control-item">
+                    <label>差分阶数 (d)</label>
+                    <input type="number" id="gen-d" min="0" max="2" value="0" onchange="generateData()">
+                </div>
+                <div class="control-item">
+                    <label>MA 阶数 (q)</label>
+                    <input type="number" id="gen-q" min="0" max="4" value="0" onchange="updateGenControls()">
+                </div>
+            </div>
+            <div id="gen-params-container" class="control-grid">
+                <!-- Dynamic sliders will be inserted here -->
+            </div>
+            <div class="chart-box">
+                <canvas id="chart-raw"></canvas>
+            </div>
+        </div>
+
+        <!-- 第二阶段：识别与平稳化 -->
+        <div class="panel" style="border-left: 5px solid #2ecc71;">
+            <div class="panel-header">
+                <span>第二步：识别与差分 (Identification)</span>
+            </div>
+            <div class="control-grid">
+                <div class="control-item">
+                    <label>差分阶数 (d): <span id="diff-order-val" class="value-display">0</span></label>
+                    <input type="range" id="diff-order" min="0" max="2" step="1" value="0" oninput="updateIdentification()">
+                </div>
+            </div>
+            <p style="font-size: 0.9em; color: #666;">调整差分阶数，直到下方的 ACF/PACF 图表显示出平稳特征（ACF快速衰减到0）。</p>
+            <div class="chart-row">
+                <div class="chart-box">
+                    <canvas id="chart-diff"></canvas>
+                </div>
+                <div class="chart-box">
+                    <canvas id="chart-acf"></canvas>
+                </div>
+                <div class="chart-box">
+                    <canvas id="chart-pacf"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- 第三阶段：估计与诊断 -->
+        <div class="panel" style="border-left: 5px solid #e74c3c;">
+            <div class="panel-header">
+                <span>第三步：拟合与诊断 (Estimation & Diagnostic)</span>
+                <div class="metric-box">残差平方和 (SSR): <span id="ssr-val">0.00</span></div>
+            </div>
+            <div class="hint-box">
+                <strong>任务：</strong> 根据上面的 ACF/PACF 猜测模型阶数 (p, q)，然后调整参数滑块，使<strong>残差ACF</strong>中所有柱子都落在红色虚线内（白噪声），并使 <strong>SSR 最小</strong>。
+            </div>
+            <div class="control-grid">
+                <div class="control-item">
+                    <label>猜测 AR 阶数 (p)</label>
+                    <input type="number" id="est-p" min="0" max="4" value="1" onchange="updateEstControls()">
+                </div>
+                <div class="control-item">
+                    <label>猜测 MA 阶数 (q)</label>
+                    <input type="number" id="est-q" min="0" max="4" value="0" onchange="updateEstControls()">
+                </div>
+            </div>
+            <div id="est-params-container" class="control-grid">
+                <!-- Dynamic sliders will be inserted here -->
+            </div>
+            <div class="chart-row">
+                <div class="chart-box">
+                    <canvas id="chart-resid"></canvas>
+                </div>
+                <div class="chart-box">
+                    <canvas id="chart-resid-acf"></canvas>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    // --- 全局变量 ---
+    let rawData = [];
+    let diffData = [];
+    let residuals = [];
+    
+    // --- 初始化 ---
+    window.onload = function() {
+        updateGenControls();
+        generateData();
+    };
+
+    function switchTab(tabName) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-button').forEach(el => el.classList.remove('active'));
+        
+        document.getElementById(tabName + '-tab').classList.add('active');
+        // Find button that calls this function with this tabName - simplified approach
+        const buttons = document.getElementsByClassName('tab-button');
+        if(tabName === 'theory') buttons[0].classList.add('active');
+        else buttons[1].classList.add('active');
+    }
+
+    // --- 数学工具函数 ---
+    function randn() {
+        let u = 0, v = 0;
+        while(u === 0) u = Math.random();
+        while(v === 0) v = Math.random();
+        return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+    }
+
+    // --- 第一步：数据生成 ---
+    function updateGenControls() {
+        let p = parseInt(document.getElementById('gen-p').value);
+        let q = parseInt(document.getElementById('gen-q').value);
+        if (isNaN(p) || p < 0) p = 0; if (p > 5) p = 5;
+        if (isNaN(q) || q < 0) q = 0; if (q > 5) q = 5;
+        
+        // Update input values in case they were corrected
+        document.getElementById('gen-p').value = p;
+        document.getElementById('gen-q').value = q;
+
+        const container = document.getElementById('gen-params-container');
+        let html = '';
+
+        // Generate AR sliders
+        for(let i=1; i<=p; i++) {
+            let val = 0.5;
+            const existing = document.getElementById('gen-phi-' + i);
+            if (existing) val = existing.value;
+            else if (i === 1) val = 0.7; 
+            else if (i === 2) val = -0.3;
+            
+            html += `
+            <div class="control-item">
+                <label>φ<sub>${i}</sub>: <span id="gen-phi-${i}-val" class="value-display">${val}</span></label>
+                <input type="range" id="gen-phi-${i}" min="-0.95" max="0.95" step="0.05" value="${val}" oninput="updateGenDisplay(${i}, 'phi')">
+            </div>`;
+        }
+
+        // Generate MA sliders
+        for(let j=1; j<=q; j++) {
+            let val = 0.5;
+            const existing = document.getElementById('gen-theta-' + j);
+            if (existing) val = existing.value;
+            else if (j === 1) val = -0.5;
+            else if (j === 2) val = 0.3;
+            
+            html += `
+            <div class="control-item">
+                <label>θ<sub>${j}</sub>: <span id="gen-theta-${j}-val" class="value-display">${val}</span></label>
+                <input type="range" id="gen-theta-${j}" min="-0.95" max="0.95" step="0.05" value="${val}" oninput="updateGenDisplay(${j}, 'theta')">
+            </div>`;
+        }
+        
+        container.innerHTML = html;
+        generateData(false); // Re-render with existing noise if possible
+    }
+
+    function updateGenDisplay(idx, type) {
+        if (idx !== undefined) {
+             const id = `gen-${type}-${idx}`;
+             document.getElementById(id + '-val').textContent = document.getElementById(id).value;
+        }
+        generateData(false); // Update chart with same noise
+    }
+
+    function generateData(newNoise = true) {
+        const n = 200;
+        const p = parseInt(document.getElementById('gen-p').value);
+        const q = parseInt(document.getElementById('gen-q').value);
+        const d = parseInt(document.getElementById('gen-d').value);
+        
+        // Get coefficients
+        const phis = [];
+        for(let i=1; i<=p; i++) phis.push(parseFloat(document.getElementById(`gen-phi-${i}`).value));
+        
+        const thetas = [];
+        for(let j=1; j<=q; j++) thetas.push(parseFloat(document.getElementById(`gen-theta-${j}`).value));
+
+        // Store noise globally
+        if (newNoise || !window.noise || window.noise.length < n + 50) {
+             window.noise = new Array(n + 50).fill(0).map(() => randn());
+        }
+        const eps = window.noise;
+        
+        let x = new Array(n + 50).fill(0);
+        
+        // ARMA Generation
+        for (let t = Math.max(p, q); t < n + 50; t++) {
+            let ar_term = 0;
+            for(let i=0; i<p; i++) ar_term += phis[i] * x[t-1-i];
+            
+            let ma_term = 0;
+            for(let j=0; j<q; j++) ma_term += thetas[j] * eps[t-1-j];
+            
+            x[t] = ar_term + eps[t] + ma_term;
+        }
+        
+        // Integration for d
+        let integrated = [...x];
+        for (let k=0; k<d; k++) {
+            let temp = [integrated[0]]; 
+            for(let i=1; i<integrated.length; i++) {
+                temp.push(temp[temp.length-1] + integrated[i]);
+            }
+            integrated = temp;
+        }
+        
+        rawData = integrated.slice(50);
+        
+        drawTimeSeries('chart-raw', rawData, '原始时间序列数据');
+        
+        // Update Identification automatically
+        updateIdentification();
+    }
+
+    // --- 第二步：识别与差分 ---
+    function updateIdentification() {
+        const d = parseInt(document.getElementById('diff-order').value);
+        document.getElementById('diff-order-val').textContent = d;
+        
+        // 执行差分
+        diffData = [...rawData];
+        for (let i = 0; i < d; i++) {
+            let temp = [];
+            for (let j = 1; j < diffData.length; j++) {
+                temp.push(diffData[j] - diffData[j-1]);
+            }
+            diffData = temp;
+        }
+        
+        drawTimeSeries('chart-diff', diffData, `差分后数据 (d=${d})`);
+        
+        const acf = calculateACF(diffData, 20);
+        drawCorrelogram('chart-acf', acf, '自相关函数 (ACF)');
+        
+        const pacf = calculatePACF(acf, 20);
+        drawCorrelogram('chart-pacf', pacf, '偏自相关函数 (PACF)');
+        
+        // Update Estimation as well
+        updateEstimation();
+    }
+
+    // --- 第三步：估计与诊断 ---
+    function updateEstControls() {
+        let p = parseInt(document.getElementById('est-p').value);
+        let q = parseInt(document.getElementById('est-q').value);
+        if (isNaN(p) || p < 0) p = 0; if (p > 5) p = 5;
+        if (isNaN(q) || q < 0) q = 0; if (q > 5) q = 5;
+        
+        document.getElementById('est-p').value = p;
+        document.getElementById('est-q').value = q;
+
+        const container = document.getElementById('est-params-container');
+        let html = '';
+
+        for(let i=1; i<=p; i++) {
+            let val = 0.0;
+            const existing = document.getElementById('est-phi-' + i);
+            if (existing) val = existing.value;
+            
+            html += `
+            <div class="control-item">
+                <label>估计 φ<sub>${i}</sub>: <span id="est-phi-${i}-val" class="value-display">${val}</span></label>
+                <input type="range" id="est-phi-${i}" min="-0.99" max="0.99" step="0.01" value="${val}" oninput="updateEstimation()">
+            </div>`;
+        }
+
+        for(let j=1; j<=q; j++) {
+            let val = 0.0;
+            const existing = document.getElementById('est-theta-' + j);
+            if (existing) val = existing.value;
+            
+            html += `
+            <div class="control-item">
+                <label>估计 θ<sub>${j}</sub>: <span id="est-theta-${j}-val" class="value-display">${val}</span></label>
+                <input type="range" id="est-theta-${j}" min="-0.99" max="0.99" step="0.01" value="${val}" oninput="updateEstimation()">
+            </div>`;
+        }
+        
+        container.innerHTML = html;
+        updateEstimation();
+    }
+
+    function updateEstimation() {
+        const p = parseInt(document.getElementById('est-p').value);
+        const q = parseInt(document.getElementById('est-q').value);
+        
+        const phis = [];
+        for(let i=1; i<=p; i++) {
+            const el = document.getElementById(`est-phi-${i}`);
+            if(el) {
+                const val = el.value;
+                document.getElementById(`est-phi-${i}-val`).textContent = val;
+                phis.push(parseFloat(val));
+            } else phis.push(0);
+        }
+        
+        const thetas = [];
+        for(let j=1; j<=q; j++) {
+            const el = document.getElementById(`est-theta-${j}`);
+            if(el) {
+                const val = el.value;
+                document.getElementById(`est-theta-${j}-val`).textContent = val;
+                thetas.push(parseFloat(val));
+            } else thetas.push(0);
+        }
+        
+        residuals = new Array(diffData.length).fill(0);
+        let ssr = 0;
+        
+        // Calculate residuals: e_t = Y_t - \hat{Y}_t
+        // \hat{Y}_t = \sum \phi_i Y_{t-i} + \sum \theta_j e_{t-j}
+        
+        for (let t = 0; t < diffData.length; t++) {
+            let y_hat = 0;
+            
+            // AR part
+            for(let i=0; i<p; i++) {
+                if (t-1-i >= 0) y_hat += phis[i] * diffData[t-1-i];
+            }
+            
+            // MA part
+            for(let j=0; j<q; j++) {
+                if (t-1-j >= 0) y_hat += thetas[j] * residuals[t-1-j];
+            }
+            
+            residuals[t] = diffData[t] - y_hat;
+            ssr += residuals[t] * residuals[t];
+        }
+        
+        document.getElementById('ssr-val').textContent = ssr.toFixed(2);
+        drawTimeSeries('chart-resid', residuals, '模型残差序列');
+        
+        const residACF = calculateACF(residuals, 20);
+        drawCorrelogram('chart-resid-acf', residACF, '残差 ACF (应为白噪声)');
+    }
+
+    // --- 算法函数 ---
+    function calculateACF(data, maxLag) {
+        const n = data.length;
+        const mean = data.reduce((a, b) => a + b, 0) / n;
+        
+        // 计算方差 (c0)
+        let c0 = 0;
+        for (let i = 0; i < n; i++) {
+            c0 += (data[i] - mean) ** 2;
+        }
+        c0 = c0 / n; // 样本方差通常用 n
+        
+        const acf = [1.0];
+        for (let k = 1; k <= maxLag; k++) {
+            let ck = 0;
+            for (let i = 0; i < n - k; i++) {
+                ck += (data[i] - mean) * (data[i+k] - mean);
+            }
+            ck = ck / n;
+            acf.push(ck / c0);
+        }
+        return acf;
+    }
+
+    function calculatePACF(acf, maxLag) {
+        // Durbin-Levinson Algorithm
+        // phi[k][j] 是 k 阶 AR 模型的第 j 个系数
+        // pacf[k] = phi[k][k]
+        
+        const pacf = [1.0]; // lag 0
+        if (maxLag < 1) return pacf;
+        
+        pacf.push(acf[1]); // lag 1: phi_11 = rho_1
+        
+        let phi = [[0], [0, acf[1]]]; // phi[k] 存储 k 阶的所有系数, index 1 based
+        
+        for (let k = 2; k <= maxLag; k++) {
+            // 计算 phi_kk
+            let num = acf[k];
+            let den = 1;
+            
+            for (let j = 1; j < k; j++) {
+                num -= phi[k-1][j] * acf[k-j];
+                den -= phi[k-1][j] * acf[j];
+            }
+            
+            let phikk = num / den;
+            pacf.push(phikk);
+            
+            // 更新 phi[k]
+            phi[k] = [0]; // index 0 unused
+            for (let j = 1; j < k; j++) {
+                phi[k][j] = phi[k-1][j] - phikk * phi[k-1][k-j];
+            }
+            phi[k][k] = phikk;
+        }
+        
+        return pacf;
+    }
+
+    // --- 绘图函数 (原生 Canvas 实现，无需依赖) ---
+    
+    function drawTimeSeries(canvasId, data, title) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const parent = canvas.parentElement;
+        const width = parent.clientWidth;
+        const height = 250;
+        
+        // Handle high DPI
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+        canvas.style.width = width + 'px';
+        canvas.style.height = height + 'px';
+        ctx.scale(dpr, dpr);
+        
+        ctx.clearRect(0, 0, width, height);
+        
+        const padding = { top: 40, right: 20, bottom: 30, left: 60 };
+        const plotWidth = width - padding.left - padding.right;
+        const plotHeight = height - padding.top - padding.bottom;
+        
+        // Find Range
+        let minVal = Math.min(...data);
+        let maxVal = Math.max(...data);
+        if (minVal === maxVal) { minVal -= 1; maxVal += 1; }
+        // Add 5% padding to range
+        const range = maxVal - minVal;
+        minVal -= range * 0.05;
+        maxVal += range * 0.05;
+        const paddedRange = maxVal - minVal;
+        
+        // Helper to map X and Y
+        const mapX = (i) => padding.left + (i / (data.length - 1)) * plotWidth;
+        const mapY = (val) => padding.top + plotHeight - ((val - minVal) / paddedRange) * plotHeight;
+        
+        // Draw Title
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(title, width / 2, 20);
+        
+        // Draw Axis
+        ctx.beginPath();
+        ctx.strokeStyle = '#ddd';
+        ctx.lineWidth = 1;
+        // Y axis
+        ctx.moveTo(padding.left, padding.top);
+        ctx.lineTo(padding.left, height - padding.bottom);
+        // X axis
+        ctx.moveTo(padding.left, height - padding.bottom);
+        ctx.lineTo(width - padding.right, height - padding.bottom);
+        ctx.stroke();
+
+        // Y Axis Labels
+        ctx.fillStyle = '#333';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        const yTicks = 5;
+        for(let i=0; i<=yTicks; i++) {
+            const val = minVal + (paddedRange * i / yTicks);
+            const y = mapY(val);
+            ctx.fillText(val.toFixed(2), padding.left - 8, y);
+            
+            // Grid line
+            ctx.beginPath();
+            ctx.strokeStyle = '#eee';
+            ctx.moveTo(padding.left, y);
+            ctx.lineTo(width - padding.right, y);
+            ctx.stroke();
+        }
+
+        // X Axis Labels (Time)
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        const xTicks = 5;
+        for(let i=0; i<=xTicks; i++) {
+            const idx = Math.floor((data.length - 1) * i / xTicks);
+            const x = mapX(idx);
+            ctx.fillText(idx.toString(), x, height - padding.bottom + 8);
+        }
+        
+        // Zero Line
+        if (minVal < 0 && maxVal > 0) {
+            const y0 = mapY(0);
+            ctx.beginPath();
+            ctx.strokeStyle = '#999';
+            ctx.setLineDash([2, 2]);
+            ctx.moveTo(padding.left, y0);
+            ctx.lineTo(width - padding.right, y0);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        
+        // Draw Line
+        ctx.beginPath();
+        ctx.strokeStyle = '#3498db';
+        ctx.lineWidth = 1.5;
+        data.forEach((val, i) => {
+            const x = mapX(i);
+            const y = mapY(val);
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+    }
+
+    function drawCorrelogram(canvasId, data, title) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const parent = canvas.parentElement;
+        const width = parent.clientWidth;
+        const height = 250;
+        
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+        canvas.style.width = width + 'px';
+        canvas.style.height = height + 'px';
+        ctx.scale(dpr, dpr);
+        
+        ctx.clearRect(0, 0, width, height);
+        
+        const padding = { top: 40, right: 20, bottom: 30, left: 50 };
+        const plotWidth = width - padding.left - padding.right;
+        const plotHeight = height - padding.top - padding.bottom;
+        
+        // Fixed Range for Correlation: -1.1 to 1.1
+        const minVal = -1.1;
+        const maxVal = 1.1;
+        const range = maxVal - minVal;
+        
+        const mapX = (i) => padding.left + (i / data.length) * plotWidth + (plotWidth/data.length)/2;
+        const mapY = (val) => padding.top + plotHeight - ((val - minVal) / range) * plotHeight;
+        
+        // Title
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(title, width / 2, 20);
+        
+        // Axis
+        ctx.beginPath();
+        ctx.strokeStyle = '#ddd';
+        ctx.moveTo(padding.left, padding.top);
+        ctx.lineTo(padding.left, height - padding.bottom);
+        ctx.moveTo(padding.left, height - padding.bottom);
+        ctx.lineTo(width - padding.right, height - padding.bottom);
+        ctx.stroke();
+
+        // Y Axis Labels
+        ctx.fillStyle = '#333';
+        ctx.font = '11px Arial';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        const yLabels = [-1, -0.5, 0, 0.5, 1];
+        yLabels.forEach(val => {
+            const y = mapY(val);
+            ctx.fillText(val.toFixed(1), padding.left - 6, y);
+            
+            // Grid line
+            ctx.beginPath();
+            ctx.strokeStyle = '#eee';
+            ctx.moveTo(padding.left, y);
+            ctx.lineTo(width - padding.right, y);
+            ctx.stroke();
+        });
+
+        // X Axis Labels (Lag)
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        for(let i=0; i<data.length; i+=5) { 
+            const x = mapX(i);
+            ctx.fillText(i.toString(), x, height - padding.bottom + 6);
+        }
+        
+        // Zero Line
+        const y0 = mapY(0);
+        ctx.beginPath();
+        ctx.strokeStyle = '#333';
+        ctx.moveTo(padding.left, y0);
+        ctx.lineTo(width - padding.right, y0);
+        ctx.stroke();
+        
+        // Confidence Interval (95%)
+        const n = rawData.length || 200; // approximation
+        const ci = 1.96 / Math.sqrt(n);
+        const yCiPos = mapY(ci);
+        const yCiNeg = mapY(-ci);
+        
+        ctx.beginPath();
+        ctx.strokeStyle = 'red';
+        ctx.setLineDash([5, 5]);
+        ctx.moveTo(padding.left, yCiPos);
+        ctx.lineTo(width - padding.right, yCiPos);
+        ctx.moveTo(padding.left, yCiNeg);
+        ctx.lineTo(width - padding.right, yCiNeg);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        
+        // Bars
+        const barWidth = (plotWidth / data.length) * 0.6;
+        
+        data.forEach((val, i) => {
+            const x = mapX(i);
+            const y = mapY(val);
+            
+            ctx.fillStyle = (i === 0) ? '#999' : '#3498db';
+            
+            // Draw rect from y0 to y
+            // if val > 0, y < y0. height is y0 - y
+            // if val < 0, y > y0. height is y - y0
+            
+            const h = Math.abs(y - y0);
+            const startY = (val > 0) ? y : y0;
+            
+            ctx.fillRect(x - barWidth/2, startY, barWidth, h);
+        });
+    }
+
+</script>
+</body>
+</html>

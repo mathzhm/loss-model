@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CS2-18 再保险 练习题库</title>
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},svg:{fontCache:'global'}};</script>
+<script id="MathJax-script" async src="../demos/vendor/mathjax-tex-svg.js"></script>
+<style>
+*{box-sizing:border-box}body{font-family:-apple-system,"Segoe UI","Microsoft YaHei",Arial,sans-serif;margin:0;background:#f2f0ea;color:#33301f;line-height:1.6}
+header{background:linear-gradient(135deg,#8a6d1f,#5c4710);color:#fff;padding:24px 20px;text-align:center}
+header h1{margin:0 0 6px;font-size:22px}header p{margin:0;opacity:.85;font-size:14px}
+.container{max-width:900px;margin:0 auto;padding:20px}
+.toolbar,.picker,.card{background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.toolbar{padding:16px 18px;margin-bottom:18px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.toolbar .label{font-weight:600;margin-right:4px}
+button{cursor:pointer;border:none;border-radius:8px;padding:8px 14px;font-size:14px;background:#5c4710;color:#fff}
+button:hover{opacity:.88}button.ghost{background:#efeae0;color:#54401f}
+select{padding:8px 10px;border-radius:8px;border:1px solid #dad0c0;font-size:14px}
+.picker{padding:16px 18px;margin-bottom:18px}.picker h3{margin:0 0 12px;font-size:15px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1.5px solid #d6c9b2;background:#fff;color:#54401f;border-radius:20px;padding:6px 14px;cursor:pointer;font-size:14px;user-select:none}
+.chip.active{background:#8a6d1f;color:#fff;border-color:#8a6d1f}
+.chip.exam::after{content:" ★";color:#f0a500}.chip.active.exam::after{color:#ffe08a}
+.count{margin:12px 0 0;font-size:13px;color:#776}
+.card{padding:18px 20px;margin-bottom:16px}
+.qhead{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.qnum{background:#8a6d1f;color:#fff;border-radius:8px;padding:3px 10px;font-weight:700;font-size:14px}
+.badge{background:#fdecc8;color:#8a5a00;border-radius:6px;padding:2px 8px;font-size:12px}
+.qbody{font-size:15px}
+.answer{margin-top:14px;padding:14px 16px;background:#f6f2e9;border-left:4px solid #a5842e;border-radius:6px;display:none}
+.answer.show{display:block}.answer .atitle{font-weight:700;color:#8a6d1f;margin-bottom:6px}
+.toggle-ans{margin-top:12px;background:#a5842e;font-size:13px;padding:6px 12px}
+.empty{text-align:center;color:#889;padding:40px 0}footer{text-align:center;color:#99a;font-size:12px;padding:20px}
+table.tbl{border-collapse:collapse;margin:8px 0;font-size:13px}
+table.tbl th,table.tbl td{border:1px solid #d8cdbd;padding:4px 10px;text-align:center}table.tbl th{background:#f1eadd}
+</style></head>
+<body>
+<header><h1>CS2-18 再保险 · 练习题库</h1><p>Reinsurance — Practice Questions（★ 为考试风格题 Exam style）</p></header>
+<div class="container">
+<div class="toolbar"><span class="label">操作：</span>
+<button onclick="selectAll(true)" class="ghost">全选</button>
+<button onclick="selectAll(false)" class="ghost">清空</button>
+<button onclick="randomPick()" class="ghost">随机抽题</button>
+<select id="randCount"><option value="3">随机 3 题</option><option value="4">随机 4 题</option><option value="5">随机 5 题</option></select>
+<span style="flex:1"></span>
+<button onclick="toggleAllAns(true)" class="ghost">展开全部答案</button>
+<button onclick="toggleAllAns(false)" class="ghost">收起全部答案</button></div>
+<div class="picker"><h3>选择题目（点击标签选/取消）</h3><div class="chips" id="chips"></div><p class="count" id="count"></p></div>
+<div id="quiz"></div></div>
+<footer>题目内容摘自 IFE/ActEd CS2-18 (2019) 教材，仅供个人学习使用。</footer>
+<script>
+const questions=[
+{id:"18.1",exam:false,q:`保险人承保某风险，个别索赔额（单位 £000s）均值 500、标准差 250。安排超额损失再保险，自留限额 £1,000,000。计算保险人预期会从再保险人处获得赔付的索赔比例，若损失分布为：(a) gamma；(b) lognormal。`,
+a:`工作单位 £000s，需算 $P(X>1000)$。<br>
+<b>(a) Gamma：</b>解 $\\alpha/\\lambda=500$、$\\alpha/\\lambda^2=250^2$ 得 $\\alpha=4,\\lambda=0.008$。用 $2\\lambda X=0.016X\\sim\\chi^2_8$：$P(X>1000)=P(\\chi^2_8>16)=1-0.9576=0.0424$。<br>
+<b>(b) Lognormal：</b>解得 $\\sigma^2=0.22314,\\mu=6.1030$。$P(X>1000)=P\\!\\big(Z>\\tfrac{\\ln1000-6.103}{\\sqrt{0.22314}}\\big)=P(Z>1.70354)=0.04424$。`},
+{id:"18.2",exam:false,q:`某组合索赔服从 $Pa(6,200)$。保险人安排超额损失再保险，自留限额 80。<br>(i) 计算再保险前后保险人的预期索赔额。<br>(ii) 计算再保险人在其参与的索赔上的平均赔付额。`,
+a:`<b>(i)</b> $E(X)=\\tfrac{200}{5}=40$（再保险前）。再保险后 $E(Y)=\\int_0^{80}x f(x)dx+80P(X>80)$。计算得积分 $=21.9378$，$P(X>80)=(\\tfrac{200}{280})^6=0.1328$，故 $E(Y)=21.9378+80\\times0.1328=32.5626$。<br>
+<b>(ii)</b> $E(Z)=E(X)-E(Y)=40-32.5626=7.4374$；参与索赔的平均赔付 $=\\dfrac{E(Z)}{P(X>80)}=\\dfrac{7.4374}{0.1328}=56$。（等价地 $W\\sim Pa(6,280)$，均值 $\\tfrac{280}{5}=56$。）`},
+{id:"18.3",exam:false,q:`比例再保险下再保险人赔付样本（单位 £000s）：4.6, 6.8, 22.9, 1.4, 3.8, 10.2, 19.4, 32.1。若原始索赔服从 $Gamma(\\alpha,\\lambda)$，自留比例 80%，确定再保险人赔付的分布，并用矩法估计 $\\alpha,\\lambda$。`,
+a:`$Z=0.2X$，$M_Z(t)=M_X(0.2t)=(1-\\tfrac{0.2t}{\\lambda})^{-\\alpha}=(1-\\tfrac{t}{5\\lambda})^{-\\alpha}$，故 $Z\\sim Gamma(\\alpha,5\\lambda)$，均值 $\\tfrac{\\alpha}{5\\lambda}$、方差 $\\tfrac{\\alpha}{25\\lambda^2}$。<br>
+样本均值 $\\bar z=\\tfrac{101.2}{8}=12.65$，n 分母样本方差 $s^2=\\tfrac{2119.02}{8}-12.65^2=104.855$。令 $\\tfrac{\\alpha}{5\\lambda}=12.65$、$\\tfrac{\\alpha}{25\\lambda^2}=104.855$ 解得 $\\hat\\alpha=1.526$、$\\hat\\lambda=0.02413$。`},
+{id:"18.4",exam:false,q:`若 $X\\sim\\text{logN}(7.5,0.85^2)$，计算：(a) $\\int_{1000}^{5000}f(x)dx$；(b) $\\int_0^{1000}x f(x)dx$；(c) $\\int_{5000}^{\\infty}x^2 f(x)dx$。`,
+a:`用 Tables 第 18 页对数正态截断矩公式。<br>
+<b>(a)</b> $k=0$：$=\\Phi\\!\\big(\\tfrac{\\ln5000-7.5}{0.85}\\big)-\\Phi\\!\\big(\\tfrac{\\ln1000-7.5}{0.85}\\big)=\\Phi(1.1967)-\\Phi(-0.6968)=0.88429-0.24298=0.6413$。<br>
+<b>(b)</b> $k=1$：$=e^{7.5+0.5\\times0.85^2}\\big[\\Phi(\\tfrac{\\ln1000-7.5}{0.85}-0.85)-0\\big]=e^{7.86125}\\Phi(-1.54676)=2594.76\\times0.06096=158.2$。<br>
+<b>(c)</b> $k=2$：$=e^{2\\times7.5+2\\times0.85^2}\\big[1-\\Phi(\\tfrac{\\ln5000-7.5}{0.85}-2\\times0.85)\\big]=e^{16.445}\\big[1-\\Phi(-0.5033)\\big]=13866688\\times(1-0.30738)=9.604\\text{m}$。`},
+{id:"18.5",exam:false,q:`某组合索赔服从 $Pa(6,1000)$（第 0 年）。超额损失再保险自留限额 500，通胀率恒为 10% pa。<br>(i) 确定第 1、2 年的毛索赔分布。<br>(ii) 计算第 0、1、2 年再保险人对所有索赔的平均赔付。`,
+a:`<b>(i)</b> $X_1=1.1X_0$，通过 CDF 推导得 $X_1\\sim Pa(6,1100)$；同理 $X_2\\sim Pa(6,1210)$。通胀只改变第二参数（按比例放大）。<br>
+<b>(ii)</b> $E(Z_j)=\\int_{500}^\\infty(x-500)f_{X_j}(x)dx$。<br>
+第 0 年：$E(Z_0)=(\\tfrac{1000}{1500})^6\\times\\tfrac{1500}{5}=26.337$。<br>
+第 1 年：$E(Z_1)=(\\tfrac{1100}{1600})^6\\times\\tfrac{1600}{5}=33.790$。<br>
+第 2 年：$E(Z_2)=(\\tfrac{1210}{1710})^6\\times\\tfrac{1710}{5}=42.930$。<br>
+（0→1 年增 28.3%，1→2 年增 27.1%，均大于 10%，符合预期。）`},
+{id:"18.6",exam:false,q:`某组合索赔服从 Weibull，PDF $f(x)=2cx\\,e^{-cx^2}$（$x>0$）。超额损失再保险自留限额 $M=3$（单位百万英镑）。再保险人非零赔付样本 $n=10$，$\\sum w_i=8.7$，$\\sum w_i^2=92.3$。计算 $c$ 的最大似然估计。`,
+a:`再保险人条件赔付 PDF：$g(w)=\\dfrac{f(w+M)}{1-F(M)}=2c(w+3)e^{-c(w^2+6w)}$。<br>
+似然 $L\\propto c^n\\prod(w_i+3)\\exp\\!\\big[-c\\sum(w_i^2+6w_i)\\big]$，$\\ln L=$常数$+n\\ln c-c\\sum(w_i^2+6w_i)$，求导置零：
+
+$$\\hat c=\\frac{n}{\\sum(w_i^2+6w_i)}=\\frac{10}{92.3+6\\times8.7}=0.0692$$`},
+{id:"18.7",exam:true,q:`(i) 随机变量 $X\\sim\\text{logN}(\\mu,\\sigma)$，证明对 $a>0$：$\\int_a^\\infty x f(x)dx=\\exp(\\mu+\\tfrac12\\sigma^2)\\big[1-\\Phi(\\tfrac{\\log a-\\mu-\\sigma^2}{\\sigma})\\big]$。 [4]<br>(ii) 某类保险索赔服从对数正态，均值 9.070、标准差 10.132（单位 £000s），任一年 20% 保单出险。公司有 200 张保单，欲对全组合投保超额损失再保险，再保险人报价：自留 25→保费 50；自留 30→保费 40（单位 £000s）。(a) 计算两方案下索赔涉及再保险人的概率；(b) 通过考察分给再保险人的平均索赔额，计算哪个自留水平对保险人更划算（忽略风险态度）；(c) 次年若通胀使索赔均值和标准差均增 8%、保费不变，判断哪个自留水平更划算。 [18]`,
+a:`<b>(i)</b> 代换 $u=\\tfrac{\\log x-\\mu}{\\sigma}$，配方后被积函数变为标准正态 PDF，积分得 $\\exp(\\mu+\\tfrac12\\sigma^2)\\big[1-\\Phi(\\tfrac{\\log a-\\mu-\\sigma^2}{\\sigma})\\big]$。<br>
+<b>(ii)(a)</b> 解参数：$\\sigma^2=0.80999,\\mu=1.79998$。$P(X>25)=1-\\Phi(1.57656)=0.05745$；$P(X>30)=1-\\Phi(1.77914)=0.03761$。<br>
+<b>(b)</b> 再保险人赔付 $E(Z)=\\int_M^\\infty x f-M\\int_M^\\infty f$。自留 25：$E(Z)=9.070(1-\\Phi(0.67657))-25\\times0.05745=0.8253$；自留 30：$E(Z)=9.070(1-\\Phi(0.87915))-30\\times0.03761=0.5919$。每 £1 保费的预期赔付：方案 1 $=\\tfrac{200\\times0.2\\times0.8253}{50}=£0.660$；方案 2 $=\\tfrac{200\\times0.2\\times0.5919}{40}=£0.592$。<b>方案 1（自留 25）更划算。</b><br>
+<b>(c)</b> 新参数 $\\mu=1.87694,\\sigma^2=0.80999$。重算 $E(Z)$：自留 25 得 1.0164、自留 30 得 0.73830。每 £1 保费：方案 1 $=\\tfrac{200\\times0.2\\times1.0164}{50}=£0.813$；方案 2 $=£0.738$。<b>方案 1 仍更划算。</b>`},
+{id:"18.8",exam:true,q:`(i) 某类损失服从 $Pa(\\alpha,\\lambda)$，若公司设免赔额 $E$，推导保险人所付索赔额的分布函数。 [3]<br>(ii) 设 $\\alpha=4,\\lambda=15$，计算保险人平均索赔额：(a) 无免赔额（$E=0$）；(b) 免赔额 10（$E=10$）。 [2]<br>(iii) 据 (ii) 评论引入免赔额的影响。 [2]`,
+a:`<b>(i)</b> $Y=X-E\\mid X>E$，$F_Y(y)=\\dfrac{F_X(y+E)-F_X(E)}{1-F_X(E)}=1-\\big(\\tfrac{\\lambda+E}{\\lambda+E+y}\\big)^\\alpha$，即 $Y\\sim Pa(\\alpha,\\lambda+E)$。<br>
+<b>(ii)</b> $Pa(\\alpha,\\lambda+E)$ 均值 $=\\tfrac{\\lambda+E}{\\alpha-1}$。(a) $E=0$：$\\tfrac{15}{3}=5$；(b) $E=10$：$\\tfrac{25}{3}=8\\tfrac13$。<br>
+<b>(iii)</b> 引入免赔额 $E$ 使保险人的平均索赔额增加 $\\tfrac{E}{\\alpha-1}$，因为小额损失由保单持有人全额承担。但引入免赔额对保险人仍可能有利，因为虽然平均赔付增加，但赔付次数减少。`},
+{id:"18.9",exam:true,q:`某组旅行保险损失服从 $Pa(4.5,3000)$。次年损失预计增 3%，公司决定引入每笔 100 的免赔额。计算次年某损失完全由保单持有人承担的概率。 [2]`,
+a:`次年损失 $X'=1.03X$，$X\\sim Pa(4.5,3000)$。完全由持有人承担即 $X'\\leq100$：
+
+$$P(X'<100)=P(X<\\tfrac{100}{1.03})=1-\\Big(\\frac{3000}{100/1.03+3000}\\Big)^{4.5}=0.13353$$`}
+];
+let selected=new Set();
+function renderChips(){const b=document.getElementById('chips');b.innerHTML='';questions.forEach(q=>{const c=document.createElement('span');c.className='chip'+(q.exam?' exam':'')+(selected.has(q.id)?' active':'');c.textContent='Q '+q.id;c.onclick=()=>{selected.has(q.id)?selected.delete(q.id):selected.add(q.id);renderChips();renderQuiz();};b.appendChild(c);});document.getElementById('count').textContent=`已选 ${selected.size} / ${questions.length} 题（★ 表示 Exam style 考试风格题）`;}
+function renderQuiz(){const z=document.getElementById('quiz');z.innerHTML='';const l=questions.filter(q=>selected.has(q.id));if(!l.length){z.innerHTML='<div class="card empty">还没有选择题目，请在上方点击标签选择。</div>';return;}l.forEach(q=>{const c=document.createElement('div');c.className='card';c.innerHTML=`<div class="qhead"><span class="qnum">Q ${q.id}</span>${q.exam?'<span class="badge">★ Exam style</span>':''}</div><div class="qbody">${q.q}</div><button class="toggle-ans">显示答案</button><div class="answer"><div class="atitle">解答 Solution</div>${q.a}</div>`;const b=c.querySelector('.toggle-ans'),a=c.querySelector('.answer');b.onclick=()=>{a.classList.toggle('show');b.textContent=a.classList.contains('show')?'隐藏答案':'显示答案';};z.appendChild(c);});if(window.MathJax&&MathJax.typesetPromise)MathJax.typesetPromise([z]);}
+function selectAll(v){selected=v?new Set(questions.map(q=>q.id)):new Set();renderChips();renderQuiz();}
+function randomPick(){const n=parseInt(document.getElementById('randCount').value);const p=[...questions.map(q=>q.id)];for(let i=p.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[p[i],p[j]]=[p[j],p[i]];}selected=new Set(p.slice(0,n));renderChips();renderQuiz();}
+function toggleAllAns(s){document.querySelectorAll('.card').forEach(c=>{const a=c.querySelector('.answer'),b=c.querySelector('.toggle-ans');if(!a)return;if(s){a.classList.add('show');if(b)b.textContent='隐藏答案';}else{a.classList.remove('show');if(b)b.textContent='显示答案';}});}
+renderChips();renderQuiz();
+</script></body></html>

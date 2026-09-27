@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LOSS LAB · 挑战竞技场</title>
+<link rel="stylesheet" href="style.css">
+<script>try{if(localStorage.getItem('losslab_theme')==='light')document.documentElement.dataset.theme='light';}catch(e){}</script>
+<style>
+  .arena-head{padding:30px 0 6px}
+  .arena-head h1{font-size:34px}
+  .arena-head .sub{color:var(--muted);margin-top:6px}
+  .stage{margin-top:24px;padding-bottom:60px}
+  .q-card{padding:26px;max-width:760px;margin:0 auto}
+  .q-card .q-meta{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+  .result-card{max-width:640px;margin:0 auto;padding:34px;text-align:center}
+  .result-card .big-score{font-family:var(--disp);font-size:64px;font-weight:700;color:var(--gold);line-height:1}
+  .result-card .r-row{display:flex;justify-content:center;gap:26px;margin:20px 0;flex-wrap:wrap}
+  .result-card .r-item .r-l{font-size:12px;color:var(--muted)}
+  .result-card .r-item .r-v{font-family:var(--mono);font-size:22px;font-weight:700}
+  .combo-pop{position:fixed;left:50%;top:30%;transform:translateX(-50%);font-family:var(--disp);font-weight:700;
+    font-size:40px;color:var(--bad);pointer-events:none;animation:xpFloat 1s ease-out forwards;z-index:200;text-shadow:0 4px 24px rgba(251,113,133,.5)}
+  .shake-wrong{animation:shake .4s}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="wrap" id="topbar"></div></div>
+<div class="wrap">
+  <div class="arena-head rise">
+    <h1>🎮 挑战竞技场</h1>
+    <div class="sub">把学习变成竞技 · 得分换 XP · 连击解锁「神射手」徽章</div>
+  </div>
+  <div class="stage" id="stage"></div>
+</div>
+
+<script src="course.js"></script>
+<script src="game.js"></script>
+<script>
+Game.renderTopbar(document.getElementById('topbar'),'arena');
+const stage=document.getElementById('stage');
+const LETTER=['A','B','C','D','E','F'];
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function escMath(s){return esc(s).replace(/&lt;(\/?)(sub|sup)&gt;/g,'<$1$2>');}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+/* ================= 模式选择 ================= */
+let SCOPE={onlyDone:true, label:'已学内容'};  // 默认只练学过的
+function buildScopeChips(){
+  const chips=[{onlyDone:true,label:'已学内容'}];
+  COURSE.chapters.forEach(ch=>{ if(ch.status==='live'&&(ch.kps||[]).length)chips.push({chId:ch.id,label:ch.no+' '+ch.name,color:ch.color}); });
+  chips.push({label:'综合（全部已建设）'});
+  return chips.map((c,i)=>{ const active=(SCOPE.label===c.label);
+    return '<span class="filter-chip'+(active?' on':'')+'" data-i="'+i+'" style="'+(active&&c.color?'border-color:'+c.color+';color:'+c.color:'')+'">'+c.label+'</span>'; }).join('');
+}
+let SCOPE_CHIPS=[];
+function currentQuiz(){ return Game.allQuiz({onlyDone:SCOPE.onlyDone,chId:SCOPE.chId}); }
+function showMenu(){
+  const S=Game.state();
+  SCOPE_CHIPS=[{onlyDone:true,label:'已学内容'}];
+  COURSE.chapters.forEach(ch=>{ if(ch.status==='live'&&(ch.kps||[]).length)SCOPE_CHIPS.push({chId:ch.id,label:ch.no+' '+ch.name,color:ch.color}); });
+  SCOPE_CHIPS.push({label:'综合（全部已建设）'});
+  if(!SCOPE_CHIPS.find(c=>c.label===SCOPE.label))SCOPE=SCOPE_CHIPS[0];
+  const n=currentQuiz().length;
+  stage.innerHTML=
+  '<div class="card" style="padding:18px 20px;margin-bottom:20px">'+
+    '<div style="font-size:13px;color:var(--muted);letter-spacing:1px;margin-bottom:10px">🎯 训练范围 · 学哪练哪</div>'+
+    '<div class="filter-row" id="scopeChips" style="margin:0">'+SCOPE_CHIPS.map((c,i)=>{ const active=(SCOPE.label===c.label);
+      return "<span class='filter-chip"+(active?' on':'')+"' onclick='pickScope("+i+")' style='"+(active&&c.color?'border-color:'+c.color+';color:'+c.color:'')+"'>"+c.label+"</span>"; }).join('')+'</div>'+
+    (n?'<div class="muted" style="font-size:12.5px;margin-top:10px">当前范围题库：'+n+' 题</div>':'<div class="why" style="margin-top:10px;border-left-color:var(--gold)">这个范围还没有题——先去学几个知识点，或选「综合」。</div>')+
+  '</div>'+
+  '<div class="arena-grid">'+
+    modeCard('⚡','限时连击挑战','60 秒内答对尽可能多的题。连击越高，单题得分越高——断了可就归零。','最高连击 '+ (S.stats.arenaBest||0),'startBlitz()')+
+    modeCard('🕵️','精算侦探 · Copula 专题','还没学理论？先靠观察下注——预测散点往哪个角抱团、哪个 λ 不为零。直觉就是最好的线索。','6 轮预测','startDetective()')+
+    modeCard('🧩','配对冲刺','45 秒内把概念和定义配对。手速与理解的双重考验。','计时配对','startMatchSprint()')+
+  '</div>';
+}
+function pickScope(i){ SCOPE=SCOPE_CHIPS[i]; showMenu(); }
+function modeCard(ic,title,desc,tag,fn){
+  return '<div class="card mode-card rise" onclick="'+fn+'"><div class="m-ic">'+ic+'</div><h3>'+title+'</h3><p>'+desc+'</p><div class="m-tag">'+tag+' →</div></div>';
+}
+
+/* ================= 限时连击 ================= */
+function startBlitz(){
+  const qs=shuffle(currentQuiz().slice());
+  if(!qs.length){stage.innerHTML='<div class="empty"><div class="big">📭</div>这个范围还没有题目。先去学几个知识点，或在上方选「综合」。<div style="margin-top:16px"><button class="btn" onclick="showMenu()">返回</button></div></div>';return;}
+  let i=0,score=0,combo=0,bestCombo=0,correct=0;
+  const T=60; let timeLeft=T, timer=null;
+  function renderQ(){
+    if(i>=qs.length){i=0;shuffle(qs);}
+    const q=qs[i];
+    document.documentElement.style.setProperty('--ch',q.color);
+    stage.innerHTML=
+      '<div class="hud"><span class="timer" id="timer">'+timeLeft+'s</span>'+
+      '<span class="combo" id="combo">'+(combo>1?'🔥 ×'+combo:'')+'</span>'+
+      '<span class="spacer"></span><span class="score">得分 <span id="score" style="color:var(--gold)">'+score+'</span></span></div>'+
+      '<div class="timer-bar"><i id="tbar" style="width:'+(timeLeft/T*100)+'%"></i></div>'+
+      '<div class="card q-card rise"><div class="q-meta">'+
+        '<span class="badge-chip" style="color:'+q.color+';border-color:'+q.color+'">'+q.chName+'</span>'+
+        '<span class="badge-chip">'+q.kpName+'</span></div>'+
+        '<div class="quiz-q">'+escMath(q.q)+'</div><div id="opts"></div></div>';
+    const ob=document.getElementById('opts');
+    q.opts.forEach((o,oi)=>{
+      const b=document.createElement('button');b.className='opt';
+      b.innerHTML='<span class="key">'+LETTER[oi]+'</span>'+escMath(o);
+      b.onclick=()=>{
+        const ok=oi===q.ans;
+        if(ok){combo++;bestCombo=Math.max(bestCombo,combo);correct++;
+          const gain=Math.round(100*(1+combo*0.1)); score+=gain;
+          b.classList.add('correct'); popCombo(combo,gain);
+        } else {combo=0;b.classList.add('wrong');ob.children[q.ans].classList.add('correct');
+          stage.querySelector('.q-card').classList.add('shake-wrong');}
+        [...ob.children].forEach(x=>x.disabled=true);
+        Game.logAttempt({ch:q.ch,chName:q.chName,kp:q.kp,kpName:q.kpName,lv:(q.lv||2),q:q.q,opts:q.opts,ans:q.ans,chosen:oi,ok:ok,src:'arena'});
+        document.getElementById('score').textContent=score;
+        document.getElementById('combo').innerHTML=combo>1?'🔥 ×'+combo:'';
+        i++; setTimeout(renderQ, ok?450:800);
+      };
+      ob.appendChild(b);
+    });
+  }
+  function popCombo(c,gain){ if(c>=2){const d=document.createElement('div');d.className='combo-pop';
+    d.textContent='×'+c+' 连击 +'+gain; document.body.appendChild(d); setTimeout(()=>d.remove(),900);} }
+  timer=setInterval(()=>{ timeLeft--;
+    const t=document.getElementById('timer'); if(t)t.textContent=timeLeft+'s';
+    const tb=document.getElementById('tbar'); if(tb)tb.style.width=(timeLeft/T*100)+'%';
+    if(timeLeft<=0){clearInterval(timer);endBlitz(score,correct,bestCombo);} },1000);
+  renderQ();
+}
+function endBlitz(score,correct,bestCombo){
+  Game.reportArena(score,bestCombo);
+  stage.innerHTML='<div class="card result-card rise">'+
+    '<div style="font-size:44px">⚡</div><div class="big-score">'+score+'</div>'+
+    '<div style="color:var(--muted);margin-top:6px">最终得分</div>'+
+    '<div class="r-row">'+
+      '<div class="r-item"><div class="r-v" style="color:var(--good)">'+correct+'</div><div class="r-l">答对</div></div>'+
+      '<div class="r-item"><div class="r-v" style="color:var(--bad)">×'+bestCombo+'</div><div class="r-l">最高连击</div></div>'+
+      '<div class="r-item"><div class="r-v" style="color:var(--gold)">+'+Math.round(score/10)+'</div><div class="r-l">XP</div></div>'+
+    '</div>'+
+    (bestCombo>=8?'<div class="why" style="text-align:left;border-left-color:var(--gold)"><b>🎯 神射手！</b> 连击 ≥8，徽章已解锁。</div>':'')+
+    '<div class="row" style="justify-content:center;margin-top:20px"><button class="btn gold" onclick="startBlitz()">再来一局</button>'+
+    '<button class="btn" onclick="showMenu()">返回菜单</button></div></div>';
+}
+
+/* ================= 精算侦探 ================= */
+const DETECTIVE=[
+  {sc:'一批 (U,V) 样本在 <b>左下角</b>明显抱团，右上角稀疏。它最可能来自哪个 copula？',
+   opts:[{ic:'🔵',t:'Clayton'},{ic:'🔴',t:'Gumbel'},{ic:'🥚',t:'Gaussian'},{ic:'➖',t:'独立'}],ans:0,
+   why:'左下角抱团 = 下尾相依，正是 Clayton（λ_L>0, λ_U=0）。'},
+  {sc:'巨灾再保关注<b>大额索赔同时爆发</b>。该给上尾相依系数 λ_U>0 的模型，选哪个族？',
+   opts:[{ic:'🔴',t:'Gumbel'},{ic:'🔵',t:'Clayton'},{ic:'🌀',t:'Frank'},{ic:'🥚',t:'Gaussian'}],ans:0,
+   why:'Gumbel 上尾相依 λ_U=2−2^(1/θ)>0，专管右上角。'},
+  {sc:'把相关系数 ρ 调到 0.9 的 <b>Gaussian copula</b>，它的尾部相依系数 λ 是多少？',
+   opts:[{ic:'0️⃣',t:'0（极端时各自逃命）'},{ic:'9️⃣',t:'0.9'},{ic:'1️⃣',t:'1'},{ic:'❓',t:'取决于样本量'}],ans:0,
+   why:'高斯 |ρ|<1 时 λ_L=λ_U=0——平时再相关，极端时也不联动。这是它的致命弱点。'},
+  {sc:'对损失 X 做单调变换 X→lnX，哪个相关度量<b>纹丝不动</b>？',
+   opts:[{ic:'🏅',t:'Spearman 秩相关'},{ic:'📉',t:'Pearson 相关'},{ic:'📐',t:'协方差'},{ic:'📏',t:'方差'}],ans:0,
+   why:'单调变换不改变排名，秩相关稳健；Pearson/协方差都依赖具体数值。'},
+  {sc:'t copula 把自由度 ν 从 30 调到 3，散点的<b>四个角</b>会怎样？',
+   opts:[{ic:'📌',t:'上下两角同时变密（对称厚尾）'},{ic:'↘️',t:'只有左下角变密'},{ic:'↗️',t:'只有右上角变密'},{ic:'🔇',t:'没变化'}],ans:0,
+   why:'t 是对称厚尾，ν 越小尾越厚，上下角同时变密——危机同步的画像。'},
+  {sc:'PIT 把任意连续分布的损失 X 换成 U=F_X(X)，U 服从什么？',
+   opts:[{ic:'🟰',t:'Uniform(0,1)'},{ic:'🔔',t:'正态分布'},{ic:'📊',t:'和 X 同分布'},{ic:'⚡',t:'指数分布'}],ans:0,
+   why:'概率积分变换：U=F_X(X)~Unif(0,1)，把边缘形状彻底洗掉。'}
+];
+function startDetective(){
+  let i=0,pts=0,right=0;
+  function renderD(){
+    if(i>=DETECTIVE.length)return endDetective(pts,right);
+    const d=DETECTIVE[i];
+    stage.innerHTML='<div class="hud"><span class="timer">🕵️</span><span style="color:var(--muted)">第 '+(i+1)+' / '+DETECTIVE.length+' 案</span>'+
+      '<span class="spacer"></span><span class="score">线索分 <span id="dpts" style="color:var(--gold)">'+pts+'</span></span></div>'+
+      '<div class="card q-card rise"><div class="hook" style="margin:0 0 16px"><span class="ic">🔍</span><span class="txt">'+d.sc+'</span></div>'+
+      '<div class="bet-grid" id="dgrid"></div><div id="dwhy"></div></div>';
+    const g=document.getElementById('dgrid');
+    d.opts.forEach((o,oi)=>{
+      const b=document.createElement('div');b.className='bet-opt';
+      b.innerHTML='<span class="big">'+o.ic+'</span>'+o.t;
+      b.onclick=()=>{
+        const ok=oi===d.ans;
+        [...g.children].forEach((x,xi)=>{ if(xi===d.ans)x.classList.add('right'); else if(x===b&&!ok)x.classList.add('wrongpick'); });
+        if(ok){pts+=150;right++;document.getElementById('dpts').textContent=pts;Game.floatText('+150 线索分','#fcd34d');}
+        document.getElementById('dwhy').innerHTML='<div class="why" style="border-left-color:'+(ok?'var(--good)':'var(--bad)')+'"><b>'+(ok?'🎯 推理正确！':'🔎 真相是——')+'</b> '+d.why+'</div>';
+        i++; setTimeout(renderD,1600);
+      };
+      g.appendChild(b);
+    });
+  }
+  renderD();
+}
+function endDetective(pts,right){
+  Game.awardXP(Math.round(pts/15),'侦探得分 '+pts);
+  stage.innerHTML='<div class="card result-card rise"><div style="font-size:44px">🕵️</div>'+
+    '<div class="big-score">'+pts+'</div><div style="color:var(--muted);margin-top:6px">线索分 · 破案 '+right+' / '+DETECTIVE.length+'</div>'+
+    '<div class="row" style="justify-content:center;margin-top:22px"><button class="btn gold" onclick="startDetective()">再探一轮</button>'+
+    '<button class="btn" onclick="showMenu()">返回菜单</button></div></div>';
+}
+
+/* ================= 配对冲刺 ================= */
+function startMatchSprint(){
+  // 收集 match 配对（尊重训练范围）
+  const all=[]; COURSE.chapters.forEach(ch=>{ if(SCOPE.chId&&ch.id!==SCOPE.chId)return;
+    (ch.kps||[]).forEach(kp=>{ if(SCOPE.onlyDone&&!Game.isKPDone(ch.id,kp.id))return;
+      if(kp.match)kp.match.pairs.forEach(p=>all.push({ch:ch.name,color:ch.color,...p})); }); });
+  if(all.length<3){stage.innerHTML='<div class="empty"><div class="big">🧩</div>当前范围的配对题不足（需≥完成3个带配对的知识点）。先多学几个，或选「综合」。<div style="margin-top:16px"><button class="btn" onclick="showMenu()">返回</button></div></div>';return;}
+  const set=shuffle(all.slice()).slice(0,6);
+  const T=45; let timeLeft=T,matched=0;
+  const rights=shuffle(set.map((p,i)=>({txt:p.r,i})));
+  let dragTxt=null;
+  stage.innerHTML='<div class="hud"><span class="timer" id="mtimer">'+timeLeft+'s</span>'+
+    '<span class="spacer"></span><span class="score">已配对 <span id="mmatched" style="color:var(--good)">0</span> / '+set.length+'</span></div>'+
+    '<div class="timer-bar"><i id="mbar" style="width:100%"></i></div>'+
+    '<div class="card q-card"><div class="match-board"><div class="match-col" id="mleft"><div class="col-h">概念</div></div>'+
+    '<div class="match-col" id="mright"><div class="col-h">定义（拖到左侧）</div></div></div></div>';
+  const left=document.getElementById('mleft'),right=document.getElementById('mright');
+  set.forEach((p,i)=>{
+    const slot=document.createElement('div');slot.className='match-slot';
+    slot.innerHTML='<span style="color:var(--muted);font-size:13px">'+escMath(p.l)+'</span>';
+    slot.ondragover=e=>{e.preventDefault();slot.classList.add('over');};
+    slot.ondragleave=()=>slot.classList.remove('over');
+    slot.ondrop=e=>{e.preventDefault();slot.classList.remove('over');
+      if(slot.classList.contains('correct')||dragTxt==null)return;
+      const m=rights.find(r=>r.txt===dragTxt);
+      if(m&&m.i===i){slot.classList.add('correct');slot.innerHTML='<span style="color:var(--good);font-weight:600">✓ '+escMath(p.l)+' ⟷ '+escMath(dragTxt)+'</span>';
+        const rc=[...right.querySelectorAll('.match-item')].find(x=>x.dataset.txt===dragTxt); if(rc)rc.remove();
+        matched++;document.getElementById('mmatched').textContent=matched;dragTxt=null;
+        if(matched===set.length)finishMatch(true);
+      } else {slot.classList.add('wrong');setTimeout(()=>slot.classList.remove('wrong'),500);dragTxt=null;}
+    };
+    left.appendChild(slot);
+  });
+  rights.forEach(r=>{
+    const it=document.createElement('div');it.className='match-item';it.innerHTML=escMath(r.txt);it.dataset.txt=r.txt;it.draggable=true;
+    it.ondragstart=()=>{dragTxt=r.txt;};
+    right.appendChild(it);
+  });
+  const timer=setInterval(()=>{timeLeft--;
+    const t=document.getElementById('mtimer');if(t)t.textContent=timeLeft+'s';
+    const b=document.getElementById('mbar');if(b)b.style.width=(timeLeft/T*100)+'%';
+    if(timeLeft<=0){clearInterval(timer);finishMatch(false);} },1000);
+  window._matchTimer=timer;
+  function finishMatch(completed){
+    clearInterval(window._matchTimer);
+    const score=matched*120+(completed?timeLeft*10:0);
+    Game.reportArena(score,matched);
+    stage.innerHTML='<div class="card result-card rise"><div style="font-size:44px">🧩</div>'+
+      '<div class="big-score">'+score+'</div><div style="color:var(--muted);margin-top:6px">'+(completed?'⏱ 提前完成！剩余 '+timeLeft+'s 转为奖励分':'时间到')+' · 配对 '+matched+' / '+set.length+'</div>'+
+      '<div class="row" style="justify-content:center;margin-top:22px"><button class="btn gold" onclick="startMatchSprint()">再来一轮</button>'+
+      '<button class="btn" onclick="showMenu()">返回菜单</button></div></div>';
+  }
+}
+
+showMenu();
+</script>
+</body>
+</html>

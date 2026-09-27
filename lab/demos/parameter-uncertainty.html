@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>参数不确定性 (Parameter Uncertainty)</title>
+    
+    <script src="vendor/tailwind.js"></script>
+    <script src="vendor/chart.umd.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; }
+        .canvas-container { position: relative; height: 350px; width: 100%; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 10px; margin-bottom: 20px; }
+        .control-panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .stat-card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); text-align: center; }
+        .stat-value { font-size: 1.25rem; font-weight: bold; color: #1f2937; }
+        .stat-label { font-size: 0.875rem; color: #6b7280; }
+        .slider-label { display: flex; justify-content: space-between; font-size: 0.9em; margin-bottom: 2px; }
+    </style>
+</head>
+<body class="p-6">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-6">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">参数不确定性 (Parameter Uncertainty)</h1>
+            <p class="text-gray-600">
+                本实验展示参数不确定性（即参数 \(\lambda\) 本身是随机变量）如何增加总赔款 \(S\) 的方差，导致“过离散”现象 (Over-dispersion)。
+                对比情形：
+                1. <strong>已知参数 (Homogeneous)</strong>: 所有保单具有相同的固定 \(\lambda = E[\Lambda]\)。
+                2. <strong>参数随机 (Heterogeneous)</strong>: \(\Lambda\) 服从某种分布（混合模型），但整体均值保持不变。
+            </p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Controls -->
+            <div class="lg:col-span-4 space-y-6">
+                
+                <!-- Mixing Distribution -->
+                <div class="control-panel">
+                    <h3 class="text-lg font-semibold mb-3 text-gray-700">1. 参数 \(\Lambda\) 的分布 (Mixing Dist)</h3>
+                    <div class="mb-3">
+                        <label class="block text-sm font-medium text-gray-700">类型选择</label>
+                        <select id="mixType" class="w-full p-2 border rounded mt-1" onchange="updateUI()">
+                            <option value="twopoint">Two-Point (Good/Bad Driver)</option>
+                            <option value="gamma">Gamma Distribution</option>
+                        </select>
+                    </div>
+                    
+                    <div id="mixParams">
+                        <!-- Dynamic Params -->
+                    </div>
+                    
+                    <div class="mt-2 p-2 bg-gray-50 rounded text-sm text-gray-600">
+                        <div>整体均值 \( E[\Lambda] \): <span id="val_lambda_mean" class="font-bold">-</span></div>
+                        <div>参数方差 \( \text{Var}(\Lambda) \): <span id="val_lambda_var" class="font-bold">-</span></div>
+                    </div>
+                </div>
+
+                <!-- Severity Distribution -->
+                <div class="control-panel">
+                    <h3 class="text-lg font-semibold mb-3 text-gray-700">2. 单次赔款分布 (Severity)</h3>
+                    <div class="mb-3">
+                        <div class="slider-label"><span>Gamma Mean</span><span id="disp_s_mean">100</span></div>
+                        <input type="range" id="s_mean" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" min="10" max="500" step="10" value="100" oninput="updateVal('s_mean', this.value)">
+                    </div>
+                    <div class="mb-3">
+                        <div class="slider-label"><span>Gamma CV (SD/Mean)</span><span id="disp_s_cv">1.0</span></div>
+                        <input type="range" id="s_cv" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" min="0.1" max="2.0" step="0.1" value="1.0" oninput="updateVal('s_cv', this.value)">
+                    </div>
+                    
+                    <button onclick="runSimulation()" class="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition">
+                        开始模拟 (Simulate)
+                    </button>
+                </div>
+
+            </div>
+
+            <!-- Results -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Stats Grid -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="stat-card border-t-4 border-gray-500">
+                        <h4 class="font-bold text-gray-700">已知参数 (Fixed \(\lambda\))</h4>
+                        <div class="grid grid-cols-2 mt-2 gap-2">
+                            <div>
+                                <div class="stat-label">Mean \( E[S] \)</div>
+                                <div id="stat_fixed_mean" class="stat-value">-</div>
+                            </div>
+                            <div>
+                                <div class="stat-label">Variance \( \text{Var}(S) \)</div>
+                                <div id="stat_fixed_var" class="stat-value">-</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="stat-card border-t-4 border-blue-500">
+                        <h4 class="font-bold text-blue-700">参数随机 (Random \(\Lambda\))</h4>
+                        <div class="grid grid-cols-2 mt-2 gap-2">
+                            <div>
+                                <div class="stat-label">Mean \( E[S] \)</div>
+                                <div id="stat_rand_mean" class="stat-value">-</div>
+                            </div>
+                            <div>
+                                <div class="stat-label">Variance \( \text{Var}(S) \)</div>
+                                <div id="stat_rand_var" class="stat-value">-</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Theory Hint -->
+                <div id="mathHint" class="bg-yellow-50 border border-yellow-200 p-4 rounded text-sm text-gray-700">
+                    <!-- Dynamic Hint -->
+                </div>
+
+                <!-- Chart -->
+                <div class="canvas-container">
+                    <h4 class="text-center font-semibold text-gray-600 mb-2">聚合赔款分布对比 (Aggregate Loss Distribution)</h4>
+                    <canvas id="mainChart"></canvas>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Utils ---
+        const Dist = {
+            // Gamma(alpha, theta) with Mean = alpha*theta, Var = alpha*theta^2
+            // Generated via Marsaglia & Tsang
+            gamma: (alpha, theta) => {
+                if(alpha <= 0) return 0;
+                // For small alpha, use transformation
+                if (alpha < 1) {
+                    return Dist.gamma(1 + alpha, theta) * Math.pow(Math.random(), 1 / alpha);
+                }
+                const d = alpha - 1 / 3;
+                const c = 1 / Math.sqrt(9 * d);
+                while (true) {
+                    const x = Dist.randn();
+                    const v = 1 + c * x;
+                    if (v <= 0) continue;
+                    const v3 = v * v * v;
+                    const u = Math.random();
+                    if (u < 1 - 0.0331 * x * x * x * x) return d * v3 * theta;
+                    if (Math.log(u) < 0.5 * x * x + d * (1 - v3 + Math.log(v3))) return d * v3 * theta;
+                }
+            },
+            randn: () => {
+                let u = 0, v = 0;
+                while(u === 0) u = Math.random();
+                while(v === 0) v = Math.random();
+                return Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
+            },
+            poisson: (lambda) => {
+                const L = Math.exp(-lambda);
+                let k = 0, p = 1;
+                do { k++; p *= Math.random(); } while (p > L);
+                return k - 1;
+            }
+        };
+
+        // --- Config ---
+        const MixParams = {
+            twopoint: [
+                {id: 'lambda1', label: 'Good Driver λ₁', val: 2, min: 0.1, max: 20, step: 0.1},
+                {id: 'lambda2', label: 'Bad Driver λ₂', val: 10, min: 1, max: 50, step: 1},
+                {id: 'prob1', label: 'Prob(Good) p', val: 0.8, min: 0.1, max: 0.9, step: 0.05}
+            ],
+            gamma: [
+                {id: 'g_mean', label: 'Mean E[Λ]', val: 5, min: 1, max: 20, step: 0.5},
+                {id: 'g_var', label: 'Variance Var(Λ)', val: 5, min: 0.1, max: 20, step: 0.1}
+            ]
+        };
+
+        let myChart = null;
+
+        // --- UI Logic ---
+        function updateUI() {
+            const type = document.getElementById('mixType').value;
+            const container = document.getElementById('mixParams');
+            container.innerHTML = '';
+            
+            MixParams[type].forEach(p => {
+                const html = `
+                    <div class="mb-3">
+                        <div class="slider-label"><span>${p.label}</span><span id="disp_${p.id}">${p.val}</span></div>
+                        <input type="range" id="${p.id}" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" 
+                            min="${p.min}" max="${p.max}" step="${p.step}" value="${p.val}" oninput="updateVal('${p.id}', this.value); updateStatsPreview();">
+                    </div>
+                `;
+                container.innerHTML += html;
+            });
+            updateStatsPreview();
+            updateMathHint();
+        }
+
+        function updateVal(id, val) {
+            document.getElementById('disp_'+id).innerText = val;
+        }
+
+        function updateStatsPreview() {
+            const type = document.getElementById('mixType').value;
+            let mean = 0, variance = 0;
+            
+            if(type === 'twopoint') {
+                const l1 = parseFloat(document.getElementById('lambda1').value);
+                const l2 = parseFloat(document.getElementById('lambda2').value);
+                const p = parseFloat(document.getElementById('prob1').value);
+                mean = p * l1 + (1-p) * l2;
+                variance = p * (l1-mean)**2 + (1-p) * (l2-mean)**2; // E[X^2] - (E[X])^2 also works
+            } else {
+                mean = parseFloat(document.getElementById('g_mean').value);
+                variance = parseFloat(document.getElementById('g_var').value);
+            }
+            
+            document.getElementById('val_lambda_mean').innerText = mean.toFixed(2);
+            document.getElementById('val_lambda_var').innerText = variance.toFixed(2);
+        }
+
+        function updateMathHint() {
+            const div = document.getElementById('mathHint');
+            const type = document.getElementById('mixType').value;
+            
+            let tex = '';
+            if(type === 'twopoint') {
+                tex = `$$ \\Lambda = \\begin{cases} \\lambda_1 & \\text{with prob } p \\\\ \\lambda_2 & \\text{with prob } 1-p \\end{cases} $$`;
+            } else {
+                tex = `$$ \\Lambda \\sim \\text{Gamma}(\\alpha, \\theta) \\quad (\\text{Poisson}(\\Lambda) \\to \\text{Negative Binomial}) $$`;
+            }
+            
+            tex += `$$ \\text{Var}(S) = E[\\text{Var}(S|\\Lambda)] + \\text{Var}(E[S|\\Lambda]) = E[S] \\cdot E[X^2]/E[X] + \\text{Var}(\\Lambda)(E[X])^2 $$`;
+            
+            div.innerHTML = `<h5 class="font-bold mb-1">理论公式 (Law of Total Variance):</h5>` + tex;
+            MathJax.Hub.Queue(["Typeset", MathJax.Hub, div]);
+        }
+
+        // --- Simulation ---
+        function runSimulation() {
+            const type = document.getElementById('mixType').value;
+            const s_mean = parseFloat(document.getElementById('s_mean').value);
+            const s_cv = parseFloat(document.getElementById('s_cv').value);
+            
+            // Severity Params: Gamma
+            // Mean = a*t, Var = a*t^2 = (Mean*CV)^2
+            // a*t^2 / (a*t) = t = Var/Mean = Mean*CV^2
+            // a = Mean/t
+            const sev_theta = s_mean * s_cv * s_cv;
+            const sev_alpha = s_mean / sev_theta;
+
+            // Mixing Params
+            let getLambda = null;
+            let fixedLambda = 0;
+            
+            if(type === 'twopoint') {
+                const l1 = parseFloat(document.getElementById('lambda1').value);
+                const l2 = parseFloat(document.getElementById('lambda2').value);
+                const p = parseFloat(document.getElementById('prob1').value);
+                fixedLambda = p * l1 + (1-p) * l2;
+                getLambda = () => (Math.random() < p) ? l1 : l2;
+            } else {
+                const gm = parseFloat(document.getElementById('g_mean').value);
+                const gv = parseFloat(document.getElementById('g_var').value);
+                // Gamma for Lambda: Mean=k*th, Var=k*th^2
+                // th = Var/Mean, k = Mean/th
+                const th = gv / gm;
+                const k = gm / th;
+                fixedLambda = gm;
+                getLambda = () => Dist.gamma(k, th);
+            }
+
+            const N_sim = 10000;
+            const S_fixed = [];
+            const S_rand = [];
+
+            for(let i=0; i<N_sim; i++) {
+                // 1. Fixed Case
+                const N1 = Dist.poisson(fixedLambda);
+                let s1 = 0;
+                for(let j=0; j<N1; j++) s1 += Dist.gamma(sev_alpha, sev_theta);
+                S_fixed.push(s1);
+
+                // 2. Random Case
+                const lambda = getLambda();
+                const N2 = Dist.poisson(lambda);
+                let s2 = 0;
+                for(let j=0; j<N2; j++) s2 += Dist.gamma(sev_alpha, sev_theta);
+                S_rand.push(s2);
+            }
+
+            // Stats
+            const calcStats = (arr) => {
+                const m = arr.reduce((a,b)=>a+b,0)/arr.length;
+                const v = arr.reduce((a,b)=>a+(b-m)**2,0)/(arr.length-1);
+                return {mean: m, var: v};
+            };
+
+            const stat1 = calcStats(S_fixed);
+            const stat2 = calcStats(S_rand);
+
+            document.getElementById('stat_fixed_mean').innerText = stat1.mean.toFixed(1);
+            document.getElementById('stat_fixed_var').innerText = stat1.var.toFixed(0);
+            document.getElementById('stat_rand_mean').innerText = stat2.mean.toFixed(1);
+            document.getElementById('stat_rand_var').innerText = stat2.var.toFixed(0);
+
+            updateChart(S_fixed, S_rand);
+        }
+
+        function updateChart(data1, data2) {
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            
+            const all = data1.concat(data2);
+            const max = Math.max(...all);
+            const bins = 40;
+            const step = max / bins;
+            
+            const hist1 = new Array(bins).fill(0);
+            const hist2 = new Array(bins).fill(0);
+            const labels = [];
+            
+            for(let i=0; i<bins; i++) labels.push((i*step).toFixed(0));
+            
+            const fill = (d, h) => {
+                d.forEach(v => {
+                    let idx = Math.floor(v/step);
+                    if(idx >= bins) idx = bins-1;
+                    h[idx]++;
+                });
+            };
+            
+            fill(data1, hist1);
+            fill(data2, hist2);
+
+            if(myChart) myChart.destroy();
+
+            myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Known Parameter (Fixed λ)',
+                            data: hist1,
+                            backgroundColor: 'rgba(107, 114, 128, 0.5)',
+                            borderColor: 'rgba(107, 114, 128, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Random Parameter (Random Λ)',
+                            data: hist2,
+                            backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                            borderColor: 'rgba(59, 130, 246, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { title: {display:true, text:'Aggregate Loss S'} },
+                        y: { title: {display:true, text:'Frequency'} }
+                    },
+                    plugins: { tooltip: { mode: 'index', intersect: false } }
+                }
+            });
+        }
+
+        // Init
+        window.onload = function() {
+            updateUI();
+            // runSimulation(); 
+        };
+
+    </script>
+  <script src="vendor/mathjax-loader.js"></script>
+  <script src="vendor/mathjax-tex-svg.js"></script>
+</body>
+</html>

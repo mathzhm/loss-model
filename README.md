@@ -6,6 +6,8 @@
 
 **闯关首页**：https://mathzhm.github.io/loss-model/
 
+**Loss Lab 学习舱**：https://mathzhm.github.io/loss-model/lab/ —— LOSS LAB「损失模型 · CS2 互动学习舱」，10 章 52 个知识点的完整互动课程（讲解视频、概念图、实验台、468 题自测），双击 `lab/index.html` 也可离线运行。
+
 从首页进入各站。已开放关卡可直接点击，灰色为建设中，随课程推进逐步解锁。
 
 ## 已开放站点

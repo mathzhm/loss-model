@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Train-Validation-Test 与 泛化误差 (Generalization Error)</title>
+    <script src="vendor/tailwind.js"></script>
+    <script src="vendor/chart.umd.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; }
+        .canvas-container { position: relative; height: 350px; width: 100%; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 10px; margin-bottom: 20px; }
+        .control-panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .slider-label { display: flex; justify-content: space-between; font-size: 0.9em; margin-bottom: 2px; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; color: white; font-weight: bold; }
+        .badge-train { background-color: rgba(54, 162, 235, 1); }
+        .badge-val { background-color: rgba(255, 206, 86, 1); }
+        .badge-test { background-color: rgba(255, 99, 132, 1); }
+    </style>
+</head>
+<body class="p-6">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-6">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">Train-Validation-Test 与 泛化误差</h1>
+            <p class="text-gray-600">
+                本实验展示数据集切分（训练/验证/测试）对模型评估的重要性，以及模型复杂度（多项式阶数）与过拟合/欠拟合的关系。
+                <br>目标：找到泛化误差（Test Error）最小的“最佳复杂度”。
+            </p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Controls -->
+            <div class="lg:col-span-4 space-y-6">
+                
+                <!-- Data Gen -->
+                <div class="control-panel">
+                    <h3 class="text-lg font-semibold mb-3 text-gray-700">1. 数据生成 (Data Generation)</h3>
+                    
+                    <div class="mb-3">
+                        <div class="slider-label"><span>样本数量 (Total Size N)</span><span id="disp_N">100</span></div>
+                        <input type="range" id="N" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" min="20" max="500" step="10" value="100" oninput="updateUI(); runSimulation();">
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="slider-label"><span>噪声水平 (Noise \(\sigma\))</span><span id="disp_noise">0.5</span></div>
+                        <input type="range" id="noise" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" min="0" max="2.0" step="0.1" value="0.5" oninput="updateUI(); runSimulation();">
+                    </div>
+
+                    <button onclick="runSimulation()" class="w-full mt-2 bg-blue-100 hover:bg-blue-200 text-blue-800 font-semibold py-1 px-3 rounded text-sm transition">
+                        重新生成数据 (Regenerate Data)
+                    </button>
+                </div>
+
+                <!-- Split -->
+                <div class="control-panel">
+                    <h3 class="text-lg font-semibold mb-3 text-gray-700">2. 数据切分 (Data Split)</h3>
+                    
+                    <div class="mb-3">
+                        <div class="slider-label">
+                            <span>训练集比例 (Train %)</span>
+                            <span id="disp_train_pct" class="text-blue-600 font-bold">60%</span>
+                        </div>
+                        <input type="range" id="train_pct" class="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer" min="10" max="90" step="5" value="60" oninput="updateSplitUI(); runSimulation();">
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="slider-label">
+                            <span>验证集比例 (Validation %)</span>
+                            <span id="disp_val_pct" class="text-yellow-600 font-bold">20%</span>
+                        </div>
+                        <input type="range" id="val_pct" class="w-full h-2 bg-yellow-200 rounded-lg appearance-none cursor-pointer" min="0" max="80" step="5" value="20" oninput="updateSplitUI(); runSimulation();">
+                    </div>
+
+                    <div class="p-2 bg-gray-50 rounded text-sm text-gray-600 flex justify-between">
+                        <span>测试集 (Test): <strong id="disp_test_pct" class="text-red-600">20%</strong></span>
+                        <span>Total: 100%</span>
+                    </div>
+                </div>
+
+                <!-- Model -->
+                <div class="control-panel">
+                    <h3 class="text-lg font-semibold mb-3 text-gray-700">3. 模型训练 (Model Complexity)</h3>
+                    
+                    <div class="mb-3">
+                        <div class="slider-label"><span>多项式阶数 (Degree)</span><span id="disp_degree">3</span></div>
+                        <input type="range" id="degree" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" min="1" max="15" step="1" value="3" oninput="updateUI(); updateModel();">
+                    </div>
+
+                    <div class="mt-4 space-y-2 text-sm">
+                        <div class="flex justify-between border-b pb-1">
+                            <span class="text-blue-600 font-bold">Train MSE:</span>
+                            <span id="val_train_mse" class="font-mono">0.000</span>
+                        </div>
+                        <div class="flex justify-between border-b pb-1">
+                            <span class="text-yellow-600 font-bold">Validation MSE:</span>
+                            <span id="val_val_mse" class="font-mono">0.000</span>
+                        </div>
+                        <div class="flex justify-between border-b pb-1">
+                            <span class="text-red-600 font-bold">Test MSE:</span>
+                            <span id="val_test_mse" class="font-mono">0.000</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Visuals -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Main Scatter -->
+                <div class="canvas-container">
+                    <h4 class="text-center font-semibold text-gray-600 mb-2">数据分布与模型拟合 (Data & Model Fit)</h4>
+                    <canvas id="scatterChart"></canvas>
+                </div>
+
+                <!-- Error Curve -->
+                <div class="canvas-container">
+                    <h4 class="text-center font-semibold text-gray-600 mb-2">偏差-方差权衡 (Bias-Variance Tradeoff)</h4>
+                    <canvas id="errorChart"></canvas>
+                </div>
+
+                <div class="bg-blue-50 border border-blue-200 p-4 rounded text-sm text-gray-700">
+                    <h5 class="font-bold mb-1">观察指南：</h5>
+                    <ul class="list-disc pl-5 space-y-1">
+                        <li><strong>欠拟合 (Underfitting)</strong>: 当阶数较低时（左侧），Train和Validation误差都很高。</li>
+                        <li><strong>过拟合 (Overfitting)</strong>: 当阶数过高时（右侧），Train误差极低，但Validation误差激增（U型曲线右侧）。</li>
+                        <li><strong>最佳复杂度</strong>: Validation误差最低点对应的阶数。</li>
+                        <li><strong>数据量影响</strong>: 尝试增加样本数量 \(N\)，观察过拟合现象是否减轻（U型曲线右侧是否下降）。</li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Linear Algebra Utils ---
+        // Simple Matrix operations for Least Squares: w = (X^T X)^-1 X^T y
+        
+        function matMul(A, B) {
+            const rA = A.length, cA = A[0].length, rB = B.length, cB = B[0].length;
+            if (cA !== rB) throw "Matrix dimension mismatch";
+            const C = Array(rA).fill(0).map(() => Array(cB).fill(0));
+            for (let i = 0; i < rA; i++)
+                for (let j = 0; j < cB; j++)
+                    for (let k = 0; k < cA; k++)
+                        C[i][j] += A[i][k] * B[k][j];
+            return C;
+        }
+
+        function transpose(A) {
+            return A[0].map((_, c) => A.map(r => r[c]));
+        }
+
+        function matInv(A) {
+            // Gauss-Jordan elimination for inversion
+            const n = A.length;
+            const M = A.map((r, i) => [...r, ...Array(n).fill(0).map((_, j) => i === j ? 1 : 0)]);
+            
+            for (let i = 0; i < n; i++) {
+                let pivot = M[i][i];
+                if (Math.abs(pivot) < 1e-10) {
+                     // Add a small regularization term if singular
+                     pivot = 1e-10; 
+                     M[i][i] += 1e-10;
+                }
+                for (let j = 0; j < 2 * n; j++) M[i][j] /= pivot;
+                for (let k = 0; k < n; k++) {
+                    if (k !== i) {
+                        const f = M[k][i];
+                        for (let j = 0; j < 2 * n; j++) M[k][j] -= f * M[i][j];
+                    }
+                }
+            }
+            return M.map(r => r.slice(n));
+        }
+
+        // --- Data & Model ---
+        let rawData = [];
+        let trainSet = [], valSet = [], testSet = [];
+        let scatterChart = null;
+        let errorChart = null;
+
+        function f_true(x) {
+            return Math.sin(2 * Math.PI * x);
+        }
+
+        function generateData() {
+            const N = parseInt(document.getElementById('N').value);
+            const noise = parseFloat(document.getElementById('noise').value);
+            
+            rawData = [];
+            for(let i=0; i<N; i++) {
+                const x = Math.random(); // [0, 1]
+                const y = f_true(x) + (Math.random() - 0.5) * 2 * noise; // Uniform noise approximation
+                // Better: Gaussian noise
+                // const y = f_true(x) + randn() * noise; 
+                rawData.push({x, y});
+            }
+            // Sort by x for better visualization later? No, keep random for split.
+        }
+
+        function randn() {
+            let u = 0, v = 0;
+            while(u === 0) u = Math.random();
+            while(v === 0) v = Math.random();
+            return Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
+        }
+
+        function splitData() {
+            const trainPct = parseInt(document.getElementById('train_pct').value) / 100;
+            const valPct = parseInt(document.getElementById('val_pct').value) / 100;
+            
+            // Shuffle
+            const shuffled = [...rawData].sort(() => Math.random() - 0.5);
+            
+            const nTrain = Math.floor(shuffled.length * trainPct);
+            const nVal = Math.floor(shuffled.length * valPct);
+            
+            trainSet = shuffled.slice(0, nTrain);
+            valSet = shuffled.slice(nTrain, nTrain + nVal);
+            testSet = shuffled.slice(nTrain + nVal);
+        }
+
+        function getDesignMatrix(data, degree) {
+            // [1, x, x^2, ...]
+            return data.map(p => {
+                const row = [];
+                for(let d=0; d<=degree; d++) row.push(Math.pow(p.x, d));
+                return row;
+            });
+        }
+
+        function fitModel(data, degree) {
+            if (data.length <= degree + 1) return Array(degree+1).fill(0); // Not enough data
+            
+            const X = getDesignMatrix(data, degree);
+            const Y = data.map(p => [p.y]);
+            
+            // w = (X^T X)^-1 X^T Y
+            const XT = transpose(X);
+            const XTX = matMul(XT, X);
+            
+            // Regularization (Ridge) to prevent singular matrix for high degrees
+            const lambda = 0.0001; 
+            for(let i=0; i<XTX.length; i++) XTX[i][i] += lambda;
+
+            const XTX_inv = matInv(XTX);
+            const XTY = matMul(XT, Y);
+            const w = matMul(XTX_inv, XTY);
+            
+            return w.map(r => r[0]);
+        }
+
+        function predict(x, w) {
+            let y = 0;
+            for(let i=0; i<w.length; i++) y += w[i] * Math.pow(x, i);
+            return y;
+        }
+
+        function calcMSE(data, w) {
+            if(data.length === 0) return 0;
+            let sum = 0;
+            data.forEach(p => {
+                const y_pred = predict(p.x, w);
+                sum += (p.y - y_pred)**2;
+            });
+            return sum / data.length;
+        }
+
+        // --- UI ---
+        function updateUI() {
+            document.getElementById('disp_N').innerText = document.getElementById('N').value;
+            document.getElementById('disp_noise').innerText = document.getElementById('noise').value;
+            document.getElementById('disp_degree').innerText = document.getElementById('degree').value;
+        }
+
+        function updateSplitUI() {
+            let train = parseInt(document.getElementById('train_pct').value);
+            let val = parseInt(document.getElementById('val_pct').value);
+            
+            if (train + val > 100) {
+                val = 100 - train;
+                document.getElementById('val_pct').value = val;
+            }
+            
+            const test = 100 - train - val;
+            
+            document.getElementById('disp_train_pct').innerText = train + '%';
+            document.getElementById('disp_val_pct').innerText = val + '%';
+            document.getElementById('disp_test_pct').innerText = test + '%';
+        }
+
+        // --- Main Logic ---
+        function runSimulation() {
+            generateData();
+            splitData();
+            updateModel();
+        }
+
+        function updateModel() {
+            const degree = parseInt(document.getElementById('degree').value);
+            
+            // 1. Fit current model
+            const w = fitModel(trainSet, degree);
+            
+            // 2. Calc MSEs
+            const trainMSE = calcMSE(trainSet, w);
+            const valMSE = calcMSE(valSet, w);
+            const testMSE = calcMSE(testSet, w);
+            
+            document.getElementById('val_train_mse').innerText = trainMSE.toFixed(4);
+            document.getElementById('val_val_mse').innerText = valMSE.toFixed(4);
+            document.getElementById('val_test_mse').innerText = testMSE.toFixed(4);
+
+            // 3. Sweep for Error Curve (Background)
+            const maxDegree = 12;
+            const errorCurveData = { labels: [], train: [], val: [], test: [] };
+            
+            for(let d=1; d<=maxDegree; d++) {
+                const wd = fitModel(trainSet, d);
+                errorCurveData.labels.push(d);
+                errorCurveData.train.push(calcMSE(trainSet, wd));
+                errorCurveData.val.push(calcMSE(valSet, wd));
+                // errorCurveData.test.push(calcMSE(testSet, wd)); // Usually don't show Test in model selection, but for demo ok
+            }
+
+            // 4. Update Charts
+            drawScatter(w);
+            drawErrorCurve(errorCurveData, degree);
+        }
+
+        function drawScatter(w) {
+            const ctx = document.getElementById('scatterChart').getContext('2d');
+            
+            // Generate curve points
+            const curvePoints = [];
+            const truePoints = [];
+            for(let x=0; x<=1.0; x+=0.02) {
+                curvePoints.push({x: x, y: predict(x, w)});
+                truePoints.push({x: x, y: f_true(x)});
+            }
+
+            const data = {
+                datasets: [
+                    {
+                        label: 'Train Data',
+                        data: trainSet,
+                        backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                        pointRadius: 4
+                    },
+                    {
+                        label: 'Validation Data',
+                        data: valSet,
+                        backgroundColor: 'rgba(255, 206, 86, 0.8)',
+                        pointRadius: 4
+                    },
+                    {
+                        label: 'Test Data',
+                        data: testSet,
+                        backgroundColor: 'rgba(255, 99, 132, 0.8)',
+                        pointRadius: 4
+                    },
+                    {
+                        label: 'Fitted Model',
+                        data: curvePoints,
+                        type: 'line',
+                        borderColor: 'red',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: false,
+                        tension: 0.3
+                    },
+                    {
+                        label: 'True Function',
+                        data: truePoints,
+                        type: 'line',
+                        borderColor: 'green',
+                        borderWidth: 1,
+                        borderDash: [5, 5],
+                        pointRadius: 0,
+                        fill: false
+                    }
+                ]
+            };
+
+            if(scatterChart) scatterChart.destroy();
+            scatterChart = new Chart(ctx, {
+                type: 'scatter',
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { min: 0, max: 1, title: {display:true, text:'X'} },
+                        y: { min: -2.5, max: 2.5, title: {display:true, text:'Y'} }
+                    }
+                }
+            });
+        }
+
+        function drawErrorCurve(data, currentDegree) {
+            const ctx = document.getElementById('errorChart').getContext('2d');
+            
+            if(errorChart) errorChart.destroy();
+            
+            errorChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: [
+                        {
+                            label: 'Train MSE',
+                            data: data.train,
+                            borderColor: 'blue',
+                            backgroundColor: 'blue',
+                            fill: false,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Validation MSE',
+                            data: data.val,
+                            borderColor: 'rgba(255, 206, 86, 1)', // Yellow-ish
+                            backgroundColor: 'rgba(255, 206, 86, 1)',
+                            fill: false,
+                            tension: 0.1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { 
+                            title: {display:true, text:'MSE (Log Scale)'},
+                            type: 'logarithmic', // Log scale better for large error swings
+                            min: 0.001
+                        },
+                        x: { title: {display:true, text:'Polynomial Degree'} }
+                    },
+                    plugins: {
+                        annotation: {
+                            annotations: {
+                                line1: {
+                                    type: 'line',
+                                    xMin: currentDegree,
+                                    xMax: currentDegree,
+                                    borderColor: 'rgba(0,0,0,0.3)',
+                                    borderWidth: 2,
+                                    label: {
+                                        content: 'Current',
+                                        enabled: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Init
+        window.onload = function() {
+            splitData(); // Just to init vars
+            updateUI();
+            updateSplitUI();
+            runSimulation();
+        };
+
+    </script>
+<script src="vendor/mathjax-loader.js"></script>
+<script src="vendor/mathjax-tex-svg.js"></script>
+</body>
+</html>

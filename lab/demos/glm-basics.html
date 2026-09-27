@@ -1,0 +1,1100 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>广义线性模型 (GLM) 综合学习模块</title>
+    <style>
+        /* 全局样式 & Tab 样式 */
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #3498db;
+            --bg-color: #f5f7fa;
+            --text-color: #333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        /* 顶部导航栏 */
+        header {
+            background-color: #fff;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            padding: 15px 20px;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        h1.main-title {
+            margin: 0 0 15px 0;
+            color: var(--primary-color);
+            font-size: 1.5rem;
+        }
+
+        .tabs {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .tab-button {
+            padding: 10px 20px;
+            border: 2px solid var(--accent-color);
+            background: transparent;
+            color: var(--accent-color);
+            cursor: pointer;
+            border-radius: 20px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .tab-button.active {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        .tab-button:hover {
+            background-color: rgba(52, 152, 219, 0.1);
+        }
+
+        .tab-button.active:hover {
+            background-color: #2980b9;
+        }
+
+        /* 内容区域容器 */
+        .tab-content {
+            display: none;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            animation: fadeIn 0.5s;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- 理论部分样式 (从原文件迁移) --- */
+        #theory h1, #theory h2, #theory h3 { color: var(--primary-color); }
+        #theory h2 { border-left: 4px solid var(--accent-color); padding-left: 10px; margin-top: 30px; }
+        #theory .container {
+            background-color: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin-bottom: 30px;
+        }
+        #theory table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        #theory th, #theory td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        #theory th { background-color: #f2f2f2; }
+        #theory .formula {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-left: 3px solid var(--accent-color);
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+        #theory .pros-cons { display: flex; justify-content: space-between; margin: 20px 0; gap: 20px; flex-wrap: wrap; }
+        #theory .pros, #theory .cons { flex: 1; min-width: 300px; padding: 15px; border-radius: 5px; }
+        #theory .pros { background-color: #e8f8f5; border-left: 4px solid #2ecc71; }
+        #theory .cons { background-color: #fdedec; border-left: 4px solid #e74c3c; }
+        #theory .note {
+            background-color: #f0f7fb;
+            border-left: 5px solid var(--accent-color);
+            padding: 10px;
+            margin: 15px 0;
+        }
+
+        /* --- 互动实验部分样式 (从原文件迁移) --- */
+        #interactive {
+            display: none; /* 默认隐藏，由 JS 控制 */
+            /* Flex layout needs to be applied to the inner container, not the tab-content wrapper directly if we want centering */
+            flex-direction: column;
+            align-items: center;
+        }
+        #interactive.active {
+            display: flex;
+        }
+
+        .interactive-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            width: 100%;
+        }
+
+        .control-panel {
+            flex: 1;
+            min-width: 300px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .visualization-panel {
+            flex: 2;
+            min-width: 600px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9em; }
+        select, input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        
+        button.run-btn {
+            width: 100%; padding: 12px;
+            background-color: var(--accent-color); color: white;
+            border: none; border-radius: 4px;
+            font-size: 16px; cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 10px;
+        }
+        button.run-btn:hover { background-color: #2980b9; }
+
+        canvas {
+            width: 100%; height: 400px;
+            background: #fff; border: 1px solid #eee;
+        }
+        
+        .legend {
+            display: flex; justify-content: center; gap: 20px; margin-top: 10px; font-size: 0.9em;
+        }
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .dot { width: 12px; height: 12px; border-radius: 50%; }
+        
+        .info-box {
+            background: #eef7fc; border-left: 4px solid var(--accent-color);
+            padding: 10px; margin-top: 20px; font-size: 0.9em;
+        }
+
+        @media (max-width: 768px) {
+            .interactive-container { flex-direction: column; }
+            .visualization-panel { min-width: 100%; }
+            #theory .pros-cons { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1 class="main-title">广义线性模型 (GLM) 综合学习模块</h1>
+        <div class="tabs">
+            <button class="tab-button active" onclick="switchTab('theory')">理论对比分析</button>
+            <button class="tab-button" onclick="switchTab('interactive')">互动模拟实验</button>
+            <button class="tab-button" onclick="switchTab('overdispersion')">进阶：过度离散实验</button>
+        </div>
+    </header>
+
+    <!-- Tab 1: 理论对比 -->
+    <div id="theory" class="tab-content active">
+        <!-- 理论内容开始 -->
+        <div class="container">
+            <h2>1. 线性回归与广义线性模型的数理基础</h2>
+            
+            <h3>1.1 线性回归模型</h3>
+            <p>线性回归是统计学中最基础的模型之一，它假设响应变量与预测变量之间存在线性关系。</p>
+            
+            <p><strong>数学表达式：</strong></p>
+            <div class="formula">
+                Y = Xβ + ε<br>
+                其中：<br>
+                - Y 是响应变量（因变量）<br>
+                - X 是预测变量（自变量）矩阵<br>
+                - β 是待估计的参数向量<br>
+                - ε 是误差项，假设服从正态分布 N(0, σ²I)
+            </div>
+            
+            <p><strong>核心假设：</strong></p>
+            <ul>
+                <li><strong>响应变量分布：</strong>假设响应变量 Y 服从正态分布</li>
+                <li><strong>连接函数：</strong>恒等函数（identity function），即 E(Y) = μ = Xβ</li>
+                <li><strong>方差结构：</strong>假设方差为常数（同方差性），即 Var(Y) = σ²</li>
+                <li><strong>误差独立性：</strong>各观测的误差项相互独立</li>
+            </ul>
+            
+            <h3>1.2 广义线性模型(GLM)</h3>
+            <p>广义线性模型是线性回归的扩展，它放宽了线性回归的一些限制性假设，使模型能够适应更广泛的数据类型。</p>
+            
+            <p><strong>数学表达式：</strong></p>
+            <div class="formula">
+                g(μ) = Xβ<br>
+                其中：<br>
+                - μ = E(Y) 是响应变量的期望<br>
+                - g(·) 是连接函数<br>
+                - X 是预测变量矩阵<br>
+                - β 是待估计的参数向量<br>
+                - Y 服从指数族分布
+            </div>
+            
+            <p><strong>核心组成部分：</strong></p>
+            <ul>
+                <li><strong>随机分量：</strong>响应变量 Y 服从指数族分布（如正态分布、二项分布、泊松分布等）</li>
+                <li><strong>系统分量：</strong>线性预测器 η = Xβ</li>
+                <li><strong>连接函数：</strong>g(μ) = η，连接响应变量的期望与线性预测器</li>
+            </ul>
+            
+            <h3>1.3 核心区别对比</h3>
+            <table>
+                <tr>
+                    <th>特性</th>
+                    <th>线性回归</th>
+                    <th>广义线性模型(GLM)</th>
+                </tr>
+                <tr>
+                    <td><strong>响应变量分布</strong></td>
+                    <td>仅限正态分布</td>
+                    <td>可以是指数族中的任何分布（正态分布、二项分布、泊松分布、伽马分布等）</td>
+                </tr>
+                <tr>
+                    <td><strong>连接函数</strong></td>
+                    <td>恒等函数（identity）：g(μ) = μ</td>
+                    <td>可以是多种函数：logit、log、probit、inverse等</td>
+                </tr>
+                <tr>
+                    <td><strong>方差结构</strong></td>
+                    <td>同方差性：Var(Y) = σ²（常数）</td>
+                    <td>方差可以是均值的函数：Var(Y) = V(μ)φ</td>
+                </tr>
+                <tr>
+                    <td><strong>预测值范围</strong></td>
+                    <td>无限制（可以是任何实数）</td>
+                    <td>可以限制在特定范围（如概率在[0,1]之间）</td>
+                </tr>
+                <tr>
+                    <td><strong>参数估计方法</strong></td>
+                    <td>最小二乘法（OLS）</td>
+                    <td>最大似然估计（MLE）或迭代加权最小二乘法（IWLS）</td>
+                </tr>
+            </table>
+        </div>
+        
+        <div class="container">
+            <h2>2. 计数数据与比例数据的特点</h2>
+            
+            <h3>2.1 计数数据</h3>
+            <p>计数数据是指对事件发生次数的统计，只能取非负整数值。</p>
+            
+            <p><strong>主要特点：</strong></p>
+            <ul>
+                <li>只能取非负整数值（0, 1, 2, 3, ...）</li>
+                <li>数据通常呈现右偏分布（非对称）</li>
+                <li>方差往往与均值相关，不满足同方差假设</li>
+                <li>不适合用正态分布建模</li>
+                <li>常见例子：疾病发生次数、交通事故数、网站访问量等</li>
+            </ul>
+            
+            <div class="note">
+                <p>计数数据通常可以用泊松分布或负二项分布建模。泊松分布假设均值等于方差，而负二项分布则适用于过度离散（方差大于均值）的情况。</p>
+            </div>
+            
+            <h3>2.2 比例数据</h3>
+            <p>比例数据是指取值范围在0到1之间的数据，通常表示某种比例、概率或百分比。</p>
+            
+            <p><strong>主要特点：</strong></p>
+            <ul>
+                <li>取值范围有限，通常在[0,1]区间内</li>
+                <li>数据分布通常在0和1附近聚集，呈现双峰或U形分布</li>
+                <li>方差不恒定，与均值相关（接近0或1时方差较小）</li>
+                <li>不适合用正态分布建模</li>
+                <li>常见例子：投票比例、成功率、市场份额等</li>
+            </ul>
+            
+            <div class="note">
+                <p>比例数据通常可以用Beta分布建模，或者当数据来源于二项试验时，可以用二项分布建模。</p>
+            </div>
+        </div>
+        
+        <div class="container">
+            <h2>3. 线性回归与GLM在处理计数数据和比例数据的对比</h2>
+            
+            <h3>3.1 处理计数数据</h3>
+            
+            <h4>3.1.1 线性回归处理计数数据</h4>
+            <p><strong>方法：</strong>直接将计数作为因变量，使用普通最小二乘法估计参数。</p>
+            
+            <div class="pros-cons">
+                <div class="pros">
+                    <h4>优点：</h4>
+                    <ul>
+                        <li>模型简单，易于理解和解释</li>
+                        <li>计算效率高</li>
+                        <li>当计数值较大且分布接近对称时，可能表现尚可</li>
+                    </ul>
+                </div>
+                <div class="cons">
+                    <h4>缺点：</h4>
+                    <ul>
+                        <li>可能预测出负值，违背计数数据非负的本质</li>
+                        <li>无法正确建模方差与均值的关系（计数数据通常方差随均值增加而增加）</li>
+                        <li>对于小计数和零膨胀数据表现不佳</li>
+                        <li>违背正态性和同方差性假设</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <h4>3.1.2 GLM处理计数数据（泊松回归）</h4>
+            <p><strong>方法：</strong>假设响应变量服从泊松分布，使用对数连接函数。</p>
+            
+            <div class="formula">
+                log(μ) = Xβ<br>
+                其中 Y ~ Poisson(μ)
+            </div>
+            
+            <div class="pros-cons">
+                <div class="pros">
+                    <h4>优点：</h4>
+                    <ul>
+                        <li>保证预测值为非负数</li>
+                        <li>正确建模了计数数据的离散性</li>
+                        <li>捕捉了方差与均值成比例的特性（泊松分布中 Var(Y) = E(Y)）</li>
+                        <li>对小计数和稀疏数据表现良好</li>
+                    </ul>
+                </div>
+                <div class="cons">
+                    <h4>缺点：</h4>
+                    <ul>
+                        <li>泊松分布假设方差等于均值，无法处理过度离散或欠离散的数据</li>
+                        <li>无法直接处理零膨胀问题（过多的零值）</li>
+                        <li>需要使用最大似然估计，计算复杂度较高</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="note">
+                <p><strong>扩展：</strong>对于过度离散的计数数据，可以使用负二项GLM；对于零膨胀数据，可以使用零膨胀泊松模型或零膨胀负二项模型。</p>
+            </div>
+            
+            <h3>3.2 处理比例数据</h3>
+            
+            <h4>3.2.1 线性回归处理比例数据</h4>
+            <p><strong>方法：</strong>直接将比例作为因变量，使用普通最小二乘法估计参数。</p>
+            
+            <div class="pros-cons">
+                <div class="pros">
+                    <h4>优点：</h4>
+                    <ul>
+                        <li>模型简单，易于理解和解释</li>
+                        <li>计算效率高</li>
+                        <li>当比例接近0.5且样本量大时，可能表现尚可</li>
+                    </ul>
+                </div>
+                <div class="cons">
+                    <h4>缺点：</h4>
+                    <ul>
+                        <li>可能预测出超出[0,1]范围的值</li>
+                        <li>无法正确建模边界效应（当均值接近0或1时）</li>
+                        <li>无法处理方差随均值变化的特性</li>
+                        <li>对于极端比例（接近0或1）表现不佳</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <h4>3.2.2 GLM处理比例数据（逻辑回归/Beta回归）</h4>
+            <p><strong>方法1：逻辑回归</strong>（适用于二项比例数据，如成功/失败次数）</p>
+            
+            <div class="formula">
+                logit(μ) = log(μ/(1-μ)) = Xβ<br>
+                其中 Y ~ Binomial(n, μ)
+            </div>
+            
+            <p><strong>方法2：Beta回归</strong>（适用于连续比例数据）</p>
+            
+            <div class="formula">
+                logit(μ) = Xβ<br>
+                其中 Y ~ Beta(a, b)，且 E(Y) = μ = a/(a+b)
+            </div>
+            
+            <div class="pros-cons">
+                <div class="pros">
+                    <h4>优点：</h4>
+                    <ul>
+                        <li>保证预测值在[0,1]范围内</li>
+                        <li>正确建模边界效应（logit变换处理0和1附近的非线性关系）</li>
+                        <li>可以处理方差与均值的非恒定关系</li>
+                        <li>对极端比例数据表现良好</li>
+                    </ul>
+                </div>
+                <div class="cons">
+                    <h4>缺点：</h4>
+                    <ul>
+                        <li>参数解释不如线性回归直观（需要进行逆变换）</li>
+                        <li>计算复杂度较高</li>
+                        <li>Beta回归无法直接处理0和1的精确值（需要进行数据变换）</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="container">
+            <h2>4. 实际应用案例对比</h2>
+            
+            <h3>4.1 计数数据案例：疾病发生次数预测</h3>
+            
+            <table>
+                <tr>
+                    <th>模型</th>
+                    <th>数学表达式</th>
+                    <th>预测结果特点</th>
+                    <th>适用场景</th>
+                </tr>
+                <tr>
+                    <td>线性回归</td>
+                    <td>疾病次数 = β₀ + β₁×年龄 + β₂×性别 + ...</td>
+                    <td>可能出现负值；预测值为连续数</td>
+                    <td>大样本、计数值较大且分布接近正态时</td>
+                </tr>
+                <tr>
+                    <td>泊松回归(GLM)</td>
+                    <td>log(疾病次数) = β₀ + β₁×年龄 + β₂×性别 + ...</td>
+                    <td>预测值始终为非负数；能反映稀有事件特性</td>
+                    <td>小样本、低计数值、方差接近均值的情况</td>
+                </tr>
+                <tr>
+                    <td>负二项回归(GLM扩展)</td>
+                    <td>log(疾病次数) = β₀ + β₁×年龄 + β₂×性别 + ...</td>
+                    <td>预测值为非负数；能处理过度离散现象</td>
+                    <td>数据方差明显大于均值的情况</td>
+                </tr>
+            </table>
+            
+            <h3>4.2 比例数据案例：选民投票意向预测</h3>
+            
+            <table>
+                <tr>
+                    <th>模型</th>
+                    <th>数学表达式</th>
+                    <th>预测结果特点</th>
+                    <th>适用场景</th>
+                </tr>
+                <tr>
+                    <td>线性回归</td>
+                    <td>投票比例 = β₀ + β₁×年龄 + β₂×收入 + ...</td>
+                    <td>预测值可能超出[0,1]范围；边界处表现差</td>
+                    <td>比例接近0.5且变化不大的情况</td>
+                </tr>
+                <tr>
+                    <td>逻辑回归(GLM)</td>
+                    <td>log(p/(1-p)) = β₀ + β₁×年龄 + β₂×收入 + ...</td>
+                    <td>预测值严格在[0,1]范围内；边界处表现好</td>
+                    <td>二项比例数据（成功/失败次数）</td>
+                </tr>
+                <tr>
+                    <td>Beta回归(GLM扩展)</td>
+                    <td>logit(μ) = β₀ + β₁×年龄 + β₂×收入 + ...</td>
+                    <td>预测值在(0,1)范围内；能处理U形或J形分布</td>
+                    <td>连续比例数据，尤其是分布在0和1附近聚集的情况</td>
+                </tr>
+            </table>
+        </div>
+        
+        <div class="container">
+            <h2>5. 总结</h2>
+            
+            <p>线性回归和广义线性模型在处理不同类型数据时各有优缺点：</p>
+            
+            <table>
+                <tr>
+                    <th>数据类型</th>
+                    <th>线性回归</th>
+                    <th>广义线性模型(GLM)</th>
+                    <th>推荐模型</th>
+                </tr>
+                <tr>
+                    <td>连续数据（正态分布）</td>
+                    <td>✓ 最佳选择</td>
+                    <td>✓ 可用（等同于线性回归）</td>
+                    <td>线性回归</td>
+                </tr>
+                <tr>
+                    <td>计数数据</td>
+                    <td>✗ 不适合（可能预测负值）</td>
+                    <td>✓ 适合（泊松/负二项回归）</td>
+                    <td>泊松GLM或负二项GLM</td>
+                </tr>
+                <tr>
+                    <td>二项比例数据</td>
+                    <td>✗ 不适合（预测值可能超出范围）</td>
+                    <td>✓ 适合（逻辑回归）</td>
+                    <td>逻辑回归(GLM)</td>
+                </tr>
+                <tr>
+                    <td>连续比例数据</td>
+                    <td>✗ 不适合（边界效应处理不当）</td>
+                    <td>✓ 适合（Beta回归）</td>
+                    <td>Beta回归(GLM扩展)</td>
+                </tr>
+            </table>
+            
+            <div class="note">
+                <p><strong>核心结论：</strong>广义线性模型通过灵活的分布假设和连接函数，能够更准确地建模非正态数据，特别是计数数据和比例数据。线性回归虽然简单直观，但在处理这些特殊数据类型时存在明显局限性。在实际应用中，应根据数据特性选择合适的模型。</p>
+            </div>
+        </div>
+        
+        <div class="container">
+            <h2>参考文献</h2>
+            <ol>
+                <li>McCullagh, P., & Nelder, J. A. (1989). Generalized Linear Models (2nd ed.). Chapman and Hall/CRC.</li>
+                <li>Agresti, A. (2015). Foundations of Linear and Generalized Linear Models. Wiley.</li>
+                <li>Faraway, J. J. (2016). Extending the Linear Model with R: Generalized Linear, Mixed Effects and Nonparametric Regression Models (2nd ed.). CRC Press.</li>
+                <li>Ferrari, S., & Cribari-Neto, F. (2004). Beta Regression for Modelling Rates and Proportions. Journal of Applied Statistics, 31(7), 799-815.</li>
+                <li>Hilbe, J. M. (2011). Negative Binomial Regression (2nd ed.). Cambridge University Press.</li>
+            </ol>
+        </div>
+        <!-- 理论内容结束 -->
+    </div>
+
+    <!-- Tab 2: 互动实验 -->
+    <div id="interactive" class="tab-content">
+        <div class="interactive-container">
+            <!-- Controls -->
+            <div class="control-panel">
+                <h3>1. 模拟数据设置</h3>
+                <div class="form-group">
+                    <label for="distSelect">响应变量分布 (Distribution)</label>
+                    <select id="distSelect" onchange="updateUI()">
+                        <option value="normal">正态分布 (Normal) - Identity Link</option>
+                        <option value="poisson">泊松分布 (Poisson) - Log Link</option>
+                        <option value="binomial">二项分布 (Binomial) - Logit Link</option>
+                        <option value="gamma">伽马分布 (Gamma) - Log Link</option>
+                        <option value="exponential">指数分布 (Exponential) - Log Link</option>
+                        <option value="lognormal">对数正态 (Lognormal) - Log Model</option>
+                        <option value="beta">贝塔分布 (Beta) - Logit Link</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>线性预测器: η = β₀ + β₁x</label>
+                    <div style="display: flex; gap: 10px;">
+                        <div>
+                            <label for="beta0">截距 (β₀)</label>
+                            <input type="number" id="beta0" value="1.0" step="0.1">
+                        </div>
+                        <div>
+                            <label for="beta1">斜率 (β₁)</label>
+                            <input type="number" id="beta1" value="0.5" step="0.1">
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="extraParams" class="form-group">
+                    <!-- Dynamic params like Sigma -->
+                </div>
+
+                <div class="form-group">
+                    <label for="sampleSize">样本量 (N)</label>
+                    <input type="number" id="sampleSize" value="100" min="10" max="500">
+                </div>
+
+                <button class="run-btn" onclick="runSimulation()">生成数据并拟合</button>
+                
+                <div class="info-box">
+                    <p><strong>实验说明：</strong></p>
+                    <ul style="padding-left: 20px; margin: 0;">
+                        <li><strong>线性回归 (OLS)：</strong> 始终假设 Y = β₀ + β₁X + ε，拟合一条直线（红色）。</li>
+                        <li><strong>GLM / 真实模型：</strong> 使用正确的连接函数 g(μ) = η 生成数据并拟合（绿色虚线）。</li>
+                        <li><strong>观察重点：</strong>当选择 Poisson 或 Binomial 时，注意线性回归预测值是否合理（如是否为负，是否超出0-1范围）。</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Visualization -->
+            <div class="visualization-panel">
+                <h3>2. 拟合结果可视化</h3>
+                <canvas id="mainCanvas"></canvas>
+                <div class="legend">
+                    <div class="legend-item"><span class="dot" style="background:#3498db"></span> 观测数据点</div>
+                    <div class="legend-item"><span class="dot" style="background:#e74c3c"></span> 线性回归 (OLS)</div>
+                    <div class="legend-item"><span class="dot" style="background:#27ae60"></span> GLM / 真实均值</div>
+                </div>
+                
+                <div id="statsOutput" style="margin-top: 20px;">
+                    <!-- Stats -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 3: 过度离散实验 -->
+    <div id="overdispersion" class="tab-content">
+        <div class="interactive-container">
+            <div class="control-panel">
+                <h3>1. 参数设置</h3>
+                <div class="form-group">
+                    <label for="od_mean">真实均值 (Mean, μ)</label>
+                    <input type="range" id="od_mean" min="1" max="20" step="1" value="10" oninput="document.getElementById('od_mean_val').innerText=this.value; runOverdispersion();">
+                    <span>当前值: <span id="od_mean_val">10</span></span>
+                </div>
+                <div class="form-group">
+                    <label for="od_dispersion">离散参数 (r)</label>
+                    <div style="font-size: 0.8em; color: #666; margin-bottom: 5px;">越小越离散，极大时接近泊松分布</div>
+                    <input type="range" id="od_dispersion" min="0.5" max="20" step="0.5" value="2" oninput="document.getElementById('od_r_val').innerText=this.value; runOverdispersion();">
+                    <span>当前值: <span id="od_r_val">2</span></span>
+                </div>
+                <div class="form-group">
+                    <label for="od_n">样本量 (N)</label>
+                    <input type="number" id="od_n" value="1000" min="100" max="5000" step="100">
+                </div>
+                <button class="run-btn" onclick="runOverdispersion()">生成数据并分析</button>
+
+                <div class="info-box">
+                    <p><strong>实验原理：</strong></p>
+                    <p>生成服从负二项分布的数据 $Y \sim NB(\mu, r)$。</p>
+                    <ul>
+                        <li>理论方差 $Var = \mu + \mu^2/r$。</li>
+                        <li>当 $r$ 很大时，$\mu^2/r \to 0$，分布收敛于泊松分布。</li>
+                        <li>当 $r$ 很小时，过度离散严重。</li>
+                    </ul>
+                    <p>图中对比了基于样本均值拟合的<strong>泊松分布</strong>（假设无过度离散）和<strong>负二项分布</strong>（考虑过度离散）的差异。</p>
+                </div>
+            </div>
+
+            <div class="visualization-panel">
+                <h3>2. 分布拟合对比</h3>
+                <canvas id="odCanvas"></canvas>
+                <div class="legend">
+                    <div class="legend-item"><span class="dot" style="background:#bdc3c7"></span> 观测频率 (直方图)</div>
+                    <div class="legend-item"><span class="dot" style="background:#e74c3c"></span> 泊松拟合 (Poisson)</div>
+                    <div class="legend-item"><span class="dot" style="background:#27ae60"></span> 负二项拟合 (NB)</div>
+                </div>
+                <div id="odStats" style="margin-top: 20px; font-family: monospace;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Tab Switching Logic ---
+        function switchTab(tabId) {
+            // Hide all contents
+            document.querySelectorAll('.tab-content').forEach(el => {
+                el.classList.remove('active');
+            });
+            // Deactivate all buttons
+            document.querySelectorAll('.tab-button').forEach(el => {
+                el.classList.remove('active');
+            });
+            
+            // Show selected content
+            document.getElementById(tabId).classList.add('active');
+            // Activate button
+            const btnIndex = tabId === 'theory' ? 0 : (tabId === 'interactive' ? 1 : 2);
+            document.querySelectorAll('.tab-button')[btnIndex].classList.add('active');
+
+            // If switching to interactive or overdispersion, refresh canvas
+            if(tabId === 'interactive') {
+                setTimeout(runSimulation, 100);
+            } else if (tabId === 'overdispersion') {
+                setTimeout(runOverdispersion, 100);
+            }
+        }
+
+        // --- Interactive Simulation Logic (Merged from interactive file) ---
+        
+        // 1. Random Generators
+        const Random = {
+            uniform: (min, max) => Math.random() * (max - min) + min,
+            normal: (mu, sigma) => {
+                let u=0, v=0;
+                while(u===0) u=Math.random();
+                while(v===0) v=Math.random();
+                return Math.sqrt(-2.0*Math.log(u))*Math.cos(2.0*Math.PI*v)*sigma + mu;
+            },
+            poisson: (lambda) => {
+                const L = Math.exp(-lambda);
+                let k=0, p=1;
+                do { k++; p *= Math.random(); } while (p > L);
+                return k - 1;
+            },
+            gamma: (alpha, beta) => {
+                if(alpha > 1) {
+                    const d = alpha - 1/3, c = 1/Math.sqrt(9*d);
+                    while(true){
+                        let z, v;
+                        do { z=Random.normal(0,1); v=1+c*z; } while(v<=0);
+                        v=v*v*v;
+                        if(Math.random() < 1-0.0331*Math.pow(z,4)) return d*v/beta;
+                        if(Math.log(Math.random()) < 0.5*z*z + d*(1-v+Math.log(v))) return d*v/beta;
+                    }
+                } else {
+                    return Random.gamma(alpha+1, beta) * Math.pow(Math.random(), 1/alpha);
+                }
+            },
+            beta: (alpha, beta) => {
+                const x = Random.gamma(alpha, 1);
+                const y = Random.gamma(beta, 1);
+                return x/(x+y);
+            },
+            binomial: (n, p) => {
+                let c=0;
+                for(let i=0;i<n;i++) if(Math.random()<p) c++;
+                return c;
+            },
+            exponential: (lambda) => {
+                return -Math.log(1.0 - Math.random()) / lambda;
+            },
+            negativeBinomial: (r, p) => {
+                const beta_param = p / (1.0 - p);
+                const lambda = Random.gamma(r, beta_param);
+                return Random.poisson(lambda);
+            }
+        };
+
+        // 2. Configurations
+        const distConfig = {
+            normal: { link: 'identity', label: 'Sigma (Noise)', paramDefault: 2 },
+            poisson: { link: 'log', label: null },
+            binomial: { link: 'logit', label: 'Trials (n)', paramDefault: 10 },
+            gamma: { link: 'log', label: 'Shape (Alpha)', paramDefault: 5 },
+            exponential: { link: 'log', label: null },
+            lognormal: { link: 'log_transform', label: 'Sigma (Log-scale)', paramDefault: 0.5 },
+            beta: { link: 'logit', label: 'Precision (Phi)', paramDefault: 10 }
+        };
+
+        function updateUI() {
+            const dist = document.getElementById('distSelect').value;
+            const config = distConfig[dist];
+            const container = document.getElementById('extraParams');
+            container.innerHTML = '';
+            
+            if (config.label) {
+                container.innerHTML = `
+                    <label>${config.label}</label>
+                    <input type="number" id="distParam" value="${config.paramDefault}" step="0.1">
+                `;
+            }
+        }
+
+        // 3. Simulation Logic
+        function runSimulation() {
+            const canvas = document.getElementById('mainCanvas');
+            // Ensure canvas is visible/sized correctly
+            if(canvas.offsetWidth === 0) return; // Hidden
+
+            const dist = document.getElementById('distSelect').value;
+            const b0 = parseFloat(document.getElementById('beta0').value);
+            const b1 = parseFloat(document.getElementById('beta1').value);
+            const N = parseInt(document.getElementById('sampleSize').value);
+            const paramVal = document.getElementById('distParam') ? parseFloat(document.getElementById('distParam').value) : 1;
+            
+            const data = [];
+            const xMin = 0, xMax = 5;
+            
+            for(let i=0; i<N; i++) {
+                const x = Random.uniform(xMin, xMax);
+                const eta = b0 + b1 * x;
+                let mu, y;
+
+                switch(dist) {
+                    case 'normal':
+                        mu = eta; 
+                        y = Random.normal(mu, paramVal);
+                        break;
+                    case 'poisson':
+                        mu = Math.exp(eta); 
+                        y = Random.poisson(mu);
+                        break;
+                    case 'binomial':
+                        const p = 1 / (1 + Math.exp(-eta)); 
+                        const n = Math.round(paramVal);
+                        y = Random.binomial(n, p) / n; 
+                        mu = p;
+                        break;
+                    case 'gamma':
+                        mu = Math.exp(eta); 
+                        const alpha = paramVal;
+                        const beta = alpha / mu;
+                        y = Random.gamma(alpha, beta);
+                        break;
+                    case 'exponential':
+                        mu = Math.exp(eta); 
+                        y = Random.exponential(1/mu);
+                        break;
+                    case 'lognormal':
+                        mu = Math.exp(eta + paramVal*paramVal/2); 
+                        y = Math.exp(Random.normal(eta, paramVal));
+                        break;
+                    case 'beta':
+                        mu = 1 / (1 + Math.exp(-eta)); 
+                        const phi = paramVal;
+                        const a = mu * phi;
+                        const b = (1-mu) * phi;
+                        y = Random.beta(a, b);
+                        break;
+                }
+                data.push({x, y, mu});
+            }
+
+            // Fit OLS
+            const meanX = data.reduce((s, p) => s+p.x, 0)/N;
+            const meanY = data.reduce((s, p) => s+p.y, 0)/N;
+            let num=0, den=0;
+            data.forEach(p => {
+                num += (p.x - meanX) * (p.y - meanY);
+                den += (p.x - meanX) ** 2;
+            });
+            const olsSlope = num/den;
+            const olsIntercept = meanY - olsSlope * meanX;
+
+            drawChart(data, olsIntercept, olsSlope, b0, b1, dist, paramVal);
+        }
+
+        // 4. Drawing
+        function drawChart(data, olsB0, olsB1, trueB0, trueB1, dist, paramVal) {
+            const canvas = document.getElementById('mainCanvas');
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width = canvas.offsetWidth;
+            const h = canvas.height = canvas.offsetHeight;
+            const padding = 50;
+
+            const xMax = Math.max(...data.map(p => p.x));
+            const yMax = Math.max(...data.map(p => p.y));
+            const yMin = Math.min(...data.map(p => p.y));
+            
+            const yRange = yMax - yMin;
+            const graphYMin = Math.min(0, yMin - yRange*0.1);
+            const graphYMax = yMax + yRange*0.1;
+
+            const mapX = (x) => padding + (x / 5) * (w - 2*padding);
+            const mapY = (y) => h - padding - ((y - graphYMin) / (graphYMax - graphYMin)) * (h - 2*padding);
+
+            ctx.clearRect(0,0,w,h);
+            
+            // Axes
+            ctx.beginPath();
+            ctx.strokeStyle = '#ccc';
+            ctx.moveTo(padding, h-padding); ctx.lineTo(w-padding, h-padding);
+            ctx.moveTo(padding, h-padding); ctx.lineTo(padding, padding);
+            ctx.stroke();
+
+            // Points
+            data.forEach(p => {
+                ctx.beginPath();
+                ctx.fillStyle = '#3498db';
+                ctx.arc(mapX(p.x), mapY(p.y), 3, 0, 2*Math.PI);
+                ctx.fill();
+            });
+
+            // OLS Line
+            ctx.beginPath();
+            ctx.strokeStyle = '#e74c3c';
+            ctx.lineWidth = 2;
+            ctx.moveTo(mapX(0), mapY(olsB0));
+            ctx.lineTo(mapX(5), mapY(olsB0 + olsB1 * 5));
+            ctx.stroke();
+
+            // True/GLM Curve
+            ctx.beginPath();
+            ctx.strokeStyle = '#27ae60';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([5, 5]);
+            
+            for(let x=0; x<=5; x+=0.1) {
+                const eta = trueB0 + trueB1 * x;
+                let mu;
+                if(dist === 'normal') mu = eta;
+                else if(dist === 'poisson' || dist === 'gamma' || dist === 'exponential') mu = Math.exp(eta);
+                else if(dist === 'binomial' || dist === 'beta') mu = 1 / (1 + Math.exp(-eta));
+                else if(dist === 'lognormal') mu = Math.exp(eta + paramVal*paramVal/2);
+                
+                const px = mapX(x);
+                const py = mapY(mu);
+                if(x===0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Labels
+            ctx.fillStyle = '#000';
+            ctx.font = '12px Arial';
+            ctx.fillText("0", padding, h-padding+20);
+            ctx.fillText("5", w-padding, h-padding+20);
+            ctx.fillText(graphYMax.toFixed(1), 10, padding);
+            ctx.fillText(graphYMin.toFixed(1), 10, h-padding);
+            
+            // Stats
+            const output = document.getElementById('statsOutput');
+            output.innerHTML = `
+                <p><strong>线性回归拟合方程:</strong> Y = ${olsB0.toFixed(2)} + ${olsB1.toFixed(2)}X</p>
+                <p><strong>GLM (真实生成) 关系:</strong> ${getEquationStr(dist, trueB0, trueB1)}</p>
+            `;
+        }
+
+        function getEquationStr(dist, b0, b1) {
+            const eta = `${b0.toFixed(1)} + ${b1.toFixed(1)}x`;
+            switch(dist) {
+                case 'normal': return `E[Y] = ${eta}`;
+                case 'poisson': case 'gamma': case 'exponential': return `ln(E[Y]) = ${eta} → E[Y] = e^(${eta})`;
+                case 'binomial': case 'beta': return `logit(E[Y]) = ${eta} → E[Y] = 1 / (1 + e^(-(${eta})))`;
+                case 'lognormal': return `E[ln(Y)] = ${eta}`;
+                default: return eta;
+            }
+        }
+
+        // --- Overdispersion Simulation Logic ---
+
+        function runOverdispersion() {
+            const canvas = document.getElementById('odCanvas');
+            if(canvas.offsetWidth === 0) return;
+
+            const mu = parseFloat(document.getElementById('od_mean').value);
+            const r = parseFloat(document.getElementById('od_dispersion').value);
+            const N = parseInt(document.getElementById('od_n').value);
+
+            // NB parameters: Mean = mu, Var = mu + mu^2/r
+            // p = r / (r + mu)
+            const p = r / (r + mu);
+
+            const data = [];
+            for(let i=0; i<N; i++) {
+                data.push(Random.negativeBinomial(r, p));
+            }
+
+            drawOverdispersionChart(data, mu, r, N);
+        }
+
+        function drawOverdispersionChart(data, trueMu, r, N) {
+            const canvas = document.getElementById('odCanvas');
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width = canvas.offsetWidth;
+            const h = canvas.height = canvas.offsetHeight;
+            const padding = 50;
+
+            // Frequency Count
+            const counts = {};
+            let maxVal = 0;
+            data.forEach(v => {
+                counts[v] = (counts[v] || 0) + 1;
+                if(v > maxVal) maxVal = v;
+            });
+            // Limit maxVal for drawing if tail is too long
+            const drawMaxX = Math.min(maxVal, trueMu * 3 + 15); 
+
+            let maxFreq = 0;
+            for(let k in counts) if(counts[k] > maxFreq) maxFreq = counts[k];
+            
+            const maxProb = maxFreq / N;
+            const graphYMax = Math.max(maxProb, 0.2) * 1.2;
+
+            const mapX = (x) => padding + (x / drawMaxX) * (w - 2*padding);
+            const mapY = (p) => h - padding - (p / graphYMax) * (h - 2*padding);
+
+            ctx.clearRect(0,0,w,h);
+
+            // Axes
+            ctx.beginPath();
+            ctx.strokeStyle = '#ccc';
+            ctx.moveTo(padding, h-padding); ctx.lineTo(w-padding, h-padding);
+            ctx.moveTo(padding, h-padding); ctx.lineTo(padding, padding);
+            ctx.stroke();
+
+            // Histogram (Observed)
+            const barWidth = (w - 2*padding) / drawMaxX * 0.8;
+            ctx.fillStyle = '#bdc3c7';
+            for(let x=0; x<=drawMaxX; x++) {
+                const freq = counts[x] || 0;
+                const prob = freq / N;
+                if(prob > 0) {
+                    const px = mapX(x);
+                    const py = mapY(prob);
+                    const ph = h - padding - py;
+                    ctx.fillRect(px - barWidth/2, py, barWidth, ph);
+                }
+            }
+
+            // Poisson PMF (Red Line)
+            ctx.beginPath();
+            ctx.strokeStyle = '#e74c3c';
+            ctx.lineWidth = 2;
+            for(let x=0; x<=drawMaxX; x++) {
+                const prob = poissonPMF(x, trueMu);
+                const px = mapX(x);
+                const py = mapY(prob);
+                if(x===0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+
+            // NB PMF (Green Line)
+            ctx.beginPath();
+            ctx.strokeStyle = '#27ae60';
+            ctx.lineWidth = 2;
+            for(let x=0; x<=drawMaxX; x++) {
+                const prob = negBinPMF(x, r, r/(r+trueMu));
+                const px = mapX(x);
+                const py = mapY(prob);
+                if(x===0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+
+            // Stats Calculation
+            const obsMean = data.reduce((a,b)=>a+b,0)/N;
+            const obsVar = data.reduce((a,b)=>a+(b-obsMean)**2,0)/(N-1);
+            const theoreticalVar = trueMu + trueMu*trueMu/r;
+
+            document.getElementById('odStats').innerHTML = `
+                <p>观测均值: ${obsMean.toFixed(2)} (理论: ${trueMu})</p>
+                <p>观测方差: ${obsVar.toFixed(2)} (理论NB: ${theoreticalVar.toFixed(2)}, 理论Poisson: ${trueMu})</p>
+                <p>离散指数 (Var/Mean): ${(obsVar/obsMean).toFixed(2)} (Poisson应接近1)</p>
+            `;
+        }
+
+        // PMF Helpers
+        function poissonPMF(k, lambda) {
+            // e^-lambda * lambda^k / k!
+            return Math.exp(-lambda + k * Math.log(lambda) - logFactorial(k));
+        }
+
+        function negBinPMF(k, r, p) {
+            // Gamma(k+r)/(k! Gamma(r)) * p^r * (1-p)^k
+            const logProb = logGamma(k+r) - logFactorial(k) - logGamma(r) + r*Math.log(p) + k*Math.log(1-p);
+            return Math.exp(logProb);
+        }
+
+        const logFactorialCache = [0, 0];
+        function logFactorial(n) {
+            if(n < 0) return 0;
+            if(n < logFactorialCache.length) return logFactorialCache[n];
+            let res = logFactorialCache[logFactorialCache.length-1];
+            for(let i=logFactorialCache.length; i<=n; i++) res += Math.log(i);
+            logFactorialCache.push(res);
+            return res;
+        }
+
+        function logGamma(z) {
+            if (z < 0.5) return Math.log(Math.PI / Math.sin(Math.PI * z)) - logGamma(1 - z);
+            z -= 1;
+            let x = 0.99999999999980993;
+            const c = [676.5203681218851, -1259.1392167224028, 771.32342877765313, -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+            for (let i = 0; i < 8; i++) x += c[i] / (z + i + 1);
+            const t = z + 8 - 0.5;
+            return 0.5 * Math.log(2 * Math.PI) + (z + 0.5) * Math.log(t) - t + Math.log(x);
+        }
+
+        // Init
+        updateUI();
+        // Initial run might fail if tab is hidden (canvas width 0), but that's fine as switchTab handles it
+    </script>
+  <script>window.__MJ_DOLLAR=1;</script>
+  <script src="vendor/mathjax-loader.js"></script>
+  <script src="vendor/mathjax-tex-svg.js"></script>
+</body>
+</html>

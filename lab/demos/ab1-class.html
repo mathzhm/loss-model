@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>(a,b,1)类分布</title>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        h1, h2, h3 {
+            color: #2c3e50;
+        }
+        h1 {
+            text-align: center;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 30px;
+        }
+        h2 {
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+            margin-top: 30px;
+        }
+        .definition {
+            background-color: #e8f4f8;
+            padding: 15px;
+            border-left: 4px solid #3498db;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .comparison {
+            display: flex;
+            justify-content: space-between;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .comparison-item {
+            flex: 1;
+            min-width: 300px;
+            background-color: #fff;
+            padding: 15px;
+            margin: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            border-radius: 4px;
+        }
+        .example {
+            background-color: #f0f7e6;
+            padding: 15px;
+            border-left: 4px solid #7cb342;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .formula {
+            font-style: italic;
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+            display: block;
+            text-align: center;
+            margin: 15px 0;
+            overflow-x: auto;
+            min-height: 50px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .highlight {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        .note {
+            font-size: 0.9em;
+            color: #666;
+            font-style: italic;
+        }
+        .interactive-section {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            margin: 30px 0;
+        }
+        .control-panel {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .control-group {
+            flex: 1;
+            min-width: 250px;
+        }
+        .control-item {
+            margin-bottom: 15px;
+        }
+        .control-item label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .control-item input[type="range"] {
+            width: 100%;
+        }
+        .control-item .value-display {
+            display: inline-block;
+            width: 50px;
+            text-align: center;
+            margin-left: 10px;
+        }
+        .btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        .btn:hover {
+            background-color: #2980b9;
+        }
+        .chart-container {
+            height: 400px;
+            margin: 20px 0;
+        }
+        .stats-panel {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .stat-item {
+            background-color: white;
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .stat-item h4 {
+            margin: 0 0 5px 0;
+            color: #3498db;
+        }
+        .distribution-selector {
+            margin-bottom: 20px;
+        }
+    </style>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']]
+      },
+      svg: {
+        fontCache: 'global'
+      },
+      options: {
+        enableMenu: false,
+        renderActions: {
+          addMenu: []
+        }
+      }
+    };
+    </script>
+    <script src="vendor/chart.umd.min.js"></script>
+</head>
+<body>
+    <h1>(a,b,1)类分布</h1>
+
+    <div class="definition">
+        <h2>定义</h2>
+        <p>(a,b,1)类分布是一类特殊的离散概率分布，其递推关系从 k=2 开始成立，具有形式：</p>
+        <div class="formula">
+            \[P(X=k) = \frac{a+b(k-1)}{k} \cdot P(X=k-1), \quad k \geq 2\]
+        </div>
+        <p>这类分布包含多种重要的离散分布，包括：</p>
+        <ul>
+            <li>零截断分布 (Zero-Truncated Distributions)</li>
+            <li>零修正分布 (Zero-Modified Distributions)</li>
+            <li>扩展负二项分布 (ETNB, Extended Negative Binomial)</li>
+            <li>对数分布 (Logarithmic Distribution)</li>
+            <li>Sibuya分布 (Sibuya Distribution)</li>
+        </ul>
+    </div>
+
+    <!-- 新增：交互式分布模拟部分 -->
+    <div class="interactive-section">
+        <h2>交互式分布模拟</h2>
+        <p>通过调整参数a和b，观察(a,b,1)类分布的特性变化。您还可以设置随机种子来生成不同的样本。</p>
+        
+        <div class="distribution-selector">
+            <label for="distribution-type"><strong>选择分布类型：</strong></label>
+            <select id="distribution-type" onchange="updateDistributionType()">
+                <option value="general">一般(a,b,1)类分布</option>
+                <option value="etnb">扩展负二项分布(ETNB)</option>
+                <option value="logarithmic">对数分布</option>
+                <option value="zt-poisson">零截断泊松分布</option>
+                <option value="zm-poisson">零修正泊松分布</option>
+            </select>
+        </div>
+        
+        <div class="control-panel">
+            <div class="control-group">
+                <div class="control-item">
+                    <label for="param-a">参数 a: <span id="param-a-value" class="value-display">1.0</span></label>
+                    <input type="range" id="param-a" min="-2" max="5" step="0.1" value="1.0" oninput="updateParamA()">
+                </div>
+                <div class="control-item">
+                    <label for="param-b">参数 b: <span id="param-b-value" class="value-display">0.5</span></label>
+                    <input type="range" id="param-b" min="0" max="1" step="0.05" value="0.5" oninput="updateParamB()">
+                </div>
+                <div class="control-item" id="param-omega-container" style="display:none;">
+                    <label for="param-omega">参数 ω (零点概率): <span id="param-omega-value" class="value-display">0.3</span></label>
+                    <input type="range" id="param-omega" min="0" max="0.9" step="0.05" value="0.3" oninput="updateParamOmega()">
+                </div>
+            </div>
+            <div class="control-group">
+                <div class="control-item">
+                    <label for="sample-size">样本大小: <span id="sample-size-value" class="value-display">1000</span></label>
+                    <input type="range" id="sample-size" min="100" max="10000" step="100" value="1000" oninput="updateSampleSize()">
+                </div>
+                <div class="control-item">
+                    <label for="random-seed">随机种子: <span id="random-seed-value" class="value-display">12345</span></label>
+                    <input type="range" id="random-seed" min="1" max="99999" step="1" value="12345" oninput="updateRandomSeed()">
+                </div>
+                <div class="control-item">
+                    <button class="btn" onclick="generateSamples()">生成新样本</button>
+                    <button class="btn" onclick="randomizeSeed()">随机种子</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <canvas id="distribution-chart"></canvas>
+        </div>
+        
+        <div class="stats-panel">
+            <h3>统计量</h3>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <h4>期望值</h4>
+                    <div id="stat-mean">-</div>
+                </div>
+                <div class="stat-item">
+                    <h4>方差</h4>
+                    <div id="stat-variance">-</div>
+                </div>
+                <div class="stat-item">
+                    <h4>标准差</h4>
+                    <div id="stat-std">-</div>
+                </div>
+                <div class="stat-item">
+                    <h4>偏度</h4>
+                    <div id="stat-skewness">-</div>
+                </div>
+                <div class="stat-item">
+                    <h4>峰度</h4>
+                    <div id="stat-kurtosis">-</div>
+                </div>
+                <div class="stat-item">
+                    <h4>中位数</h4>
+                    <div id="stat-median">-</div>
+                </div>
+                <div class="stat-item">
+                    <h4>众数</h4>
+                    <div id="stat-mode">-</div>
+                </div>
+                <div class="stat-item">
+                    <h4>最大值</h4>
+                    <div id="stat-max">-</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="formula" id="current-formula">
+            \[P(X=k) = \frac{a+b(k-1)}{k} \cdot P(X=k-1), \quad k \geq 2\]
+        </div>
+    </div>
+
+    <h2>1. Zero-Truncated与Zero-Modified的区别</h2>
+
+    <div class="comparison">
+        <div class="comparison-item">
+            <h3>零截断分布 (Zero-Truncated)</h3>
+            <p><strong>定义：</strong>从原始分布中移除零点概率，并对剩余概率重新归一化</p>
+            <p><strong>概率质量函数：</strong></p>
+            <div class="formula">
+                \[P_{ZT}(X=k) = \frac{P(X=k)}{1-P(X=0)}, \quad k \geq 1\]
+            </div>
+            <p><strong>特点：</strong></p>
+            <ul>
+                <li>不允许取值为0</li>
+                <li>适用于只考虑正值的场景</li>
+                <li>保持原分布在正整数上的相对概率比例</li>
+            </ul>
+            <p><strong>应用场景：</strong></p>
+            <ul>
+                <li>医院就诊人数（必须至少有1人）</li>
+                <li>已购买商品的数量（至少购买1件）</li>
+                <li>事故后的索赔金额（必须大于0）</li>
+            </ul>
+        </div>
+
+        <div class="comparison-item">
+            <h3>零修正分布 (Zero-Modified)</h3>
+            <p><strong>定义：</strong>修改原始分布在零点处的概率，但保留其他点的相对比例</p>
+            <p><strong>概率质量函数：</strong></p>
+            <div class="formula">
+                \[P_{ZM}(X=0) = \omega\]
+                \[P_{ZM}(X=k) = (1-\omega) \cdot \frac{P(X=k)}{1-P(X=0)}, \quad k \geq 1\]
+            </div>
+            <p><strong>特点：</strong></p>
+            <ul>
+                <li>零点概率可以被任意调整（增加或减少）</li>
+                <li>更为灵活，是零截断分布的推广</li>
+                <li>多一个参数ω来控制零点概率</li>
+            </ul>
+            <p><strong>应用场景：</strong></p>
+            <ul>
+                <li>零膨胀数据（如调查中的过多零回应）</li>
+                <li>零亏损数据（如某些保险索赔数据）</li>
+                <li>混合过程产生的计数数据</li>
+            </ul>
+        </div>
+    </div>
+
+    <table>
+        <tr>
+            <th>比较方面</th>
+            <th>零截断分布</th>
+            <th>零修正分布</th>
+        </tr>
+        <tr>
+            <td>零点处理</td>
+            <td>完全移除零点概率</td>
+            <td>可以任意调整零点概率</td>
+        </tr>
+        <tr>
+            <td>灵活性</td>
+            <td>较低</td>
+            <td>较高（零截断是零修正的特例）</td>
+        </tr>
+        <tr>
+            <td>参数</td>
+            <td>与原分布相同</td>
+            <td>比原分布多一个参数ω</td>
+        </tr>
+        <tr>
+            <td>适用情况</td>
+            <td>零值不可能出现的场景</td>
+            <td>零值概率需要特别调整的场景</td>
+        </tr>
+    </table>
+
+    <div class="example">
+        <h3>例1：零截断泊松分布在排队理论中的应用</h3>
+        <p>在一家银行的服务台，我们观察到客户到达的数量。由于我们只记录有客户到达的时间段，因此不可能有0个客户的情况。</p>
+        
+        <p><strong>数据：</strong>一小时内各时间段的客户数</p>
+        <table>
+            <tr>
+                <th>客户数</th>
+                <th>1</th>
+                <th>2</th>
+                <th>3</th>
+                <th>4</th>
+                <th>5</th>
+                <th>6+</th>
+            </tr>
+            <tr>
+                <td>频次</td>
+                <td>15</td>
+                <td>12</td>
+                <td>8</td>
+                <td>4</td>
+                <td>2</td>
+                <td>1</td>
+            </tr>
+        </table>
+
+        <p><strong>分析：</strong>假设客户到达符合泊松过程，但由于观察方法，我们需要使用零截断泊松分布。</p>
+        <p>原始泊松分布的参数λ估计约为2.3，则零截断泊松分布为：</p>
+        <div class="formula">
+            \[P_{ZTP}(X=k) = \frac{e^{-\lambda}\lambda^k}{k!(1-e^{-\lambda})}, \quad k \geq 1\]
+        </div>
+        
+        <p><strong>应用价值：</strong>通过零截断泊松分布，银行可以更准确地预测服务需求，优化人员配置。</p>
+    </div>
+
+    <div class="example">
+        <h3>例2：零修正负二项分布在保险索赔分析中的应用</h3>
+        <p>一家保险公司分析客户的年度索赔次数，发现零索赔的比例异常高。</p>
+        
+        <p><strong>数据：</strong>客户年度索赔次数</p>
+        <table>
+            <tr>
+                <th>索赔次数</th>
+                <th>0</th>
+                <th>1</th>
+                <th>2</th>
+                <th>3</th>
+                <th>4+</th>
+            </tr>
+            <tr>
+                <td>客户比例</td>
+                <td>75%</td>
+                <td>15%</td>
+                <td>6%</td>
+                <td>3%</td>
+                <td>1%</td>
+            </tr>
+        </table>
+
+        <p><strong>分析：</strong>使用零修正负二项分布，其中ω=0.75，负二项分布参数r=0.8，p=0.6</p>
+        <div class="formula">
+            \[P_{ZM}(X=0) = 0.75\]
+            \[P_{ZM}(X=k) = 0.25 \cdot \frac{P_{NB}(X=k)}{1-P_{NB}(X=0)}, \quad k \geq 1\]
+        </div>
+        
+        <p><strong>应用价值：</strong>帮助保险公司更准确地评估风险，设计合理的保费结构，识别不同风险类别的客户。</p>
+    </div>
+
+    <h2>2. ETNB与Logarithmic分布的关系</h2>
+
+    <div class="comparison">
+        <div class="comparison-item">
+            <h3>扩展负二项分布 (ETNB)</h3>
+            <p><strong>定义：</strong>是负二项分布的一种扩展形式，属于(a,b,1)类</p>
+            <p><strong>概率质量函数：</strong></p>
+            <div class="formula">
+                \[P(X=k) = \binom{r+k-1}{k} p^r (1-p)^k, \quad k \geq 0\]
+            </div>
+            <p>其中r可以是任意实数（不限于正整数）</p>
+            <p><strong>递推关系：</strong></p>
+            <div class="formula">
+                \[P(X=k) = \frac{r+k-1}{k} \cdot (1-p) \cdot P(X=k-1), \quad k \geq 1\]
+            </div>
+            <p>这符合(a,b,1)类的递推形式，其中a=r(1-p)，b=(1-p)</p>
+        </div>
+
+        <div class="comparison-item">
+            <h3>对数分布 (Logarithmic)</h3>
+            <p><strong>定义：</strong>是ETNB当参数r趋近于0时的极限情况</p>
+            <p><strong>概率质量函数：</strong></p>
+            <div class="formula">
+                \[P(X=k) = \frac{-1}{\ln(1-p)} \cdot \frac{p^k}{k}, \quad k \geq 1\]
+            </div>
+            <p><strong>递推关系：</strong></p>
+            <div class="formula">
+                \[P(X=k) = \frac{k-1}{k} \cdot p \cdot P(X=k-1), \quad k \geq 2\]
+            </div>
+            <p>这符合(a,b,1)类的递推形式，其中a=0，b=p</p>
+        </div>
+    </div>
+
+    <div class="definition">
+        <h3>ETNB与对数分布的关系总结</h3>
+        <ol>
+            <li><strong>极限关系：</strong>对数分布可以看作是ETNB当r→0时的极限</li>
+            <li><strong>递推关系：</strong>两者都满足(a,b,1)类的递推公式，但参数不同</li>
+            <li><strong>支持集：</strong>ETNB定义在非负整数上，而对数分布仅定义在正整数上</li>
+            <li><strong>应用联系：</strong>两者常用于相似的场景，如物种丰富度建模、事件聚类等</li>
+        </ol>
+    </div>
+
+    <div class="example">
+        <h3>例3：扩展负二项分布(ETNB)在疾病传播模型中的应用</h3>
+        <p>在流行病学研究中，研究人员使用扩展负二项分布来模拟疾病的二次传播情况。</p>
+        
+        <p><strong>数据：</strong>一组初始感染者导致的二次感染人数</p>
+        <table>
+            <tr>
+                <th>二次感染人数</th>
+                <th>0</th>
+                <th>1</th>
+                <th>2</th>
+                <th>3</th>
+                <th>4</th>
+                <th>5+</th>
+            </tr>
+            <tr>
+                <td>频次</td>
+                <td>42</td>
+                <td>17</td>
+                <td>9</td>
+                <td>5</td>
+                <td>3</td>
+                <td>4</td>
+            </tr>
+        </table>
+
+        <p><strong>分析：</strong>使用扩展负二项分布，参数估计为r=0.7，p=0.4</p>
+        <div class="formula">
+            \[P(X=k) = \binom{r+k-1}{k} p^r (1-p)^k, \quad k \geq 0\]
+        </div>
+        
+        <p><strong>结果：</strong></p>
+        <ul>
+            <li>平均每个初始感染者导致的二次感染人数为1.05人</li>
+            <li>过度离散指数为2.5，表明感染具有聚集性</li>
+            <li>超级传播者（导致5个以上二次感染）的概率约为5%</li>
+        </ul>
+        
+        <p><strong>应用价值：</strong>帮助公共卫生部门评估疾病传播风险，识别超级传播事件，制定有针对性的防控措施。ETNB分布能够很好地捕捉疾病传播中的异质性和聚集性特征。</p>
+    </div>
+
+    <div class="example">
+        <h3>例4：对数分布在物种丰富度研究中的应用</h3>
+        <p>在一个生态系统调查中，研究人员记录了不同物种的出现频率。</p>
+        
+        <p><strong>数据：</strong>在100个样本中各物种的出现次数</p>
+        <table>
+            <tr>
+                <th>出现次数</th>
+                <th>1</th>
+                <th>2</th>
+                <th>3</th>
+                <th>4</th>
+                <th>5+</th>
+            </tr>
+            <tr>
+                <td>物种数</td>
+                <td>25</td>
+                <td>12</td>
+                <td>8</td>
+                <td>4</td>
+                <td>3</td>
+            </tr>
+        </table>
+
+        <p><strong>分析：</strong>使用对数分布建模物种频率分布。通过最大似然估计，参数p约为0.85。</p>
+        <div class="formula">
+            \[P(X=k) = \frac{-1}{\ln(1-p)} \cdot \frac{p^k}{k}, \quad k \geq 1\]
+        </div>
+        
+        <p><strong>结果：</strong></p>
+        <ul>
+            <li>估计生态系统中未被观测到的物种数量约为15种</li>
+            <li>预测如果采样量增加一倍，预计会发现约8种新物种</li>
+            <li>整个生态系统的物种丰富度估计为67种</li>
+        </ul>
+        
+        <p><strong>应用价值：</strong>帮助生态学家评估生物多样性，制定保护策略，预测未发现物种的数量。</p>
+    </div>
+
+    <!-- 添加JavaScript代码 -->
+    <script>
+        // 全局变量
+        let distributionChart = null;
+        let currentDistType = 'general';
+        let paramA = 1.0;
+        let paramB = 0.5;
+        let paramOmega = 0.3;
+        let sampleSize = 1000;
+        let randomSeed = 12345;
+        let samples = [];
+        
+        // 初始化
+        window.onload = function() {
+            initChart();
+            generateSamples();
+        };
+        
+        // 初始化图表
+        function initChart() {
+            const ctx = document.getElementById('distribution-chart').getContext('2d');
+            distributionChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '频率',
+                        data: [],
+                        backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '频率'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: '取值'
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: '(a,b,1)类分布模拟'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `频率: ${context.raw.toFixed(4)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 更新参数a
+        function updateParamA() {
+            const slider = document.getElementById('param-a');
+            const display = document.getElementById('param-a-value');
+            paramA = parseFloat(slider.value);
+            display.textContent = paramA.toFixed(1);
+            generateSamples();
+        }
+        
+        // 更新参数b
+        function updateParamB() {
+            const slider = document.getElementById('param-b');
+            const display = document.getElementById('param-b-value');
+            paramB = parseFloat(slider.value);
+            display.textContent = paramB.toFixed(2);
+            generateSamples();
+        }
+        
+        // 更新参数omega
+        function updateParamOmega() {
+            const slider = document.getElementById('param-omega');
+            const display = document.getElementById('param-omega-value');
+            paramOmega = parseFloat(slider.value);
+            display.textContent = paramOmega.toFixed(2);
+            generateSamples();
+        }
+        
+        // 更新样本大小
+        function updateSampleSize() {
+            const slider = document.getElementById('sample-size');
+            const display = document.getElementById('sample-size-value');
+            sampleSize = parseInt(slider.value);
+            display.textContent = sampleSize;
+            generateSamples();
+        }
+        
+        // 更新随机种子
+        function updateRandomSeed() {
+            const slider = document.getElementById('random-seed');
+            const display = document.getElementById('random-seed-value');
+            randomSeed = parseInt(slider.value);
+            display.textContent = randomSeed;
+            generateSamples();
+        }
+        
+        // 随机化种子
+        function randomizeSeed() {
+            randomSeed = Math.floor(Math.random() * 99999) + 1;
+            document.getElementById('random-seed').value = randomSeed;
+            document.getElementById('random-seed-value').textContent = randomSeed;
+            generateSamples();
+        }
+        
+        // 更新分布类型
+        function updateDistributionType() {
+            const select = document.getElementById('distribution-type');
+            currentDistType = select.value;
+            
+            // 显示/隐藏相关参数控件
+            const omegaContainer = document.getElementById('param-omega-container');
+            if (currentDistType === 'zm-poisson') {
+                omegaContainer.style.display = 'block';
+            } else {
+                omegaContainer.style.display = 'none';
+            }
+            
+            // 更新公式显示
+            updateFormula();
+            
+            // 重新生成样本
+            generateSamples();
+        }
+        
+        // 更新公式显示
+        function updateFormula() {
+            const formulaContainer = document.getElementById('current-formula');
+            let formula = '';
+            
+            switch(currentDistType) {
+                case 'general':
+                    formula = '\\[P(X=k) = \\frac{a+b(k-1)}{k} \\cdot P(X=k-1), \\quad k \\geq 2\\]';
+                    break;
+                case 'etnb':
+                    formula = '\\[P(X=k) = \\binom{r+k-1}{k} p^r (1-p)^k, \\quad k \\geq 0\\]';
+                    break;
+                case 'logarithmic':
+                    formula = '\\[P(X=k) = \\frac{-1}{\\ln(1-p)} \\cdot \\frac{p^k}{k}, \\quad k \\geq 1\\]';
+                    break;
+                case 'zt-poisson':
+                    formula = '\\[P_{ZTP}(X=k) = \\frac{e^{-\\lambda}\\lambda^k}{k!(1-e^{-\\lambda})}, \\quad k \\geq 1\\]';
+                    break;
+                case 'zm-poisson':
+                    formula = '\\[P_{ZM}(X=0) = \\omega\\]\\[P_{ZM}(X=k) = (1-\\omega) \\cdot \\frac{e^{-\\lambda}\\lambda^k}{k!(1-e^{-\\lambda})}, \\quad k \\geq 1\\]';
+                    break;
+            }
+            
+            formulaContainer.innerHTML = formula;
+            
+            // 重新渲染MathJax
+            if (window.MathJax) {
+                MathJax.typesetPromise([formulaContainer]).catch(function (err) {
+                    console.log('MathJax渲染错误:', err);
+                });
+            }
+        }
+        
+        // 生成伪随机数 (使用线性同余法)
+        function seededRandom(seed) {
+            let state = seed;
+            return function() {
+                state = (state * 1664525 + 1013904223) % 4294967296;
+                return state / 4294967296;
+            };
+        }
+        
+        // 生成样本
+        function generateSamples() {
+            // 创建伪随机数生成器
+            const random = seededRandom(randomSeed);
+            samples = [];
+            
+            // 根据不同分布类型生成样本
+            switch(currentDistType) {
+                case 'general':
+                    generateGeneralSamples(random);
+                    break;
+                case 'etnb':
+                    generateETNBSamples(random);
+                    break;
+                case 'logarithmic':
+                    generateLogarithmicSamples(random);
+                    break;
+                case 'zt-poisson':
+                    generateZTPoissonSamples(random);
+                    break;
+                case 'zm-poisson':
+                    generateZMPoissonSamples(random);
+                    break;
+            }
+            
+            // 更新图表和统计量
+            updateChart();
+            updateStats();
+        }
+        
+        // 生成一般(a,b,1)类分布样本
+        function generateGeneralSamples(random) {
+            // 使用接受-拒绝采样法
+            const maxK = 50; // 最大支持的k值
+            let probabilities = [0]; // P(X=0)设为0
+            
+            // 设置P(X=1)为一个合理的值
+            probabilities[1] = 0.5;
+            
+            // 使用递推关系计算概率
+            let sum = probabilities[1];
+            for (let k = 2; k <= maxK; k++) {
+                probabilities[k] = (paramA + paramB * (k - 1)) / k * probabilities[k - 1];
+                sum += probabilities[k];
+            }
+            
+            // 归一化概率
+            for (let k = 1; k <= maxK; k++) {
+                probabilities[k] /= sum;
+            }
+            
+            // 生成样本
+            for (let i = 0; i < sampleSize; i++) {
+                const u = random();
+                let cumulativeProb = 0;
+                let value = 0;
+                
+                for (let k = 1; k <= maxK; k++) {
+                    cumulativeProb += probabilities[k];
+                    if (u <= cumulativeProb) {
+                        value = k;
+                        break;
+                    }
+                }
+                
+                samples.push(value);
+            }
+        }
+        
+        // 生成ETNB样本
+        function generateETNBSamples(random) {
+            // 将a,b参数转换为ETNB参数r和p
+            const r = paramA / (1 - paramB);
+            const p = 1 - paramB;
+            
+            // 使用接受-拒绝采样法
+            for (let i = 0; i < sampleSize; i++) {
+                // 简化的负二项采样
+                let failures = 0;
+                let successes = 0;
+                
+                while (successes < r) {
+                    if (random() < p) {
+                        successes += 1;
+                    } else {
+                        failures += 1;
+                    }
+                    
+                    // 避免无限循环
+                    if (failures > 100) break;
+                }
+                
+                samples.push(failures);
+            }
+        }
+        
+        // 生成对数分布样本
+        function generateLogarithmicSamples(random) {
+            // 使用参数b作为p
+            const p = paramB;
+            
+            for (let i = 0; i < sampleSize; i++) {
+                // 使用接受-拒绝采样法
+                let value = 1;
+                const u = random();
+                let cumulativeProb = -p / Math.log(1 - p);
+                
+                while (u > cumulativeProb) {
+                    value++;
+                    cumulativeProb += -Math.pow(p, value) / (value * Math.log(1 - p));
+                    
+                    // 避免无限循环
+                    if (value > 100) break;
+                }
+                
+                samples.push(value);
+            }
+        }
+        
+        // 生成零截断泊松样本
+        function generateZTPoissonSamples(random) {
+            // 使用参数a作为lambda
+            const lambda = paramA;
+            
+            for (let i = 0; i < sampleSize; i++) {
+                // 先生成普通泊松分布样本
+                let value = 0;
+                const L = Math.exp(-lambda);
+                let p = 1.0;
+                
+                do {
+                    value++;
+                    p *= random();
+                } while (p > L);
+                
+                // 确保值大于0（零截断）
+                if (value === 0) value = 1;
+                
+                samples.push(value);
+            }
+        }
+        
+        // 生成零修正泊松样本
+        function generateZMPoissonSamples(random) {
+            // 使用参数a作为lambda，omega作为零点概率
+            const lambda = paramA;
+            
+            for (let i = 0; i < sampleSize; i++) {
+                // 先决定是否为0
+                if (random() < paramOmega) {
+                    samples.push(0);
+                } else {
+                    // 生成零截断泊松样本
+                    let value = 0;
+                    const L = Math.exp(-lambda);
+                    let p = 1.0;
+                    
+                    do {
+                        value++;
+                        p *= random();
+                    } while (p > L);
+                    
+                    // 确保值大于0
+                    if (value === 0) value = 1;
+                    
+                    samples.push(value);
+                }
+            }
+        }
+        
+        // 更新图表
+        function updateChart() {
+            // 计算频率分布
+            const counts = {};
+            let maxValue = 0;
+            
+            for (const value of samples) {
+                if (value > maxValue) maxValue = value;
+                counts[value] = (counts[value] || 0) + 1;
+            }
+            
+            // 准备图表数据
+            const labels = [];
+            const data = [];
+            
+            for (let i = 0; i <= Math.min(maxValue, 20); i++) {
+                labels.push(i);
+                data.push((counts[i] || 0) / sampleSize);
+            }
+            
+            // 更新图表
+            distributionChart.data.labels = labels;
+            distributionChart.data.datasets[0].data = data;
+            distributionChart.options.plugins.title.text = getDistributionTitle();
+            distributionChart.update();
+        }
+        
+        // 获取分布标题
+        function getDistributionTitle() {
+            switch(currentDistType) {
+                case 'general':
+                    return `(a,b,1)类分布模拟 (a=${paramA.toFixed(1)}, b=${paramB.toFixed(2)})`;
+                case 'etnb':
+                    const r = paramA / (1 - paramB);
+                    const p = 1 - paramB;
+                    return `扩展负二项分布 (r=${r.toFixed(2)}, p=${p.toFixed(2)})`;
+                case 'logarithmic':
+                    return `对数分布 (p=${paramB.toFixed(2)})`;
+                case 'zt-poisson':
+                    return `零截断泊松分布 (λ=${paramA.toFixed(1)})`;
+                case 'zm-poisson':
+                    return `零修正泊松分布 (λ=${paramA.toFixed(1)}, ω=${paramOmega.toFixed(2)})`;
+                default:
+                    return '分布模拟';
+            }
+        }
+        
+        // 计算统计量
+        function updateStats() {
+            // 计算均值
+            const mean = samples.reduce((sum, value) => sum + value, 0) / samples.length;
+            
+            // 计算方差
+            const variance = samples.reduce((sum, value) => sum + Math.pow(value - mean, 2), 0) / samples.length;
+            
+            // 计算标准差
+            const std = Math.sqrt(variance);
+            
+            // 计算偏度
+            const skewness = samples.reduce((sum, value) => sum + Math.pow((value - mean) / std, 3), 0) / samples.length;
+            
+            // 计算峰度
+            const kurtosis = samples.reduce((sum, value) => sum + Math.pow((value - mean) / std, 4), 0) / samples.length - 3;
+            
+            // 计算中位数
+            const sortedSamples = [...samples].sort((a, b) => a - b);
+            const median = sortedSamples.length % 2 === 0 
+                ? (sortedSamples[sortedSamples.length / 2 - 1] + sortedSamples[sortedSamples.length / 2]) / 2
+                : sortedSamples[Math.floor(sortedSamples.length / 2)];
+            
+            // 计算众数
+            const counts = {};
+            for (const value of samples) {
+                counts[value] = (counts[value] || 0) + 1;
+            }
+            let mode = 0;
+            let maxCount = 0;
+            for (const [value, count] of Object.entries(counts)) {
+                if (count > maxCount) {
+                    maxCount = count;
+                    mode = parseInt(value);
+                }
+            }
+            
+            // 计算最大值
+            const max = Math.max(...samples);
+            
+            // 更新统计量显示
+            document.getElementById('stat-mean').textContent = mean.toFixed(4);
+            document.getElementById('stat-variance').textContent = variance.toFixed(4);
+            document.getElementById('stat-std').textContent = std.toFixed(4);
+            document.getElementById('stat-skewness').textContent = skewness.toFixed(4);
+            document.getElementById('stat-kurtosis').textContent = kurtosis.toFixed(4);
+            document.getElementById('stat-median').textContent = median.toFixed(2);
+            document.getElementById('stat-mode').textContent = mode;
+            document.getElementById('stat-max').textContent = max;
+        }
+    </script>
+<script src="vendor/mathjax-loader.js"></script>
+<script src="vendor/mathjax-tex-svg.js"></script>
+</body>
+</html>

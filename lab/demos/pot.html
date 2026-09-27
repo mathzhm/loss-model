@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Threshold exceedances: 阈值 u 与 GPD 拟合 (偏差-方差)</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #e67e22;
+            --highlight-color: #e74c3c;
+            --bg-color: #f5f7fa;
+            --panel-bg: #ffffff;
+            --text-color: #333;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 { margin-top: 0; color: var(--primary-color); }
+        
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            max-width: 1400px;
+            width: 100%;
+        }
+
+        .control-panel {
+            flex: 1;
+            min-width: 320px;
+            background: var(--panel-bg);
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .charts-panel {
+            flex: 3;
+            min-width: 600px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .chart-card {
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .chart-row {
+            display: flex;
+            gap: 20px;
+        }
+
+        .chart-half {
+            flex: 1;
+        }
+
+        .control-group {
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        input[type="range"] {
+            flex-grow: 1;
+            cursor: pointer;
+        }
+
+        select {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            font-size: 1em;
+        }
+
+        .value-display {
+            font-family: monospace;
+            font-weight: bold;
+            color: var(--accent-color);
+        }
+
+        .metrics-box {
+            background-color: #fcf3cf;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+            border: 1px solid #f9e79f;
+        }
+
+        .metric-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.9em;
+        }
+
+        .info-box {
+            background-color: #e8f4fd;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #3498db;
+            margin-top: 20px;
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+        
+        .warning-box {
+            background-color: #fdedec;
+            color: #c0392b;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-size: 0.9em;
+            display: none;
+        }
+
+        canvas {
+            width: 100%;
+            height: 250px;
+        }
+        
+        .chart-lg canvas {
+            height: 220px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>Threshold exceedances: 阈值 u 与 GPD 拟合 (偏差-方差)</h1>
+
+    <div class="container">
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <div class="control-group">
+                <label>1. 选择基础分布 (Underlying Distribution)</label>
+                <select id="dist-select" onchange="generateData()">
+                    <option value="normal">Standard Normal (正态分布)</option>
+                    <option value="t_dist">Student's t (df=3, Heavy Tail)</option>
+                    <option value="exponential">Exponential (指数分布)</option>
+                    <option value="mixture">Mixture (Normal + Pareto tail)</option>
+                </select>
+                <div style="margin-top:5px; font-size:0.85em; color:#666;">样本量 N = 2000</div>
+            </div>
+
+            <div class="control-group">
+                <label>2. 调整阈值 u (Threshold)</label>
+                <div class="slider-container">
+                    <span>Low</span>
+                    <input type="range" id="u-slider" min="0" max="99" step="0.5" value="90" oninput="updateThreshold()">
+                    <span>High</span>
+                </div>
+                <div style="text-align: right;">
+                    Percentile: <span id="pct-val" class="value-display">90%</span> <br>
+                    Threshold u ≈ <span id="u-val" class="value-display">--</span>
+                </div>
+                <div id="warning-msg" class="warning-box">
+                    警告：样本过少，拟合不可靠！
+                </div>
+            </div>
+
+            <div class="metrics-box">
+                <div class="metric-item">
+                    <span>超阈值样本数 k(u):</span>
+                    <span id="k-val" style="font-weight:bold;">--</span>
+                </div>
+                <div class="metric-item">
+                    <span>GPD 形状参数 (&xi;):</span>
+                    <span id="xi-est" style="font-weight:bold; color: #e74c3c;">--</span>
+                </div>
+                <div class="metric-item">
+                    <span>GPD 尺度参数 (&sigma;):</span>
+                    <span id="sigma-est" style="font-weight:bold;">--</span>
+                </div>
+            </div>
+
+            <div class="info-box">
+                <strong>Bias-Variance Tradeoff:</strong>
+                <ul style="padding-left: 20px; margin: 5px 0;">
+                    <li><strong>u 太低 (Bias 大):</strong> 选入了分布"中心"的数据，这些数据不符合 GPD 极值性质，导致模型偏差大（QQ 图弯曲）。</li>
+                    <li><strong>u 太高 (Variance 大):</strong> 剩余样本 $k(u)$ 极少，虽然理论上逼近 GPD，但参数估计波动剧烈，不确定性高。</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Charts Panel -->
+        <div class="charts-panel">
+            <div class="chart-card chart-lg">
+                <h2>1. 原始数据与阈值切分 (Data & Threshold)</h2>
+                <canvas id="chart-ts"></canvas>
+            </div>
+
+            <div class="chart-row">
+                <div class="chart-card chart-half">
+                    <h2>2. 超额量 (Excesses) 直方图与 GPD PDF</h2>
+                    <canvas id="chart-hist"></canvas>
+                </div>
+                <div class="chart-card chart-half">
+                    <h2>3. GPD QQ 图 (Diagnostics)</h2>
+                    <canvas id="chart-qq"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Random Generators ---
+        function randNormal() {
+            let u = 0, v = 0;
+            while(u === 0) u = Math.random();
+            while(v === 0) v = Math.random();
+            return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+        }
+
+        function randT(df) {
+            let z = randNormal();
+            let v = 0;
+            for(let i=0; i<df; i++) v += Math.pow(randNormal(), 2);
+            return z / Math.sqrt(v/df);
+        }
+
+        function randExp() {
+            return -Math.log(Math.random());
+        }
+
+        function randPareto(shape, scale=1) {
+            return scale * (Math.pow(Math.random(), -1/shape) - 1);
+        }
+
+        // --- GPD Functions ---
+        function gpdPDF(x, xi, sigma) {
+            if (x < 0) return 0;
+            if (Math.abs(xi) < 1e-5) {
+                return (1/sigma) * Math.exp(-x/sigma);
+            } else {
+                const term = 1 + xi * x / sigma;
+                if (term <= 0) return 0; // Out of support
+                return (1/sigma) * Math.pow(term, -(1/xi) - 1);
+            }
+        }
+
+        function gpdQuantile(p, xi, sigma) {
+            if (Math.abs(xi) < 1e-5) {
+                return -sigma * Math.log(1 - p);
+            } else {
+                return (sigma/xi) * (Math.pow(1-p, -xi) - 1);
+            }
+        }
+
+        // L-Moments Estimation for GPD
+        function fitGPD(excesses) {
+            const n = excesses.length;
+            if (n < 5) return null;
+            
+            // Sort
+            excesses.sort((a,b) => a-b);
+            
+            // Calculate L1 (Mean)
+            let l1 = 0;
+            for(let x of excesses) l1 += x;
+            l1 /= n;
+            
+            // Calculate L2
+            // L2 = 2 * sum_{i=1}^n [(i-1)/(n-1) - 0.5] * x_(i) / n ???
+            // Or simpler: L2 = (2/ (n(n-1))) * sum (i-1)x_(i) - l1
+            let sum_ix = 0;
+            for(let i=0; i<n; i++) {
+                sum_ix += i * excesses[i]; // i is 0-based index, so it represents i-1 in 1-based formula?
+                // Formula: L2 = 2/n * sum_{j=1}^n ( (j-1)/(n-1) ) x_(j) - L1
+                // Let's use direct formula
+            }
+            
+            // Using probability weighted moments might be easier or standard L-moment definition
+            // lambda_r = 1/n sum_{j=1}^n P_{r-1, n, j} x_(j)
+            // lambda_1 = mean
+            // lambda_2 = 1/n sum ( (2(j-1) - (n-1)) / (n-1) ) x_(j) ??
+            // Let's use robust approximation
+            
+            let b0 = l1;
+            let b1 = 0;
+            for(let i=0; i<n; i++) {
+                b1 += (i * excesses[i]) / (n-1);
+            }
+            b1 /= n;
+            
+            let l2 = 2*b1 - b0;
+            let tau = l2 / l1;
+            
+            // Estimate parameters
+            // xi = (1 - 3*tau) / (1 + tau) ?? No, that's for GEV??
+            // For GPD:
+            // mean = sigma / (1-xi)
+            // L2 = sigma / ((1-xi)(2-xi))
+            // tau = L2/L1 = (1-xi)/(2-xi)
+            // tau(2-xi) = 1-xi => 2tau - xi*tau = 1 - xi => xi(1-tau) = 1 - 2tau => xi = (1-2tau)/(1-tau) ??
+            // Let's check:
+            // If exp, xi=0. L1=sigma, L2=sigma/2. tau=0.5.
+            // Formula: (1-1)/(1-0.5) = 0. Correct.
+            // If xi=0.5. L1 = s/0.5 = 2s. L2 = s/(0.5*1.5) = s/0.75 = 1.33s. tau = 1.33/2 = 0.666.
+            // Formula: (1 - 1.333)/(1-0.666) = -0.33/0.33 = -1. Wrong.
+            
+            // Correct derivation:
+            // tau = L2/L1 = (sigma/((1-xi)(2-xi))) / (sigma/(1-xi)) = 1 / (2-xi)
+            // 2-xi = 1/tau => xi = 2 - 1/tau.
+            // Let's check exp: tau=0.5. xi = 2 - 2 = 0. Correct.
+            // Let's check xi=0.5. tau = 1/(1.5) = 0.666. xi = 2 - 1.5 = 0.5. Correct.
+            
+            // So xi = 2 - 1/tau = (2*tau - 1) / tau.
+            // And sigma = L1 * (1 - xi) = L1 * (1 - (2 - 1/tau)) = L1 * (1/tau - 1) = L1 * (1-tau)/tau.
+            // Wait, sigma = L1 * (1-xi).
+            
+            let xi = 2 - 1/tau;
+            let sigma = l1 * (1 - xi);
+            
+            // Bounds check
+            if (sigma <= 0) sigma = l1; // fallback
+            
+            return { xi, sigma };
+        }
+
+
+        // --- State ---
+        let rawData = [];
+        const N = 2000;
+        let sortedData = [];
+        
+        // --- Init ---
+        function generateData() {
+            const type = document.getElementById('dist-select').value;
+            rawData = [];
+            for(let i=0; i<N; i++) {
+                if(type === 'normal') rawData.push(randNormal());
+                else if(type === 't_dist') rawData.push(randT(3));
+                else if(type === 'exponential') rawData.push(randExp());
+                else if(type === 'mixture') {
+                    if(Math.random() < 0.8) rawData.push(randNormal());
+                    else rawData.push(2 + randPareto(5)); // Shifted Pareto
+                }
+            }
+            sortedData = [...rawData].sort((a,b) => a-b);
+            updateThreshold();
+        }
+
+        function updateThreshold() {
+            const pct = parseFloat(document.getElementById('u-slider').value);
+            document.getElementById('pct-val').textContent = pct + '%';
+            
+            // Find threshold u
+            const idx = Math.floor((pct / 100) * (N - 1));
+            const u = sortedData[idx];
+            document.getElementById('u-val').textContent = u.toFixed(3);
+            
+            // Get Excesses
+            const excesses = [];
+            rawData.forEach(x => {
+                if(x > u) excesses.push(x - u);
+            });
+            
+            document.getElementById('k-val').textContent = excesses.length;
+            
+            // Warning
+            const warn = document.getElementById('warning-msg');
+            if(excesses.length < 20) warn.style.display = 'block';
+            else warn.style.display = 'none';
+
+            // Fit
+            const params = fitGPD(excesses);
+            if(params) {
+                document.getElementById('xi-est').textContent = params.xi.toFixed(3);
+                document.getElementById('sigma-est').textContent = params.sigma.toFixed(3);
+            } else {
+                document.getElementById('xi-est').textContent = "N/A";
+                document.getElementById('sigma-est').textContent = "N/A";
+            }
+
+            // Draw
+            drawTimeSeries(u);
+            drawHistogram(excesses, params);
+            drawQQ(excesses, params);
+        }
+
+        // --- Drawing ---
+        function drawTimeSeries(u) {
+            const canvas = document.getElementById('chart-ts');
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width = canvas.offsetWidth;
+            const h = canvas.height = 220;
+            ctx.clearRect(0,0,w,h);
+
+            const pad = {l:40, r:10, t:20, b:20};
+            const pw = w - pad.l - pad.r;
+            const ph = h - pad.t - pad.b;
+
+            const minVal = sortedData[0];
+            const maxVal = sortedData[N-1];
+            const range = maxVal - minVal;
+
+            // Draw Threshold Line
+            const yThresh = pad.t + ph - ((u - minVal)/range)*ph;
+            
+            // Draw Points (Subsample for performance)
+            ctx.beginPath();
+            ctx.strokeStyle = '#bdc3c7';
+            ctx.lineWidth = 1;
+            for(let i=0; i<N; i+=2) { // draw every 2nd point
+                let x = pad.l + (i/N)*pw;
+                let val = rawData[i];
+                let y = pad.t + ph - ((val - minVal)/range)*ph;
+                
+                if(i===0) ctx.moveTo(x,y);
+                else ctx.lineTo(x,y);
+            }
+            ctx.stroke();
+
+            // Draw Exceedances (Red dots)
+            ctx.fillStyle = '#e74c3c';
+            for(let i=0; i<N; i++) {
+                if(rawData[i] > u) {
+                    let x = pad.l + (i/N)*pw;
+                    let y = pad.t + ph - ((rawData[i] - minVal)/range)*ph;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 2, 0, Math.PI*2);
+                    ctx.fill();
+                }
+            }
+
+            // Threshold Line
+            ctx.beginPath();
+            ctx.strokeStyle = '#2c3e50';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.moveTo(pad.l, yThresh);
+            ctx.lineTo(w - pad.r, yThresh);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            ctx.fillStyle = '#2c3e50';
+            ctx.fillText(`u = ${u.toFixed(2)}`, w - 60, yThresh - 5);
+        }
+
+        function drawHistogram(excesses, params) {
+            const canvas = document.getElementById('chart-hist');
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width = canvas.offsetWidth;
+            const h = canvas.height = 250;
+            ctx.clearRect(0,0,w,h);
+            
+            if(excesses.length === 0) return;
+
+            const pad = {l:40, r:20, t:20, b:30};
+            const pw = w - pad.l - pad.r;
+            const ph = h - pad.t - pad.b;
+
+            const maxEx = Math.max(...excesses);
+            const minEx = 0; // excesses always start at 0
+            
+            // Bins
+            const k = excesses.length;
+            const binCount = Math.max(5, Math.floor(Math.sqrt(k)));
+            const binWidth = maxEx / binCount;
+            const bins = new Array(binCount).fill(0);
+            
+            excesses.forEach(x => {
+                let idx = Math.floor(x / binWidth);
+                if(idx >= binCount) idx = binCount - 1;
+                bins[idx]++;
+            });
+            
+            const maxBin = Math.max(...bins);
+            // Height normalization for PDF:
+            // Area = sum(bins[i]/k * 1) = 1? No.
+            // Density = count / (k * width).
+            const maxDensity = maxBin / (k * binWidth);
+
+            // Draw Bars
+            ctx.fillStyle = '#3498db';
+            ctx.strokeStyle = '#fff';
+            for(let i=0; i<binCount; i++) {
+                // Visual height relative to maxBin
+                let vh = (bins[i] / maxBin) * ph;
+                let x = pad.l + (i/binCount)*pw;
+                let bw = (1/binCount)*pw;
+                
+                ctx.fillRect(x, pad.t + ph - vh, bw, vh);
+                ctx.strokeRect(x, pad.t + ph - vh, bw, vh);
+            }
+            
+            // Draw PDF
+            if(params) {
+                ctx.beginPath();
+                ctx.strokeStyle = '#e74c3c';
+                ctx.lineWidth = 2;
+                
+                let started = false;
+                for(let px=0; px<=pw; px++) {
+                    let xVal = (px/pw) * maxEx;
+                    let dens = gpdPDF(xVal, params.xi, params.sigma);
+                    
+                    // Scale density to visual
+                    // maxBin corresponds to maxDensity
+                    // visual y = (dens / maxDensity) * ph
+                    let vy = (dens / (maxDensity * 1.1)) * ph;
+                    if(vy > ph) vy = ph;
+                    
+                    let y = pad.t + ph - vy;
+                    
+                    if(!started) { ctx.moveTo(pad.l+px, y); started=true; }
+                    else ctx.lineTo(pad.l+px, y);
+                }
+                ctx.stroke();
+            }
+            
+            // Axis
+            ctx.fillStyle = '#333';
+            ctx.fillText("0", pad.l, h-10);
+            ctx.fillText(maxEx.toFixed(1), w-pad.r-10, h-10);
+            ctx.textAlign = 'center';
+            ctx.fillText("Excess (x - u)", w/2, h-5);
+        }
+
+        function drawQQ(excesses, params) {
+            const canvas = document.getElementById('chart-qq');
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width = canvas.offsetWidth;
+            const h = canvas.height = 250;
+            ctx.clearRect(0,0,w,h);
+            
+            if(!params || excesses.length < 2) return;
+
+            const pad = {l:40, r:20, t:20, b:30};
+            const pw = w - pad.l - pad.r;
+            const ph = h - pad.t - pad.b;
+
+            // Theoretical Quantiles
+            const n = excesses.length;
+            const sortedEx = [...excesses].sort((a,b)=>a-b);
+            const theory = [];
+            
+            for(let i=0; i<n; i++) {
+                let p = (i + 0.5) / n;
+                theory.push(gpdQuantile(p, params.xi, params.sigma));
+            }
+            
+            const maxVal = Math.max(sortedEx[n-1], theory[n-1]);
+            
+            // Draw y=x
+            ctx.beginPath();
+            ctx.strokeStyle = '#ddd';
+            ctx.moveTo(pad.l, pad.t + ph);
+            ctx.lineTo(pad.l + pw, pad.t); // approximate 1:1 if square?
+            // Better: map 0 to 0, maxVal to maxVal
+            ctx.stroke();
+            
+            // Points
+            ctx.fillStyle = 'rgba(46, 204, 113, 0.6)';
+            for(let i=0; i<n; i++) {
+                let tx = pad.l + (theory[i]/maxVal)*pw;
+                let sy = pad.t + ph - (sortedEx[i]/maxVal)*ph;
+                
+                ctx.beginPath();
+                ctx.arc(tx, sy, 2.5, 0, Math.PI*2);
+                ctx.fill();
+            }
+            
+            // Line of best fit (visual guide 45 degree)
+            ctx.beginPath();
+            ctx.strokeStyle = '#aaa';
+            ctx.setLineDash([5,5]);
+            ctx.moveTo(pad.l, pad.t+ph);
+            ctx.lineTo(pad.l+pw, pad.t);
+            ctx.stroke();
+            
+            // Labels
+            ctx.fillStyle = '#333';
+            ctx.textAlign = 'center';
+            ctx.fillText("Theoretical Quantiles (GPD)", w/2, h-5);
+            
+            ctx.save();
+            ctx.translate(15, h/2);
+            ctx.rotate(-Math.PI/2);
+            ctx.fillText("Sample Quantiles", 0, 0);
+            ctx.restore();
+        }
+
+        // Init
+        generateData();
+        window.addEventListener('resize', () => updateThreshold());
+
+    </script>
+</body>
+</html>

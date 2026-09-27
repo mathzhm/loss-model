@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Archimedean Copulas: 生成器与依赖结构</title>
+    
+    
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #e74c3c;
+            --bg-color: #f4f6f7;
+            --panel-bg: #ffffff;
+            --text-color: #2c3e50;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 { margin-top: 0; color: var(--primary-color); }
+        
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        .control-panel {
+            flex: 1;
+            min-width: 300px;
+            background: var(--panel-bg);
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .chart-panel {
+            flex: 2;
+            min-width: 500px;
+            background: var(--panel-bg);
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #34495e;
+        }
+
+        select, input[type="range"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .formula-card {
+            background: #f8f9fa;
+            border-left: 4px solid var(--accent-color);
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 4px;
+        }
+
+        .formula-title {
+            font-weight: bold;
+            color: var(--accent-color);
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        canvas {
+            background-color: #fff;
+            border: 1px solid #eee;
+            margin-top: 10px;
+        }
+
+        .slider-val {
+            float: right;
+            font-weight: bold;
+            color: var(--accent-color);
+        }
+
+        .explanation {
+            margin-top: 20px;
+            font-size: 0.95em;
+            line-height: 1.6;
+            color: #555;
+            background: #e8f6f3;
+            padding: 15px;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Archimedean Copulas: 生成器 $\psi$ 与依赖结构</h1>
+
+    <div class="container">
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <div class="input-group">
+                <label for="copulaType">选择 Copula 类型</label>
+                <select id="copulaType" onchange="updateUI()">
+                    <option value="gumbel">Gumbel (上尾依赖)</option>
+                    <option value="clayton">Clayton (下尾依赖)</option>
+                    <option value="frank">Frank (无尾部依赖)</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label for="paramTheta">
+                    参数 $\theta$ (或 $\alpha$) 
+                    <span id="thetaVal" class="slider-val">2.0</span>
+                </label>
+                <input type="range" id="paramTheta" min="1.1" max="10" step="0.1" value="2.0" oninput="updateUI()">
+                <div style="font-size: 0.8em; color: #7f8c8d; margin-top: 5px;">
+                    注: Gumbel $\theta \ge 1$; Clayton $\theta > 0$; Frank $\theta \neq 0$
+                </div>
+            </div>
+
+            <!-- Formula Display -->
+            <div class="formula-card">
+                <span class="formula-title">生成器 (Generator) $\psi(t)$</span>
+                <div id="psiDisplay"></div>
+            </div>
+
+            <div class="formula-card">
+                <span class="formula-title">反函数 (Pseudo-Inverse) $\psi^{-1}(y)$</span>
+                <div id="psiInvDisplay"></div>
+            </div>
+
+            <div class="formula-card">
+                <span class="formula-title">Copula 公式 $C(u,v) = \psi^{-1}(\psi(u)+\psi(v))$</span>
+                <div id="copulaDisplay"></div>
+            </div>
+            
+            <div class="explanation">
+                <strong>核心逻辑：</strong><br>
+                Archimedean Copula 由生成器 $\psi$ 唯一确定。<br>
+                1. $\psi$ 决定了等高线的“形状”（如尖锐程度、对称性）。<br>
+                2. 参数 $\theta$ 决定了依赖的“强度”。<br>
+                3. 等高线 $C(u,v)=k$ 实际上是满足 $\psi(u) + \psi(v) = \psi(k)$ 的曲线。
+            </div>
+        </div>
+
+        <!-- Visualization Panel -->
+        <div class="chart-panel">
+            <h3>$C(u,v)$ 等高线图 (Contour Plot)</h3>
+            <canvas id="contourCanvas" width="500" height="500"></canvas>
+            <div style="margin-top: 10px; font-size: 0.9em; color: #666;">
+                图中展示了 $C(u,v) = 0.1, 0.2, \dots, 0.9$ 的等高线。<br>
+                X轴: $u \in [0,1]$, Y轴: $v \in [0,1]$
+            </div>
+            
+            <h4 style="margin-top: 30px;">生成器函数 $\psi(t)$ 形态</h4>
+            <canvas id="psiCanvas" width="500" height="200"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const Copulas = {
+            gumbel: {
+                name: "Gumbel",
+                latex_psi: "\\psi(t) = (-\\ln t)^\\theta",
+                latex_psi_inv: "\\psi^{-1}(y) = \\exp(-y^{1/\\theta})",
+                latex_c: "C(u,v) = \\exp\\left(-\\left[(-\\ln u)^\\theta + (-\\ln v)^\\theta\\right]^{1/\\theta}\\right)",
+                range: {min: 1.1, max: 10, step: 0.1, def: 2},
+                // Functions
+                psi: (t, th) => Math.pow(-Math.log(t), th),
+                psiInv: (y, th) => Math.exp(-Math.pow(y, 1/th)),
+                // For contour drawing: given z (level), u, solve for v
+                // psi(v) = psi(z) - psi(u)
+                // v = psiInv( psi(z) - psi(u) )
+                getV: (u, z, th) => {
+                    const val = Math.pow(-Math.log(z), th) - Math.pow(-Math.log(u), th);
+                    if(val < 0) return null; // Should not happen if u >= z
+                    return Math.exp(-Math.pow(val, 1/th));
+                }
+            },
+            clayton: {
+                name: "Clayton",
+                latex_psi: "\\psi(t) = \\frac{1}{\\theta}(t^{-\\theta} - 1)",
+                latex_psi_inv: "\\psi^{-1}(y) = (1 + \\theta y)^{-1/\\theta}",
+                latex_c: "C(u,v) = \\left(u^{-\\theta} + v^{-\\theta} - 1\\right)^{-1/\\theta}",
+                range: {min: 0.1, max: 10, step: 0.1, def: 2},
+                psi: (t, th) => (1/th) * (Math.pow(t, -th) - 1),
+                psiInv: (y, th) => Math.pow(1 + th*y, -1/th),
+                getV: (u, z, th) => {
+                    // psi(z) - psi(u) = (1/th)(z^-th - 1) - (1/th)(u^-th - 1) = (1/th)(z^-th - u^-th)
+                    // v = psiInv(...)
+                    // v = (1 + th * (1/th)(z^-th - u^-th) ) ^ -1/th
+                    // v = (1 + z^-th - u^-th - 0) ^ -1/th = (z^-th - u^-th + 1)^-1/th
+                    // Wait, standard formula: u^-th + v^-th - 1 = z^-th => v^-th = z^-th - u^-th + 1
+                    // v = (z^-th - u^-th + 1)^(-1/th)
+                    let term = Math.pow(z, -th) - Math.pow(u, -th) + 1;
+                    if(term <= 0) return 0; 
+                    return Math.pow(term, -1/th);
+                }
+            },
+            frank: {
+                name: "Frank",
+                latex_psi: "\\psi(t) = -\\ln\\frac{e^{-\\theta t}-1}{e^{-\\theta}-1}",
+                latex_psi_inv: "\\psi^{-1}(y) = -\\frac{1}{\\theta}\\ln(1 + e^{-y}(e^{-\\theta}-1))",
+                latex_c: "C(u,v) = -\\frac{1}{\\theta}\\ln\\left(1 + \\frac{(e^{-\\theta u}-1)(e^{-\\theta v}-1)}{e^{-\\theta}-1}\\right)",
+                range: {min: -10, max: 20, step: 0.5, def: 5}, // Avoid 0
+                psi: (t, th) => -Math.log( (Math.exp(-th*t)-1)/(Math.exp(-th)-1) ),
+                psiInv: (y, th) => -(1/th) * Math.log(1 + Math.exp(-y)*(Math.exp(-th)-1)),
+                getV: (u, z, th) => {
+                    // C(u,v) = z
+                    // (e^-thu - 1)(e^-thv - 1) / (e^-th - 1) = e^-thz - 1
+                    // Let E_x = e^-thx - 1
+                    // E_u * E_v / E_1 = E_z
+                    // E_v = E_z * E_1 / E_u
+                    // e^-thv - 1 = ...
+                    // e^-thv = 1 + ...
+                    // v = -1/th * ln(...)
+                    
+                    if (Math.abs(th) < 1e-6) return u; // Limit is independence
+                    
+                    let num = (Math.exp(-th*z) - 1) * (Math.exp(-th) - 1);
+                    let den = (Math.exp(-th*u) - 1);
+                    if (Math.abs(den) < 1e-9) return 0;
+                    
+                    let term = 1 + num / den;
+                    if (term <= 0) return 0;
+                    return -Math.log(term) / th;
+                }
+            }
+        };
+
+        let currentType = 'gumbel';
+
+        function updateUI() {
+            const type = document.getElementById('copulaType').value;
+            const slider = document.getElementById('paramTheta');
+            
+            // If type changed, update slider range
+            if(type !== currentType) {
+                const config = Copulas[type].range;
+                slider.min = config.min;
+                slider.max = config.max;
+                slider.step = config.step;
+                slider.value = config.def;
+                currentType = type;
+            }
+
+            const theta = parseFloat(slider.value);
+            document.getElementById('thetaVal').innerText = theta.toFixed(2);
+
+            // Update Formulas
+            document.getElementById('psiDisplay').innerHTML = `\\[ ${Copulas[type].latex_psi} \\]`;
+            document.getElementById('psiInvDisplay').innerHTML = `\\[ ${Copulas[type].latex_psi_inv} \\]`;
+            document.getElementById('copulaDisplay').innerHTML = `\\[ ${Copulas[type].latex_c} \\]`;
+            
+            // Re-render MathJax
+            if(window.MathJax) {
+                MathJax.typesetPromise();
+            }
+
+            // Draw
+            drawContour(type, theta);
+            drawPsi(type, theta);
+        }
+
+        function drawContour(type, theta) {
+            const canvas = document.getElementById('contourCanvas');
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+            const pad = 40;
+            const plotW = w - 2*pad;
+            const plotH = h - 2*pad;
+
+            ctx.clearRect(0, 0, w, h);
+
+            // Draw Axes box
+            ctx.strokeRect(pad, pad, plotW, plotH);
+            
+            // Labels
+            ctx.fillStyle = '#333';
+            ctx.font = '14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText("0", pad, h - pad + 15);
+            ctx.fillText("1", w - pad, h - pad + 15);
+            ctx.fillText("u", w/2, h - 10);
+            
+            ctx.textAlign = 'right';
+            ctx.fillText("0", pad - 5, h - pad);
+            ctx.fillText("1", pad - 5, pad + 10);
+            ctx.fillText("v", pad - 10, h/2);
+
+            // Diagonal y=x (Independence for some, Perfect Dep for others limits)
+            ctx.beginPath();
+            ctx.strokeStyle = '#eee';
+            ctx.moveTo(pad, h - pad);
+            ctx.lineTo(w - pad, pad);
+            ctx.stroke();
+
+            // Draw Contours for z = 0.1 to 0.9
+            const levels = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9];
+            const colors = ['#e74c3c', '#e67e22', '#f1c40f', '#2ecc71', '#1abc9c', '#3498db', '#9b59b6', '#34495e', '#7f8c8d'];
+            
+            const copula = Copulas[type];
+
+            levels.forEach((z, idx) => {
+                ctx.beginPath();
+                ctx.strokeStyle = colors[idx];
+                ctx.lineWidth = 2;
+                
+                // For a given z, C(u,v)=z.
+                // Since C(u,v) <= min(u,v), we must have u >= z and v >= z.
+                // So we iterate u from z to 1.
+                
+                let first = true;
+                const steps = 200;
+                
+                // We iterate u from z to 1. 
+                // However, at u=z, v=1. At u=1, v=z.
+                // To make it smooth, let's just step u from z to 1.
+                
+                for(let i=0; i<=steps; i++) {
+                    let u = z + (1 - z) * (i / steps);
+                    // Avoid exactly z or 1 if it causes numeric issues (log(0))
+                    if(u < 0.0001) u = 0.0001;
+                    if(u > 0.9999) u = 0.9999;
+                    
+                    let v = copula.getV(u, z, theta);
+                    
+                    if(v !== null && v >= 0 && v <= 1) {
+                        // Map to canvas coords
+                        // u: 0 -> pad, 1 -> w-pad
+                        // v: 0 -> h-pad, 1 -> pad (y is inverted)
+                        let cx = pad + u * plotW;
+                        let cy = h - pad - v * plotH;
+                        
+                        if(first) {
+                            ctx.moveTo(cx, cy);
+                            first = false;
+                        } else {
+                            ctx.lineTo(cx, cy);
+                        }
+                    }
+                }
+                ctx.stroke();
+                
+                // Draw Label for level
+                // Pick a point near middle
+                let uMid = z + (1-z)*0.5;
+                let vMid = copula.getV(uMid, z, theta);
+                if(vMid) {
+                    let cx = pad + uMid * plotW;
+                    let cy = h - pad - vMid * plotH;
+                    ctx.fillStyle = colors[idx];
+                    ctx.font = '12px Arial';
+                    ctx.fillText(z.toString(), cx, cy);
+                }
+            });
+        }
+
+        function drawPsi(type, theta) {
+            const canvas = document.getElementById('psiCanvas');
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+            const pad = 30;
+            const plotW = w - 2*pad;
+            const plotH = h - 2*pad;
+
+            ctx.clearRect(0,0,w,h);
+            
+            // Axes
+            ctx.beginPath();
+            ctx.strokeStyle = '#999';
+            ctx.moveTo(pad, pad);
+            ctx.lineTo(pad, h - pad);
+            ctx.lineTo(w - pad, h - pad);
+            ctx.stroke();
+            
+            ctx.fillStyle = '#666';
+            ctx.textAlign = 'center';
+            ctx.fillText('t', w - pad, h - 10);
+            ctx.fillText('0', pad, h - 10);
+            ctx.fillText('1', w - pad - 10, h - 10);
+            ctx.save();
+            ctx.translate(10, h/2);
+            ctx.rotate(-Math.PI/2);
+            ctx.fillText('ψ(t)', 0, 0);
+            ctx.restore();
+
+            // Plot psi(t)
+            ctx.beginPath();
+            ctx.strokeStyle = '#2980b9';
+            ctx.lineWidth = 2;
+            
+            const copula = Copulas[type];
+            let maxPsi = copula.psi(0.01, theta); // Approximate max for scaling
+            // Some psi go to infinity at t=0 (Gumbel, Clayton). Frank is finite?
+            // Frank: -ln( (1-1)/(...) ) -> -ln(0) -> inf.
+            // So we need to clamp Y.
+            
+            // Let's find a reasonable Y range. 
+            // We plot t from 0 to 1. psi(1)=0.
+            // We can fix Y max to represent a value like psi(0.05) or something, 
+            // or just scale dynamically but clip.
+            
+            let yMax = 10;
+            if(type === 'gumbel') yMax = Math.pow(-Math.log(0.01), theta);
+            if(type === 'clayton') yMax = (1/theta)*(Math.pow(0.01, -theta)-1);
+            if(type === 'frank') yMax = -Math.log((Math.exp(-theta*0.01)-1)/(Math.exp(-theta)-1));
+            
+            // Cap yMax for display if it's too huge
+            if(yMax > 20) yMax = 20;
+
+            let first = true;
+            for(let i=0; i<=100; i++) {
+                let t = i/100;
+                if(t < 0.01) t = 0.01; // Avoid 0 singularity
+                
+                let val = copula.psi(t, theta);
+                
+                // Scale
+                // t: 0..1 -> 0..plotW
+                // val: 0..yMax -> 0..plotH
+                
+                let cx = pad + t * plotW;
+                let cy = h - pad - (val / yMax) * plotH;
+                
+                // Clip
+                if(cy < pad) cy = pad; 
+                
+                if(first) {
+                    ctx.moveTo(cx, cy);
+                    first = false;
+                } else {
+                    ctx.lineTo(cx, cy);
+                }
+            }
+            ctx.stroke();
+        }
+
+        // Init
+        updateUI();
+
+    </script>
+  <script>window.__MJ_DOLLAR=1;</script>
+  <script src="vendor/mathjax-loader.js"></script>
+  <script src="vendor/mathjax-tex-svg.js"></script>
+</body>
+</html>

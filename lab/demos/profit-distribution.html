@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>利润分布与再保决策 (Profit Distribution & Reinsurance Decision)</title>
+    <script src="vendor/tailwind.js"></script>
+    <script src="vendor/chart.umd.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; }
+        .canvas-container { position: relative; height: 320px; width: 100%; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 10px; margin-bottom: 20px; }
+        .control-panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .stat-card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); text-align: center; }
+        .stat-value { font-size: 1.15rem; font-weight: bold; color: #1f2937; }
+        .stat-label { font-size: 0.8rem; color: #6b7280; }
+        .slider-label { display: flex; justify-content: space-between; font-size: 0.9em; margin-bottom: 2px; }
+        .metric-row { display: flex; justify-content: space-between; border-bottom: 1px solid #eee; padding: 4px 0; font-size: 0.9em; }
+    </style>
+</head>
+<body class="p-6">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-6">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">利润分布与再保决策 (Profit Distribution & Reinsurance)</h1>
+            <p class="text-gray-600">
+                本实验模拟保险公司的利润分布，展示再保险（XOL）如何在降低波动（Standard Deviation）和牺牲期望利润（Expected Profit）之间进行权衡 (Trade-off)。
+                <br>
+                利润公式：\( \text{Profit} = P_{\text{Gross}} - P_{\text{Reins}} - S_{\text{Net}} \)
+            </p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Controls -->
+            <div class="lg:col-span-3 space-y-4">
+                
+                <!-- Risk Model -->
+                <div class="control-panel">
+                    <h3 class="text-md font-semibold mb-3 text-gray-700">1. 风险模型 (Risk Model)</h3>
+                    <!-- Frequency -->
+                    <div class="mb-3">
+                        <div class="slider-label"><span>Poisson Lambda (λ)</span><span id="disp_lambda">10</span></div>
+                        <input type="range" id="lambda" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" min="1" max="50" step="1" value="10" oninput="updateVal('lambda', this.value)">
+                    </div>
+                    <!-- Severity -->
+                    <div class="mb-3">
+                        <div class="slider-label"><span>LogNormal Mu (μ)</span><span id="disp_mu">4</span></div>
+                        <input type="range" id="mu" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" min="1" max="6" step="0.1" value="4" oninput="updateVal('mu', this.value)">
+                    </div>
+                    <div class="mb-3">
+                        <div class="slider-label"><span>LogNormal Sigma (σ)</span><span id="disp_sigma">1</span></div>
+                        <input type="range" id="sigma" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" min="0.1" max="2" step="0.1" value="1" oninput="updateVal('sigma', this.value)">
+                    </div>
+                </div>
+
+                <!-- Reinsurance & Loading -->
+                <div class="control-panel">
+                    <h3 class="text-md font-semibold mb-3 text-gray-700">2. 再保与附加费 (Reins & Loadings)</h3>
+                    <!-- Retention -->
+                    <div class="mb-3">
+                        <div class="slider-label"><span>Retention M (XOL)</span><span id="disp_M">100</span></div>
+                        <input type="range" id="M" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" min="10" max="500" step="10" value="100" oninput="updateVal('M', this.value)">
+                    </div>
+                    <!-- Loadings -->
+                    <div class="mb-3">
+                        <div class="slider-label"><span>Direct Loading (\(\theta_D\))</span><span id="disp_thetaD">0.2</span></div>
+                        <input type="range" id="thetaD" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" min="0" max="0.5" step="0.05" value="0.2" oninput="updateVal('thetaD', this.value)">
+                    </div>
+                    <div class="mb-3">
+                        <div class="slider-label"><span>Reins Loading (\(\theta_R\))</span><span id="disp_thetaR">0.4</span></div>
+                        <input type="range" id="thetaR" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" min="0" max="1.0" step="0.05" value="0.4" oninput="updateVal('thetaR', this.value)">
+                        <p class="text-xs text-red-500 mt-1" id="loadingWarning"></p>
+                    </div>
+
+                    <button onclick="runSimulation()" class="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition">
+                        模拟 (Simulate)
+                    </button>
+                </div>
+
+            </div>
+
+            <!-- Dashboard -->
+            <div class="lg:col-span-9 space-y-6">
+                
+                <!-- Metrics Table -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="stat-card border-t-4 border-gray-500">
+                        <div class="stat-label">Gross Exp. Profit</div>
+                        <div id="val_gross_mean" class="stat-value">-</div>
+                    </div>
+                    <div class="stat-card border-t-4 border-gray-500">
+                        <div class="stat-label">Gross Std. Dev</div>
+                        <div id="val_gross_std" class="stat-value">-</div>
+                    </div>
+                    <div class="stat-card border-t-4 border-blue-500">
+                        <div class="stat-label">Net Exp. Profit</div>
+                        <div id="val_net_mean" class="stat-value">-</div>
+                    </div>
+                    <div class="stat-card border-t-4 border-blue-500">
+                        <div class="stat-label">Net Std. Dev</div>
+                        <div id="val_net_std" class="stat-value">-</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    
+                    <!-- Profit Distribution Chart -->
+                    <div>
+                        <div class="canvas-container">
+                            <h4 class="text-center font-semibold text-gray-600 mb-1">利润分布对比 (Profit Distribution)</h4>
+                            <canvas id="distChart"></canvas>
+                        </div>
+                        <div class="text-sm text-gray-600 bg-white p-3 rounded shadow">
+                            <p><strong>观察:</strong> 再保险通常使利润分布更“集中”（尖峰），减少了巨额亏损的可能性（左尾截断），但也因为支付了昂贵的再保费（\(\theta_R > \theta_D\)），整体分布向左平移（期望利润降低）。</p>
+                        </div>
+                    </div>
+
+                    <!-- Trade-off Chart -->
+                    <div>
+                        <div class="canvas-container">
+                            <h4 class="text-center font-semibold text-gray-600 mb-1">利润-风险权衡图 (Profit-Risk Trade-off)</h4>
+                            <canvas id="tradeoffChart"></canvas>
+                        </div>
+                        <div class="text-sm text-gray-600 bg-white p-3 rounded shadow">
+                            <p><strong>观察:</strong> 随着 Retention \( M \) 增加，风险（StdDev）增加，期望利润通常也增加（因为 \(\theta_R\) 通常高于 \(\theta_D\)，自留更多意味着少付昂贵的再保费）。红点表示当前 \( M \) 的位置。</p>
+                        </div>
+                    </div>
+                
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Utils ---
+        function randn() {
+            let u = 0, v = 0;
+            while(u === 0) u = Math.random();
+            while(v === 0) v = Math.random();
+            return Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
+        }
+
+        function samplePoisson(lambda) {
+            const L = Math.exp(-lambda);
+            let k = 0, p = 1;
+            do { k++; p *= Math.random(); } while (p > L);
+            return k - 1;
+        }
+
+        // --- Global Data ---
+        let scenarios = []; // Stores { N: int, losses: array of floats }
+        let distChart = null;
+        let tradeoffChart = null;
+
+        // --- Logic ---
+        function updateVal(id, val) {
+            document.getElementById('disp_'+id).innerText = val;
+            
+            // Warning for loadings
+            if(id === 'thetaD' || id === 'thetaR') {
+                const tD = parseFloat(document.getElementById('thetaD').value);
+                const tR = parseFloat(document.getElementById('thetaR').value);
+                const warn = document.getElementById('loadingWarning');
+                if(tR <= tD) warn.innerText = "注意: 通常再保附加费 > 直保附加费";
+                else warn.innerText = "";
+            }
+        }
+
+        function initSimulation() {
+            // Generate base scenarios (losses) once, then re-calculate profits based on M/Loadings
+            // Or regenerate if risk params change.
+            // For simplicity: regenerate everything on 'Simulate' click.
+            runSimulation();
+        }
+
+        function runSimulation() {
+            const lambda = parseFloat(document.getElementById('lambda').value);
+            const mu = parseFloat(document.getElementById('mu').value);
+            const sigma = parseFloat(document.getElementById('sigma').value);
+            const M = parseFloat(document.getElementById('M').value);
+            const thetaD = parseFloat(document.getElementById('thetaD').value);
+            const thetaR = parseFloat(document.getElementById('thetaR').value);
+
+            const nSim = 5000;
+            scenarios = [];
+            
+            // 1. Generate Scenarios (Raw Losses)
+            // To speed up trade-off curve, we pre-generate scenarios
+            let sumS = 0;
+            
+            for(let i=0; i<nSim; i++) {
+                const N = samplePoisson(lambda);
+                const losses = [];
+                let S = 0;
+                for(let j=0; j<N; j++) {
+                    const X = Math.exp(mu + sigma * randn());
+                    losses.push(X);
+                    S += X;
+                }
+                scenarios.push({ losses: losses, S: S });
+                sumS += S;
+            }
+
+            const E_S = sumS / nSim;
+            const P_D = (1 + thetaD) * E_S;
+
+            // 2. Calculate Current Metrics (for current M)
+            const grossProfits = [];
+            const netProfits = [];
+            
+            // Calculate E[S_R] for current M to determine P_R
+            let sumSR = 0;
+            const scenarioResults = []; // Store Si for each scenario
+
+            scenarios.forEach(sc => {
+                let Si = 0;
+                let Sr = 0;
+                sc.losses.forEach(x => {
+                    const r = Math.max(0, x - M);
+                    Sr += r;
+                    Si += Math.min(x, M);
+                });
+                sumSR += Sr;
+                scenarioResults.push({ Si: Si, Sr: Sr, S: sc.S });
+            });
+
+            const E_SR = sumSR / nSim;
+            const P_R = (1 + thetaR) * E_SR;
+
+            scenarioResults.forEach(res => {
+                grossProfits.push(P_D - res.S);
+                netProfits.push(P_D - P_R - res.Si);
+            });
+
+            // Stats
+            const statsGross = getStats(grossProfits);
+            const statsNet = getStats(netProfits);
+
+            // Update UI
+            document.getElementById('val_gross_mean').innerText = statsGross.mean.toFixed(0);
+            document.getElementById('val_gross_std').innerText = statsGross.std.toFixed(0);
+            document.getElementById('val_net_mean').innerText = statsNet.mean.toFixed(0);
+            document.getElementById('val_net_std').innerText = statsNet.std.toFixed(0);
+
+            // 3. Update Charts
+            updateDistChart(grossProfits, netProfits);
+            updateTradeoffChart(scenarios, P_D, thetaR, M);
+        }
+
+        function getStats(arr) {
+            const n = arr.length;
+            const mean = arr.reduce((a,b)=>a+b,0)/n;
+            const variance = arr.reduce((a,b)=>a+(b-mean)**2,0)/(n-1);
+            return { mean: mean, std: Math.sqrt(variance) };
+        }
+
+        function updateDistChart(gross, net) {
+            const ctx = document.getElementById('distChart').getContext('2d');
+            
+            // Binning logic
+            const all = gross.concat(net);
+            const min = Math.min(...all);
+            const max = Math.max(...all);
+            const range = max - min;
+            const bins = 40;
+            const step = range / bins;
+            
+            const labels = [];
+            const dataG = new Array(bins).fill(0);
+            const dataN = new Array(bins).fill(0);
+
+            for(let i=0; i<bins; i++) {
+                labels.push((min + i*step + step/2).toFixed(0));
+            }
+
+            const fillHist = (arr, hist) => {
+                arr.forEach(v => {
+                    let idx = Math.floor((v - min) / step);
+                    if(idx >= bins) idx = bins - 1;
+                    if(idx < 0) idx = 0;
+                    hist[idx]++;
+                });
+            };
+
+            fillHist(gross, dataG);
+            fillHist(net, dataN);
+
+            if(distChart) distChart.destroy();
+
+            distChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Gross Profit (No Reins)', data: dataG, backgroundColor: 'rgba(107, 114, 128, 0.5)', borderColor: 'gray', borderWidth: 1 },
+                        { label: 'Net Profit (With Reins)', data: dataN, backgroundColor: 'rgba(59, 130, 246, 0.5)', borderColor: 'blue', borderWidth: 1 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { title: {display:true, text:'Profit'} },
+                        y: { display: false }
+                    },
+                    plugins: { tooltip: { mode: 'index', intersect: false } }
+                }
+            });
+        }
+
+        function updateTradeoffChart(scenarios, P_D, thetaR, currentM) {
+            const ctx = document.getElementById('tradeoffChart').getContext('2d');
+            
+            // Generate Curve points by varying M
+            // Range of M: 0 to Max Loss? Or reasonable range.
+            // Let's go from M=0 to M=Max(X) or user defined max.
+            // Let's use user slider max for context, or slightly more.
+            const maxM = parseFloat(document.getElementById('M').max);
+            const steps = 20;
+            const stepSize = maxM / steps;
+            
+            const points = [];
+            
+            for(let mVal = 0; mVal <= maxM; mVal += stepSize) {
+                // Calculate Net Profit Stats for this mVal
+                // P_R depends on mVal
+                // E[S_R] needs to be calc
+                let sumSr = 0;
+                let sumSiSq = 0; // for variance calc
+                let sumSi = 0;
+
+                // Optimization: We need Var(NetProfit) = Var(P_D - P_R - S_I) = Var(S_I)
+                // So we just need Var(S_I) and E[NetProfit]
+                
+                // Pass 1: Calc E[S_R] and sums for S_I
+                // Or just loop all scenarios
+                const n = scenarios.length;
+                const si_vals = []; // needed for exact variance
+
+                for(let i=0; i<n; i++) {
+                    const sc = scenarios[i];
+                    let Si = 0;
+                    let Sr = 0;
+                    for(let j=0; j<sc.losses.length; j++) {
+                        const x = sc.losses[j];
+                        Si += Math.min(x, mVal);
+                        Sr += Math.max(0, x - mVal);
+                    }
+                    si_vals.push(Si);
+                    sumSr += Sr;
+                }
+
+                const E_Sr = sumSr / n;
+                const P_R = (1 + thetaR) * E_Sr;
+                
+                // Calc Mean/Std of Net Profit
+                // Net Profit = Constant - Si
+                // Mean = P_D - P_R - E[Si]
+                // Std = Std(Si)
+                
+                const statsSi = getStats(si_vals);
+                const meanProfit = P_D - P_R - statsSi.mean;
+                const stdProfit = statsSi.std; // Std(C - X) = Std(X)
+
+                points.push({ x: stdProfit, y: meanProfit, m: mVal });
+            }
+
+            // Find current M point
+            // We can interpolate or just plot it separately (we already have its exact stats from main run)
+            const currNetMean = parseFloat(document.getElementById('val_net_mean').innerText);
+            const currNetStd = parseFloat(document.getElementById('val_net_std').innerText);
+
+            if(tradeoffChart) tradeoffChart.destroy();
+
+            tradeoffChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: [
+                        {
+                            label: 'Trade-off Curve (Varying M)',
+                            data: points,
+                            borderColor: 'green',
+                            backgroundColor: 'rgba(0,0,0,0)',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            pointRadius: 0
+                        },
+                        {
+                            label: `Current M=${currentM}`,
+                            data: [{x: currNetStd, y: currNetMean}],
+                            backgroundColor: 'red',
+                            borderColor: 'red',
+                            pointRadius: 6,
+                            type: 'scatter'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { type: 'linear', title: {display:true, text:'Risk (Std Dev of Profit)'} },
+                        y: { title: {display:true, text:'Expected Profit'} }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    if(context.dataset.type === 'scatter') return `Current M=${currentM}`;
+                                    const pt = context.raw;
+                                    return `M=${pt.m.toFixed(0)}: Profit=${pt.y.toFixed(0)}, Risk=${pt.x.toFixed(0)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Run
+        window.onload = initSimulation;
+
+    </script>
+<script src="vendor/mathjax-loader.js"></script>
+<script src="vendor/mathjax-tex-svg.js"></script>
+</body>
+</html>

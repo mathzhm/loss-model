@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LOSS LAB · 学习</title>
+<link rel="stylesheet" href="style.css">
+<script>try{if(localStorage.getItem('losslab_theme')==='light')document.documentElement.dataset.theme='light';}catch(e){}</script>
+<style>
+  .kp-nav{display:flex;gap:12px;margin-top:30px;padding-bottom:50px}
+  .kp-nav a{flex:1;text-decoration:none}
+  .kp-nav .nav-card{padding:16px 18px;transition:.18s;display:flex;flex-direction:column;gap:4px}
+  .kp-nav .nav-card:hover{transform:translateY(-3px);border-color:var(--ch)}
+  .kp-nav .n-lab{font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase}
+  .kp-nav .n-name{font-weight:700;font-size:15px}
+  .kp-nav .next .nav-card{align-items:flex-end;text-align:right}
+  .done-banner{display:flex;align-items:center;gap:12px;padding:14px 18px;margin-top:22px;border-radius:var(--r2);
+    border:1px solid rgba(52,211,153,.4);background:rgba(52,211,153,.1);color:var(--good);font-weight:700}
+  .quiz-wrap{margin-top:8px}
+  .quiz-tabs{display:flex;gap:10px;margin:14px 0 4px;flex-wrap:wrap}
+  .quiz-tab{display:flex;align-items:center;gap:9px;padding:10px 18px;border-radius:11px;
+    border:1px solid var(--line2);background:rgba(255,255,255,.02);color:var(--muted);
+    font-size:14px;font-weight:700;cursor:pointer;transition:.18s;font-family:inherit}
+  .quiz-tab:hover{border-color:var(--ch);color:var(--ink2);transform:translateY(-1px)}
+  .quiz-tab.on{border-color:var(--ch);color:var(--ink);
+    background:color-mix(in srgb,var(--ch) 13%,transparent);
+    box-shadow:0 0 0 1px var(--ch),0 6px 18px color-mix(in srgb,var(--ch) 18%,transparent)}
+  .quiz-tab .tab-ic{font-size:12px}
+  .quiz-tab .tab-cnt{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--muted2);
+    background:rgba(255,255,255,.05);padding:2px 8px;border-radius:99px;transition:.18s}
+  .quiz-tab.on .tab-cnt{color:var(--ch);background:color-mix(in srgb,var(--ch) 16%,transparent)}
+  .quiz-tab.cleared .tab-cnt{color:var(--good);background:rgba(52,211,153,.12)}
+  .quiz-tab.cleared .tab-cnt::before{content:"✓ "}
+  .quiz-pane{display:none}
+  .quiz-pane.on{display:block;animation:paneIn .32s ease}
+  .quiz-pane-desc{font-size:12.5px;color:var(--muted2);margin:14px 0 14px;letter-spacing:.3px}
+  @keyframes paneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  .quiz-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:start}
+  .quiz-item{padding:18px;min-width:0}
+  @media(max-width:980px){.quiz-grid{grid-template-columns:1fr}}
+  .quiz-item .q-no{font-family:var(--mono);font-size:11px;color:var(--ch);font-weight:700;letter-spacing:1px;margin-bottom:8px}
+  .progress-dots{display:flex;gap:7px;margin-top:10px}
+  .progress-dots i{width:26px;height:5px;border-radius:4px;background:var(--line2);transition:.3s}
+  .progress-dots i.on{background:var(--ch)}
+  .progress-dots i.right{background:var(--good)}
+  .progress-dots i.wrongd{background:var(--bad)}
+  /* ---- 讲解区块（视频 + 概念图 并列） ---- */
+  .lecture{padding:20px 22px;margin-top:16px}
+  .lec-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:6px}
+  .lec-slot{position:relative;display:flex;flex-direction:column;min-width:0}
+  .lec-video{width:100%;aspect-ratio:16/9;background:#000;border-radius:var(--r2);object-fit:contain;display:block;outline:none}
+  .lec-img{width:100%;aspect-ratio:16/9;object-fit:contain;background:#0a1526;border-radius:var(--r2);cursor:zoom-in;display:block;border:1px solid var(--line2);transition:.2s}
+  .lec-img:hover{border-color:var(--ch)}
+  .lec-fs{position:absolute;top:9px;right:9px;width:32px;height:32px;border-radius:8px;border:1px solid rgba(255,255,255,.28);background:rgba(8,14,28,.74);color:#dfe9f8;font-size:16px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s}
+  .lec-fs:hover{background:var(--ch);border-color:var(--ch);color:#08111f;transform:scale(1.1)}
+  .lec-cap{font-size:12.5px;color:var(--muted);margin-top:7px;line-height:1.5}
+  .lec-cap .zoom{color:var(--muted2)}
+  .lec-ph{aspect-ratio:16/9;border:1.5px dashed var(--line2);border-radius:var(--r2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;text-align:center;padding:14px;background:rgba(255,255,255,.015);transition:.18s}
+  .lec-ph .ph-ic{font-size:26px;opacity:.8}
+  .lec-ph .ph-t{font-size:14px;font-weight:700;color:var(--ink2)}
+  .lec-ph .ph-s{font-size:12px;color:var(--muted);max-width:94%;line-height:1.5}
+  .lec-ph .ph-note{font-size:11px;color:var(--muted2);margin-top:2px}
+  .lec-ph.clickable{cursor:pointer}
+  .lec-ph.clickable:hover{border-color:var(--ch);background:rgba(255,255,255,.045);transform:translateY(-2px)}
+  .lec-text{margin-top:16px;font-size:14.5px;color:var(--ink2);line-height:1.8;max-width:920px}
+  .lec-text b{color:var(--ink)}
+  .lec-gallery{margin-top:18px}
+  .gal-h{font-size:13px;color:var(--muted);font-weight:700;margin-bottom:10px;letter-spacing:.3px}
+  .gal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:10px}
+  .gal-item{margin:0;cursor:zoom-in;border:1px solid var(--line2);border-radius:10px;overflow:hidden;background:#0a1526;transition:.18s}
+  .gal-item:hover{border-color:var(--ch);transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,.3)}
+  .gal-item img{width:100%;aspect-ratio:16/10;object-fit:contain;display:block;background:#0a1526}
+  .gal-item figcaption{font-size:11.5px;color:var(--ink2);text-align:center;padding:5px 4px 6px}
+  .gal-item.noimg img{display:none}
+  .gal-item.noimg::before{content:"📈 图待补";display:flex;align-items:center;justify-content:center;aspect-ratio:16/10;color:var(--muted2);font-size:12px}
+  #lightbox{position:fixed;inset:0;background:rgba(4,9,20,.94);display:none;align-items:center;justify-content:center;z-index:999;padding:26px;cursor:zoom-out}
+  #lightbox.show{display:flex;animation:fadeIn .18s}
+  #lightbox .lb-media{display:flex;align-items:center;justify-content:center}
+  #lightbox img,#lightbox video{max-width:96vw;max-height:94vh;border-radius:10px;box-shadow:0 24px 70px rgba(0,0,0,.65)}
+  #lightbox video{background:#000;cursor:default;min-width:min(88vw,1100px)}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  @media(max-width:760px){.lec-grid{grid-template-columns:1fr}}
+  /* ── 分区 tab（页面骨架）─ */
+  .sec-tabs{position:sticky;top:62px;z-index:40;display:flex;gap:9px;flex-wrap:wrap;
+    padding:12px 2px 14px;margin:18px 0 24px;
+    background:linear-gradient(180deg,var(--bg) 72%,rgba(11,21,38,0))}
+  .sec-tab{display:flex;align-items:center;gap:8px;padding:10px 17px;border-radius:12px;
+    border:1.5px solid var(--line);background:var(--panel);color:var(--muted2);
+    font-size:14px;font-weight:600;cursor:pointer;transition:.18s;font-family:inherit}
+  .sec-tab:hover{border-color:var(--ch);color:var(--ink2);transform:translateY(-1px)}
+  .sec-tab.on{border-color:var(--ch);color:var(--ink);
+    background:color-mix(in srgb,var(--ch) 15%,var(--panel));
+    box-shadow:0 5px 18px color-mix(in srgb,var(--ch) 20%,transparent)}
+  .sec-tab .st-ic{font-size:15px}
+  .st-badge{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--muted2);
+    background:rgba(255,255,255,.06);padding:2px 7px;border-radius:7px;letter-spacing:.4px}
+  .sec-tab.on .st-badge{color:var(--ch);background:color-mix(in srgb,var(--ch) 16%,transparent)}
+  .sec-tab .st-badge.done{color:var(--good);background:rgba(52,211,153,.14)}
+  .sec-pane{display:none}
+  .sec-pane.on{display:block;animation:paneIn .32s ease}
+  .pane-note{font-size:13px;color:var(--muted2);margin:0 0 16px;letter-spacing:.3px}
+  /* ── 互动演示 ── */
+  .demo-card{padding:0;overflow:hidden}
+  .demo-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 15px;border-bottom:1px solid var(--line)}
+  .demo-tabs{display:flex;gap:8px;flex-wrap:wrap}
+  .demo-tab{padding:7px 15px;border-radius:9px;border:1px solid var(--line);background:transparent;color:var(--muted2);font-size:13px;font-weight:600;cursor:pointer;transition:.16s;font-family:inherit}
+  .demo-tab:hover{border-color:var(--ch);color:var(--ink2)}
+  .demo-tab.on{border-color:var(--ch);color:var(--ch);background:color-mix(in srgb,var(--ch) 13%,transparent)}
+  .demo-full{margin-left:auto;color:var(--ch);text-decoration:none;font-size:13px;font-weight:600;border-bottom:1px dashed color-mix(in srgb,var(--ch) 55%,transparent)}
+  .demo-full:hover{border-bottom-style:solid}
+  .demo-frame{display:block;width:100%;height:700px;border:0;background:#eef2f4}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="wrap" id="topbar"></div></div>
+<div class="wrap" id="app"></div>
+<div id="lightbox" onclick="closeLightbox(event)" title="点击空白处关闭"><div class="lb-media"></div></div>
+
+<script src="course.js"></script>
+<script src="game.js"></script>
+<script src="engine.js"></script>
+<script>
+Game.renderTopbar(document.getElementById('topbar'),'learn');
+const params=new URLSearchParams(location.search);
+const chId=parseInt(params.get('ch'))||17;
+const ch=COURSE.chapters.find(c=>c.id===chId)||COURSE.chapters[0];
+document.documentElement.style.setProperty('--ch',ch.color);
+const kps=ch.kps||[];
+let kp=kps.find(k=>k.id===params.get('kp'))||kps[0];
+// ⚠️ 启动调用在脚本末尾（所有 const/let 声明之后），避免 TDZ 错误
+
+function render(){
+  const idx=kps.indexOf(kp);
+  const prev=kps[idx-1], next=kps[idx+1];
+  const app=document.getElementById('app');
+  document.title='LOSS LAB · '+kp.name;
+  const isDone=Game.isKPDone(ch.id,kp.id);
+  const quizTotal=(kp.quiz||[]).length;
+  const demoCount=kp.demo?(Array.isArray(kp.demo)?kp.demo:[kp.demo]).length:0;
+
+  app.innerHTML=
+  '<div class="learn-head rise">'+
+    '<div class="crumbs"><a href="index.html">🗺️ 地图</a> / '+ch.no+' '+ch.name+' / <span style="color:var(--ink)">'+kp.name+'</span></div>'+
+    '<h1>'+kp.icon+' '+kp.name+'</h1>'+
+    '<div class="kp-sub">'+ch.no+' · '+ch.weight+' · 约 '+kp.minutes+' 分钟 · <span class="mono" style="color:var(--ch)">'+(idx+1)+' / '+kps.length+'</span></div>'+
+    '<div class="progress-dots" id="dots">'+kps.map((k,i)=>'<i class="'+(Game.isKPDone(ch.id,k.id)?'on':'')+'" title="'+k.name+'"></i>').join('')+'</div>'+
+  '</div>'+
+
+  '<div class="hook rise" style="animation-delay:.05s"><span class="ic">🎬</span><span class="txt">'+kp.hook+'</span></div>'+
+
+  // ── 分区 tab：让学生一眼看清本页有什么 ──
+  '<div class="sec-tabs" id="secTabs">'+
+    '<button class="sec-tab on" data-pane="lecture"><span class="st-ic">📖</span>讲解</button>'+
+    '<button class="sec-tab" data-pane="lab"><span class="st-ic">🔬</span>实验台</button>'+
+    (kp.demo?'<button class="sec-tab" data-pane="demo"><span class="st-ic">🕹️</span>互动演示'+(demoCount>1?'<span class="st-badge">'+demoCount+'</span>':'')+'</button>':'')+
+    '<button class="sec-tab" data-pane="quiz"><span class="st-ic">✍️</span>通关自测<span class="st-badge'+(isDone?' done':'')+'" id="quizBadge">'+(isDone?'✓':quizTotal+'题')+'</span></button>'+
+  '</div>'+
+
+  '<div class="sec-pane on" id="pane-lecture">'+buildLecture()+'</div>'+
+
+  '<div class="sec-pane" id="pane-lab">'+
+    '<div class="chain rise" id="chain">'+
+      chainNode('① 参数层',kp.chain.param,'param')+
+      '<div class="arrow">→</div>'+
+      chainNode('② 数学量',kp.chain.math,'math')+
+      '<div class="arrow">→</div>'+
+      chainNode('③ 现实现象',kp.chain.real,'real')+
+    '</div>'+
+    ((kp.engine&&kp.engine.live)?'<div class="chain-hint rise" style="font-size:13px;color:var(--ch);margin:-6px 0 4px;text-align:center">☝️ 拖动下方实验台的参数，②数学量 与 ③现实标签 会随之<b>实时变化</b>——这就是“三层联动”</div>':'')+
+    '<div class="learn-grid">'+
+      '<div class="card panel-pad rise">'+
+        '<div class="panel-h">🔬 实验台 <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:12px;color:var(--muted2)">· 拖一拖，看三层如何联动</span></div>'+
+        (kp.engine? (kp.engine.title?'<div style="font-weight:700;margin-bottom:12px;font-size:15.5px">'+kp.engine.title+'</div>':'')+'<div id="engine"></div>' : '<div class="muted">本知识点以配对/自测为主。</div>')+
+      '</div>'+
+      '<div>'+
+        '<div class="card panel-pad rise">'+
+          '<div class="panel-h">💡 直觉层</div>'+
+          '<div style="font-size:14.5px;color:var(--ink2)">'+kp.intuition+'</div>'+
+          buildDrawers()+
+        '</div>'+
+      '</div>'+
+    '</div>'+
+  '</div>'+
+
+  (kp.demo?'<div class="sec-pane" id="pane-demo">'+buildDemo()+'</div>':'')+
+
+  '<div class="sec-pane" id="pane-quiz">'+
+    '<div class="pane-note">💡 全部作答即点亮本知识点 · 答错自动进错题本</div>'+
+    '<div class="quiz-wrap" id="quiz"></div>'+
+    '<div id="doneBox"></div>'+
+  '</div>'+
+
+  '<div class="kp-nav">'+
+    (prev?'<a href="learn.html?ch='+ch.id+'&kp='+prev.id+'"><div class="card nav-card"><span class="n-lab">← 上一站</span><span class="n-name">'+prev.icon+' '+prev.name+'</span></div></a>':'<a></a>')+
+    (next?'<a class="next" href="learn.html?ch='+ch.id+'&kp='+next.id+'"><div class="card nav-card"><span class="n-lab">下一站 →</span><span class="n-name">'+next.icon+' '+next.name+'</span></div></a>':'<a class="next" href="index.html"><div class="card nav-card"><span class="n-lab">返回 →</span><span class="n-name">🗺️ 课程地图</span></div></a>')+
+  '</div>';
+
+  // 分区 tab 绑定（引擎/演示均懒加载：首次切到对应 tab 才挂载）
+  bindPanes();
+  // 互动演示 tab 切换（多演示知识点）
+  const dcard=document.querySelector('.demo-card');
+  if(dcard){ dcard.querySelectorAll('.demo-tab').forEach(btn=>{ btn.onclick=()=>{
+    dcard.querySelectorAll('.demo-tab').forEach(b=>b.classList.remove('on')); btn.classList.add('on');
+    const fr=document.getElementById('demoFrame'); fr.src=btn.dataset.src; fr.title=btn.dataset.t;
+    const fl=document.getElementById('demoFull'); if(fl) fl.href=btn.dataset.src;
+  }; }); }
+  renderQuiz();
+  if(isDone) showDone(false);
+}
+
+/* ---- 讲解（视频 + 概念图 并列，缺失/公用留占位） ---- */
+// 统计每个视频被几个知识点引用，>1 即“公用视频”
+const VIDEO_USE={};
+Object.values(COURSE.lectures||{}).forEach(L=>{ if(L.video) VIDEO_USE[L.video]=(VIDEO_USE[L.video]||0)+1; });
+
+function buildLecture(){
+  const L=(COURSE.lectures||{})[kp.id];
+  if(!L) return '';
+  const shared=L.video&&VIDEO_USE[L.video]>1;
+  // 视频槽位：专属视频直接嵌；公用视频/缺失留占位
+  let vSlot;
+  if(L.video&&!shared){
+    vSlot='<div class="lec-slot">'+
+      '<video class="lec-video" controls preload="metadata" src="'+L.video+'" id="lecVideo"></video>'+
+      '<button class="lec-fs" onclick="fsVideo()" title="全屏播放">⛶</button>'+
+      (L.vTitle?'<div class="lec-cap">🎬 '+L.vTitle+' <span class="zoom">· 点 ⛶ 全屏</span></div>':'')+
+    '</div>';
+  }else if(L.video&&shared){
+    vSlot='<div class="lec-slot">'+
+      '<div class="lec-ph clickable" onclick="openLightbox(\''+L.video+'\',\'video\')">'+
+        '<div class="ph-ic">🎬</div>'+
+        '<div class="ph-t">公用视频</div>'+
+        '<div class="ph-s">'+(L.vTitle||'章节讲稿')+'</div>'+
+        '<div class="ph-note">待补专属讲解 · 点击先观看公用讲稿</div>'+
+      '</div>'+
+      '<div class="lec-cap">🎬 与本章其他知识点共用讲稿</div>'+
+    '</div>';
+  }else{
+    vSlot='<div class="lec-slot"><div class="lec-ph"><div class="ph-ic">🎬</div><div class="ph-t">讲解视频待补</div></div></div>';
+  }
+  // 图片槽位：有图嵌图，无图留占位
+  let iSlot;
+  if(L.img){
+    iSlot='<div class="lec-slot">'+
+      '<img class="lec-img" loading="lazy" src="'+L.img+'" alt="" onclick="openLightbox(this.src,\'img\')">'+
+      (L.iCap?'<div class="lec-cap">🖼️ '+L.iCap+' <span class="zoom">· 点击放大</span></div>':'')+
+    '</div>';
+  }else{
+    iSlot='<div class="lec-slot"><div class="lec-ph"><div class="ph-ic">🖼️</div><div class="ph-t">概念图待补</div></div></div>';
+  }
+  // 图集（可选）：多张概念图缩略图，点击放大
+  let galHtml='';
+  if(L.gallery&&L.gallery.items){
+    galHtml='<div class="lec-gallery"><div class="gal-h">'+(L.gallery.title||'📈 图集')+'</div><div class="gal-grid">'+
+      L.gallery.items.map(g=>'<figure class="gal-item" onclick="openLightbox(\''+g.src+'\',\'img\')"><img src="'+g.src+'" loading="lazy" onerror="this.parentElement.classList.add(\'noimg\')"><figcaption>'+g.cap+'</figcaption></figure>').join('')+
+    '</div></div>';
+  }
+  return '<div class="lecture card rise" style="animation-delay:.06s">'+
+    '<div class="panel-h">📖 讲解 <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:12px;color:var(--muted2)">· 先看讲解建立框架，再动手做实验</span></div>'+
+    '<div class="lec-grid">'+vSlot+iSlot+'</div>'+
+    (L.text?'<div class="lec-text">'+L.text+'</div>':'')+
+    galHtml+
+  '</div>';
+}
+function fsVideo(){
+  const v=document.getElementById('lecVideo');
+  if(!v)return;
+  if(v.requestFullscreen)v.requestFullscreen();
+  else if(v.webkitRequestFullscreen)v.webkitRequestFullscreen();
+}
+function openLightbox(src,type){
+  const lb=document.getElementById('lightbox');
+  lb.querySelector('.lb-media').innerHTML=(type==='video')
+    ?'<video controls src="'+src+'"></video>'
+    :'<img src="'+src+'" alt="">';
+  lb.classList.add('show');
+}
+function closeLightbox(e){
+  if(e.target.tagName==='VIDEO')return; // 操作视频控件时不关闭
+  document.getElementById('lightbox').classList.remove('show');
+}
+
+function chainNode(lab,d,role){
+  return '<div class="node" data-role="'+role+'"><div class="lab">'+lab+'</div><div class="val">'+d.val+'</div><div class="sub">'+d.sub+'</div></div>';
+}
+function chainNodeEl(role){ return document.querySelector('#chain .node[data-role="'+role+'"]'); }
+// 实时联动：引擎每次重绘都回调这里
+function updateChainLive(P,stats){
+  if(!kp.engine||!kp.engine.live){ pulseChain(); return; }
+  const r=kp.engine.live(P,stats)||{};
+  ['param','math','real'].forEach(role=>{
+    if(r[role]==null)return; const node=chainNodeEl(role); if(!node)return;
+    const parts=r[role].split('|'); // "val|sub"
+    node.querySelector('.val').innerHTML=parts[0];
+    if(parts[1]!=null)node.querySelector('.sub').innerHTML=parts[1];
+    node.classList.add('lit'); clearTimeout(node._t);
+    node._t=setTimeout(()=>node.classList.remove('lit'),900);
+  });
+}
+let chainTimer=null;
+function pulseChain(){
+  const nodes=[...document.querySelectorAll('#chain .node')];
+  nodes.forEach(n=>n.classList.remove('lit'));
+  nodes.forEach((n,i)=>{ setTimeout(()=>{ nodes.forEach(x=>x.classList.remove('lit')); n.classList.add('lit'); },i*260); });
+  clearTimeout(chainTimer);
+  chainTimer=setTimeout(()=>nodes.forEach(n=>n.classList.remove('lit')),nodes.length*260+700);
+}
+
+/* ---- 分区 tab：懒挂载引擎 / 懒加载演示 ---- */
+let engineMounted=false, demoLoaded=false;
+function mountEngine(){
+  if(engineMounted||!kp.engine)return;
+  const el=document.getElementById('engine');
+  if(!el)return;
+  Engine.mount(el,kp.engine,{color:ch.color,onState:(P,stats)=>updateChainLive(P,stats)});
+  if(!kp.engine.live){ el.addEventListener('input',()=>pulseChain()); el.addEventListener('click',()=>pulseChain()); }
+  engineMounted=true;
+}
+function switchPane(name){
+  document.querySelectorAll('.sec-tab').forEach(t=>t.classList.toggle('on',t.dataset.pane===name));
+  document.querySelectorAll('.sec-pane').forEach(p=>p.classList.toggle('on',p.id==='pane-'+name));
+  if(name==='lab') mountEngine();
+  if(name==='demo'&&!demoLoaded){
+    const fr=document.getElementById('demoFrame');
+    if(fr&&fr.dataset.src){ fr.src=fr.dataset.src; demoLoaded=true; }
+  }
+}
+function bindPanes(){
+  document.querySelectorAll('.sec-tab').forEach(t=>{ t.onclick=()=>switchPane(t.dataset.pane); });
+}
+function updateQuizBadge(){
+  const b=document.getElementById('quizBadge');
+  if(!b)return;
+  const total=(kp.quiz||[]).length;
+  if(total>0&&answered>=total){ b.textContent='✓'; b.classList.add('done'); }
+  else b.textContent=answered+'/'+total;
+}
+
+function buildDemo(){
+  if(!kp.demo)return '';
+  const list=(Array.isArray(kp.demo)?kp.demo:[kp.demo]).map(d=>typeof d==='string'?{t:'互动演示',src:d}:d);
+  const multi=list.length>1;
+  const tabs=multi?'<div class="demo-tabs">'+list.map((d,i)=>'<button class="demo-tab'+(i===0?' on':'')+'" data-src="'+d.src+'" data-t="'+d.t+'">'+d.t+'</button>').join('')+'</div>':'';
+  return '<div class="card demo-card">'+
+    '<div class="demo-bar">'+tabs+
+      '<a class="demo-full" id="demoFull" href="'+list[0].src+'" target="_blank" rel="noopener">全屏打开 ↗</a>'+
+    '</div>'+
+    '<iframe class="demo-frame" id="demoFrame" data-src="'+list[0].src+'" title="'+list[0].t+'"></iframe>'+
+  '</div>';
+}
+
+function buildDrawers(){
+  if(!kp.drawers)return '';
+  const d=kp.drawers; let h='';
+  if(d.mechanism)h+='<details class="drawer"><summary>⚙️ 机制 · 为什么会这样<span class="chev">▸</span></summary><div class="drawer-body">'+d.mechanism+'</div></details>';
+  if(d.math)h+='<details class="drawer"><summary>∑ 数学 · 严格表述<span class="chev">▸</span></summary><div class="drawer-body"><div class="formula">'+d.math+'</div></div></details>';
+  if(d.code)h+='<details class="drawer"><summary>⌨️ 代码 · R 语言实现<span class="chev">▸</span></summary><div class="drawer-body"><pre class="formula" style="white-space:pre-wrap">'+esc(d.code)+'</pre></div></details>';
+  return h;
+}
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function escMath(s){return esc(s).replace(/&lt;(\/?)(sub|sup)&gt;/g,'<$1$2>');}
+
+/* ---- 自测 ---- */
+const LETTER=['A','B','C','D','E','F'];
+let answered=0, correctCount=0;
+const LEVELS=[
+  {lv:1,name:'简单',icon:'🟢',desc:'基础概念 · 直接套用'},
+  {lv:2,name:'中等',icon:'🟡',desc:'理解应用 · 需要转换'},
+  {lv:3,name:'困难',icon:'🔴',desc:'综合分析 · 多步推理'}
+];
+function renderQuiz(){
+  const box=document.getElementById('quiz');
+  const quiz=kp.quiz||[];
+  const groups=LEVELS.map(L=>({L,qs:quiz.filter(q=>(q.lv||2)===L.lv)})).filter(g=>g.qs.length);
+  if(!groups.length)return;
+  // 难度 tab 栏
+  const tabs=document.createElement('div'); tabs.className='quiz-tabs';
+  groups.forEach((g,gi)=>{
+    const t=document.createElement('button'); t.className='quiz-tab'+(gi===0?' on':''); t.dataset.lv=g.L.lv;
+    t.innerHTML='<span class="tab-ic">'+g.L.icon+'</span><span>'+g.L.name+'</span><span class="tab-cnt">0/'+g.qs.length+'</span>';
+    t.onclick=()=>switchTab(g.L.lv);
+    tabs.appendChild(t);
+  });
+  box.appendChild(tabs);
+  // 每个难度一个面板，默认展开第一档
+  groups.forEach((g,gi)=>{
+    const pane=document.createElement('div'); pane.className='quiz-pane'+(gi===0?' on':''); pane.dataset.lv=g.L.lv;
+    pane.innerHTML='<div class="quiz-pane-desc">'+g.L.icon+' '+g.L.desc+'</div>';
+    const grid=document.createElement('div'); grid.className='quiz-grid';
+    g.qs.forEach((q,li)=>{
+      const item=document.createElement('div'); item.className='card quiz-item rise'; item.style.animationDelay=(li*0.06)+'s';
+      item.innerHTML='<div class="q-no">'+g.L.name+' · Q'+(li+1)+'/'+g.qs.length+'</div><div class="quiz-q">'+q.q+'</div>';
+      q.opts.forEach((o,oi)=>{
+        const b=document.createElement('button'); b.className='opt';
+        b.innerHTML='<span class="key">'+LETTER[oi]+'</span>'+escMath(o);
+        b.onclick=()=>{
+          if(item.dataset.done)return; item.dataset.done='1'; answered++;
+          const ok=oi===q.ans;
+          if(ok){ b.classList.add('correct'); correctCount++; }
+          else { b.classList.add('wrong'); item.querySelectorAll('.opt')[q.ans].classList.add('correct'); }
+          item.querySelectorAll('.opt').forEach(x=>x.disabled=true);
+          const why=document.createElement('div'); why.className='why';
+          why.innerHTML=(ok?'<b>✓ 正确！</b> ':'<b>✗ 再想想。</b> ')+(q.why?'<br>'+q.why:'');
+          if(!ok)why.style.borderLeftColor='var(--bad)';
+          item.appendChild(why);
+          Game.recordQuiz(ch.name,kp.name,q,oi,ok);
+          Game.logAttempt({ch:ch.id,chName:ch.name,kp:kp.id,kpName:kp.name,lv:(q.lv||2),q:q.q,opts:q.opts,ans:q.ans,chosen:oi,ok:ok,src:'learn'});
+          updateTabCount(g.L.lv);
+          updateQuizBadge();
+          const dots=document.querySelectorAll('#dots i'); if(dots[idxOf()])dots[idxOf()].className=ok?'right':'wrongd';
+          if(answered===kp.quiz.length) finishQuiz();
+        };
+        item.appendChild(b);
+      });
+      grid.appendChild(item);
+    });
+    pane.appendChild(grid);
+    box.appendChild(pane);
+  });
+}
+function switchTab(lv){
+  document.querySelectorAll('.quiz-tab').forEach(t=>t.classList.toggle('on',+t.dataset.lv===lv));
+  document.querySelectorAll('.quiz-pane').forEach(p=>p.classList.toggle('on',+p.dataset.lv===lv));
+}
+function updateTabCount(lv){
+  const pane=document.querySelector('.quiz-pane[data-lv="'+lv+'"]');
+  const tab=document.querySelector('.quiz-tab[data-lv="'+lv+'"]');
+  if(!pane||!tab)return;
+  const total=pane.querySelectorAll('.quiz-item').length;
+  const done=pane.querySelectorAll('.quiz-item[data-done]').length;
+  const cnt=tab.querySelector('.tab-cnt');
+  if(cnt)cnt.textContent=done+'/'+total;
+  tab.classList.toggle('cleared',total>0&&done===total);
+}
+function idxOf(){return kps.indexOf(kp);}
+function finishQuiz(){
+  const allRight=correctCount===kp.quiz.length;
+  Game.markKPDone(ch.id,kp.id);
+  if(allRight&&kp.quiz.length>=3) Game.earnBadge('perfectionist');
+  showDone(true,allRight);
+}
+function showDone(animate,allRight){
+  const box=document.getElementById('doneBox');
+  box.innerHTML='<div class="done-banner '+(animate?'rise':'')+'">✅ 知识点「'+kp.name+'」已点亮'+
+    (allRight===true?' · 全部答对，漂亮！':(allRight===false?'':''))+
+    (Game.getWrong().length?' · <a href="wrong.html" style="color:var(--bad)">去错题本看看</a>':'')+
+    '</div>';
+  const dots=document.querySelectorAll('#dots i'); if(dots[idxOf()])dots[idxOf()].classList.add('on');
+  if(animate)Game.floatText('🌟 知识点点亮！','#34d399');
+}
+
+/* ---- 启动（必须在所有声明之后） ---- */
+if(!kp){ document.getElementById('app').innerHTML='<div class="empty"><div class="big">🚧</div>'+ch.no+' '+ch.name+' 实验舱建设中，先去 <a href="learn.html?ch=17" style="color:var(--ch17)">Copula 样板舱</a> 看看。</div>'; }
+else render();
+</script>
+</body>
+</html>

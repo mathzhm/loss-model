@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LOSS LAB · 损失模型实验舱</title>
+<link rel="stylesheet" href="style.css">
+<script>try{if(localStorage.getItem('losslab_theme')==='light')document.documentElement.dataset.theme='light';}catch(e){}</script>
+<style>
+  /* ---- 实验台开场（示波器 + 仪表） ---- */
+  .console{display:grid;grid-template-columns:1.05fr .95fr;gap:26px;align-items:stretch;margin-top:26px}
+  @media(max-width:880px){.console{grid-template-columns:1fr}}
+  .console-left{padding:30px 30px 26px;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:center}
+  .console-left .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:2.5px;color:var(--ch17);font-weight:700;text-transform:uppercase}
+  .console-left h1{font-size:44px;line-height:1.12;margin:12px 0 14px;font-weight:700}
+  .console-left h1 .accent{color:var(--ch17)}
+  .console-left .lede{color:var(--ink2);font-size:15.5px;max-width:520px}
+  .console-left .cta-row{display:flex;gap:12px;margin-top:22px;flex-wrap:wrap}
+  .scope{position:relative;padding:16px;display:flex;flex-direction:column}
+  .scope .scope-h{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:1px;padding:2px 6px 10px}
+  .scope .live-dot{width:8px;height:8px;border-radius:50%;background:var(--good);animation:pulse 1.4s infinite}
+  .scope canvas{border-radius:12px;width:100%;flex:1;min-height:230px}
+  .scope .scope-f{display:flex;gap:16px;padding:12px 6px 2px;font-family:var(--mono);font-size:12px;color:var(--muted);flex-wrap:wrap}
+  .scope .scope-f b{color:var(--ch13);font-weight:600}
+  /* 仪表条 */
+  .gauges{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-top:20px}
+  .gauge{padding:16px 18px;display:flex;align-items:center;gap:13px}
+  .gauge .g-txt .g-lab{font-size:11.5px;color:var(--muted);letter-spacing:.5px}
+  .gauge .g-txt .g-val{font-family:var(--disp);font-size:21px;font-weight:700;line-height:1.2}
+  .lvlbar{height:6px;border-radius:6px;background:var(--line);overflow:hidden;margin-top:6px;width:110px}
+  .lvlbar i{display:block;height:100%;background:linear-gradient(90deg,var(--ch13),var(--ch17));transition:width .6s}
+  /* 徽章带 */
+  .badge-strip{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+  /* 继续学习条 */
+  .resume{display:flex;align-items:center;gap:16px;padding:16px 20px;margin-top:20px;flex-wrap:wrap}
+  .resume .r-ic{font-size:26px}
+  .resume .r-txt{flex:1;min-width:200px}
+  .resume .r-txt .r-lab{font-size:11.5px;color:var(--muted);letter-spacing:1px;text-transform:uppercase}
+  .resume .r-txt .r-name{font-weight:700;font-size:16px}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="wrap" id="topbar"></div></div>
+
+<div class="wrap">
+
+  <!-- 实验台开场 -->
+  <div class="console">
+    <div class="card console-left rise">
+      <div class="eyebrow">IFoA CS2 · Risk Modelling</div>
+      <h1>把抽象的<span class="accent">损失模型</span><br>变成可以拖、可以玩的实验</h1>
+      <p class="lede">拖动参数看曲线变形、下注预测尾部往哪抱团、拼装 Sklar 公式、在竞技场刷连击——每一次操作都在建立直觉，而不只是背公式。</p>
+      <div class="cta-row">
+        <a class="btn primary" style="--ch:var(--ch17)" href="learn.html?ch=17">🔗 从 Copula 开始</a>
+        <a class="btn" href="arena.html">🎮 进竞技场</a>
+      </div>
+    </div>
+    <div class="card scope rise" style="animation-delay:.08s">
+      <div class="scope-h"><span class="live-dot"></span>OSCILLOSCOPE · C(u,u) 对角线扫描 · 实时</div>
+      <canvas id="scope"></canvas>
+      <div class="scope-f">
+        <span>Clayton θ=<b id="scTheta">2.0</b></span>
+        <span>λ<sub>L</sub>=<b id="scLambda">0.71</b></span>
+        <span style="margin-left:auto">Fréchet 界内</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 仪表条 -->
+  <div class="gauges">
+    <div class="card gauge rise"><div class="ring" id="gOverall" style="--c:var(--ch17)"><b>0%</b></div>
+      <div class="g-txt"><div class="g-lab">总进度</div><div class="g-val" id="gOverallTxt">0 / 0</div></div></div>
+    <div class="card gauge rise" style="animation-delay:.05s"><div class="ring" id="gLvl" style="--c:var(--ch13)"><b>Lv</b></div>
+      <div class="g-txt"><div class="g-lab">等级</div><div class="g-val" id="gLvlTxt">Lv.1</div><div class="lvlbar"><i id="gLvlBar" style="width:0%"></i></div></div></div>
+    <div class="card gauge rise" style="animation-delay:.1s"><div class="ring" id="gStreak" style="--c:#fb923c"><b>🔥</b></div>
+      <div class="g-txt"><div class="g-lab">连续学习</div><div class="g-val" id="gStreakTxt">0 天</div></div></div>
+    <div class="card gauge rise" style="animation-delay:.15s"><div class="ring" id="gWrong" style="--c:var(--bad)"><b>📕</b></div>
+      <div class="g-txt"><div class="g-lab">待攻克错题</div><div class="g-val" id="gWrongTxt">0 题</div></div></div>
+  </div>
+
+  <!-- 继续学习 -->
+  <div class="card resume rise" id="resume" style="display:none">
+    <span class="r-ic" id="resumeIc">🔗</span>
+    <div class="r-txt"><div class="r-lab">继续上次</div><div class="r-name" id="resumeName"></div></div>
+    <a class="btn primary" id="resumeBtn" style="--ch:var(--ch17)">继续 →</a>
+  </div>
+
+  <!-- 章节地图 -->
+  <div class="section-title"><h2>🗺️ 课程地图</h2><span class="hint">九章 · 点亮的是可进入的实验舱</span></div>
+  <div class="ch-grid" id="chGrid"></div>
+
+  <!-- 徽章 -->
+  <div class="section-title"><h2>🏅 成就陈列</h2><span class="hint">学习与竞技中解锁</span></div>
+  <div class="badge-strip" id="badgeStrip"></div>
+
+</div>
+
+<footer class="site">
+  <div>LOSS LAB · 损失模型实验舱 · 面向大三精算生 · 数据仅存于你的浏览器本地</div>
+  <div>单一数据源 <span class="k">course.js</span> 驱动 · 加章节/知识点只改数据，不动页面</div>
+</footer>
+
+<script src="course.js"></script>
+<script src="game.js"></script>
+<script>
+Game.renderTopbar(document.getElementById('topbar'),'index');
+const S=Game.state();
+
+/* ---- 章节地图 ---- */
+const grid=document.getElementById('chGrid');
+COURSE.chapters.forEach((ch,i)=>{
+  const p=Game.chapterProgress(ch);
+  const live=ch.status==='live'&&p.total>0;
+  const a=document.createElement('a');
+  a.className='ch-card card rise'; a.style.setProperty('--ch',ch.color); a.style.animationDelay=(i*0.05)+'s';
+  a.href=live?('learn.html?ch='+ch.id):'#';
+  if(!live)a.onclick=e=>{e.preventDefault();Game.floatText('🚧 '+ch.no+' 实验舱建设中','#7d93b5');};
+  a.innerHTML=
+    '<div class="ch-top"><span class="ch-icon">'+ch.icon+'</span><div class="ch-title"><div class="ch-no">'+ch.no+' · '+ch.weight+'</div>'+
+    '<div class="ch-name">'+ch.name+'</div></div></div>'+
+    '<div class="ch-res">'+
+    (ch.pdf?'<span class="ch-pdf" onclick="event.stopPropagation();event.preventDefault();window.open(\''+ch.pdf+'\',\'_blank\')">📖 教材</span>':'')+
+    (ch.qa?'<span class="ch-qa" onclick="event.stopPropagation();event.preventDefault();window.open(\''+ch.qa+'\',\'_blank\')">📝 习题</span>':'')+'</div>'+
+    '<div class="ch-desc">'+ch.desc+'</div>'+
+    '<div class="ch-foot">'+(live?
+      '<div class="ring" style="--p:'+p.pct+';--c:'+ch.color+';width:44px;height:44px"><b>'+p.pct+'%</b></div>'+
+      '<span class="ch-meta">'+p.done+' / '+p.total+' 知识点</span>':
+      '<span class="ch-meta">'+(ch.kps&&ch.kps.length?ch.kps.length+' 知识点':'即将开放')+'</span>')+
+      '<span class="status '+(live?'live':'soon')+'">'+(live?'▶ 进入学习':'🔒 建设中')+'</span></div>';
+  grid.appendChild(a);
+});
+
+/* ---- 仪表 ---- */
+const ov=Game.overallProgress();
+const gO=document.getElementById('gOverall'); gO.style.setProperty('--p',ov.pct); gO.querySelector('b').textContent=ov.pct+'%';
+document.getElementById('gOverallTxt').textContent=ov.done+' / '+ov.total+' 知识点';
+const lvl=Game.levelOf(S.xp);
+document.getElementById('gLvl').querySelector('b').textContent='L'+lvl;
+document.getElementById('gLvlTxt').textContent='Lv.'+lvl+' · '+S.xp+' XP';
+document.getElementById('gLvlBar').style.width=Math.round(Game.levelProgress(S.xp)*100)+'%';
+document.getElementById('gStreakTxt').textContent=S.streak.count+' 天';
+document.getElementById('gWrongTxt').textContent=S.wrong.length+' 题';
+document.getElementById('gWrong').querySelector('b').textContent=S.wrong.length||'📕';
+
+/* ---- 继续学习（找第一个未完成知识点） ---- */
+(function(){
+  for(const ch of COURSE.chapters){ if(ch.status!=='live')continue;
+    for(const kp of ch.kps){ if(!Game.isKPDone(ch.id,kp.id)){
+      document.getElementById('resume').style.display='flex';
+      document.getElementById('resumeIc').textContent=kp.icon||ch.icon;
+      document.getElementById('resumeName').textContent=ch.no+' '+ch.name+' · '+kp.name;
+      const b=document.getElementById('resumeBtn'); b.href='learn.html?ch='+ch.id+'&kp='+kp.id; b.style.setProperty('--ch',ch.color);
+      return; } } }
+})();
+
+/* ---- 徽章 ---- */
+const bs=document.getElementById('badgeStrip');
+Game.BADGES.forEach(b=>{
+  const on=S.badges.includes(b.id);
+  bs.innerHTML+='<span class="badge-chip '+(on?'on':'off')+'" title="'+b.desc+'">'+b.ic+' '+b.name+(on?'':' 🔒')+'</span>';
+});
+
+/* ---- 示波器：C(u,u) 对角线扫描动画 ---- */
+(function(){
+  const cv=document.getElementById('scope'); const dpr=window.devicePixelRatio||1;
+  function size(){ const w=cv.clientWidth,h=cv.clientHeight; cv.width=w*dpr; cv.height=h*dpr;
+    cv.getContext('2d').scale(dpr,dpr); }
+  size(); window.addEventListener('resize',()=>{size();});
+  let t=0;
+  function frame(){
+    const w=cv.clientWidth,h=cv.clientHeight,ctx=cv.getContext('2d');
+    ctx.clearRect(0,0,w,h);
+    const pad=26; const X=u=>pad+u*(w-2*pad), Y=v=>h-pad-v*(h-2*pad);
+    // 网格
+    ctx.strokeStyle='rgba(120,150,200,.1)'; ctx.lineWidth=1;
+    for(let i=0;i<=4;i++){const g=i/4;ctx.beginPath();ctx.moveTo(X(g),Y(0));ctx.lineTo(X(g),Y(1));ctx.stroke();
+      ctx.beginPath();ctx.moveTo(X(0),Y(g));ctx.lineTo(X(1),Y(g));ctx.stroke();}
+    // Fréchet 上界
+    ctx.strokeStyle='rgba(251,113,133,.5)'; ctx.setLineDash([5,4]); ctx.beginPath();
+    ctx.moveTo(X(0),Y(0));ctx.lineTo(X(1),Y(1));ctx.stroke();ctx.setLineDash([]);
+    // 独立 uv
+    ctx.strokeStyle='rgba(125,147,181,.6)'; ctx.beginPath();
+    for(let i=0;i<=60;i++){const u=i/60,v=u*u;i?ctx.lineTo(X(u),Y(v)):ctx.moveTo(X(u),Y(v));}ctx.stroke();
+    // 动画 Clayton：θ 随时间摆动
+    const theta=1.2+2.2*(1+Math.sin(t))/2; // 1.2~3.4
+    ctx.strokeStyle='#a78bfa'; ctx.lineWidth=2.5; ctx.shadowColor='rgba(167,139,250,.6)'; ctx.shadowBlur=8; ctx.beginPath();
+    for(let i=1;i<=60;i++){const u=i/60; const C=Math.pow(2*Math.pow(u,-theta)-1,-1/theta);
+      i===1?ctx.moveTo(X(u),Y(C)):ctx.lineTo(X(u),Y(C));}
+    ctx.stroke(); ctx.shadowBlur=0;
+    // 扫描点
+    const su=(t*0.35)%1; const sC=Math.pow(2*Math.pow(Math.max(su,0.02),-theta)-1,-1/theta);
+    ctx.fillStyle='#fcd34d'; ctx.beginPath(); ctx.arc(X(su),Y(sC),4.5,0,7); ctx.fill();
+    document.getElementById('scTheta').textContent=theta.toFixed(1);
+    document.getElementById('scLambda').textContent=Math.pow(2,-1/theta).toFixed(2);
+    t+=0.02; requestAnimationFrame(frame);
+  }
+  frame();
+})();
+</script>
+</body>
+</html>

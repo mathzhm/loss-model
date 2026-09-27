@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>赔付限额计算器</title>
+    <script src="vendor/chart.umd.min.js"></script>
+    <script src="vendor/papaparse.min.js"></script>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .panel {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .definition {
+            grid-column: 1 / -1;
+            background: #e8f4fd;
+            border-left: 4px solid #2196F3;
+        }
+        .controls {
+            display: grid;
+            gap: 15px;
+        }
+        .control-group {
+            display: grid;
+            gap: 5px;
+        }
+        label {
+            font-weight: bold;
+            color: #333;
+        }
+        input, select {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .results {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .chart-container {
+            height: 300px;
+            position: relative;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>赔付限额计算器</h1>
+        <p>基于不同损失分布模型的赔付限额分析与可视化</p>
+    </div>
+
+    <div class="container">
+        <div class="panel definition">
+            <h2>基本概念定义</h2>
+            <div class="definitions">
+                <h3>赔付限额 (Policy Limit)</h3>
+                <p>保险公司对单个索赔事件承担的最高赔付金额。当实际损失超过限额时，保险公司只赔付限额金额。</p>
+                
+                <h3>有限期望值 (Limited Expected Value)</h3>
+                <p>考虑赔付限额后的期望赔付金额，计算公式：E[min(X, u)]，其中X为损失金额，u为赔付限额。</p>
+                
+                <h3>赔付函数</h3>
+                <p>赔付金额 = min(损失金额, 赔付限额)，这是一个分段线性函数。</p>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>模型参数设置</h2>
+            <div class="controls">
+                <div class="control-group">
+                    <label for="distributionType">损失分布类型:</label>
+                    <select id="distributionType">
+                        <option value="exponential">指数分布</option>
+                        <option value="normal">正态分布</option>
+                        <option value="lognormal">对数正态分布</option>
+                    </select>
+                </div>
+
+                <div class="control-group" id="exponentialParams">
+                    <label for="lambda">λ 参数 (指数分布):</label>
+                    <input type="number" id="lambda" value="0.01" step="0.001" min="0.001">
+                </div>
+
+                <div class="control-group" id="normalParams" style="display: none;">
+                    <label for="mu">均值 μ (正态分布):</label>
+                    <input type="number" id="mu" value="100" step="1" min="1">
+                    <label for="sigma">标准差 σ (正态分布):</label>
+                    <input type="number" id="sigma" value="30" step="1" min="1">
+                </div>
+
+                <div class="control-group" id="lognormalParams" style="display: none;">
+                    <label for="logmu">对数均值 μ (对数正态分布):</label>
+                    <input type="number" id="logmu" value="4" step="0.1">
+                    <label for="logsigma">对数标准差 σ (对数正态分布):</label>
+                    <input type="number" id="logsigma" value="1" step="0.1" min="0.1">
+                </div>
+
+                <div class="control-group">
+                    <label for="limit">赔付限额 u:</label>
+                    <input type="number" id="limit" value="100" step="10" min="10">
+                </div>
+
+                <div class="control-group">
+                    <label for="inflationRate">通货膨胀率 (%):</label>
+                    <input type="number" id="inflationRate" value="3" step="0.1" min="0">
+                </div>
+
+                <div class="control-group">
+                    <label for="years">调整年数:</label>
+                    <input type="number" id="years" value="5" step="1" min="1">
+                </div>
+
+                <button onclick="calculate()">计算并生成图表</button>
+            </div>
+        </div>
+
+        <div class="loading" id="loading">
+            <p>正在计算中，请稍候...</p>
+        </div>
+
+        <div class="results" id="results" style="display: none;">
+            <div class="panel">
+                <h3>计算结果表格</h3>
+                <div id="resultTable"></div>
+            </div>
+            
+            <div class="panel">
+                <h3>赔付函数示意图</h3>
+                <div class="chart-container">
+                    <canvas id="paymentFunctionChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="panel">
+                <h3>有限期望值曲线</h3>
+                <div class="chart-container">
+                    <canvas id="expectationChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="panel">
+                <h3>损失与赔付分布</h3>
+                <div class="chart-container">
+                    <canvas id="distributionChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 显示/隐藏分布参数控件
+        document.getElementById('distributionType').addEventListener('change', function() {
+            const type = this.value;
+            document.getElementById('exponentialParams').style.display = type === 'exponential' ? 'block' : 'none';
+            document.getElementById('normalParams').style.display = type === 'normal' ? 'block' : 'none';
+            document.getElementById('lognormalParams').style.display = type === 'lognormal' ? 'block' : 'none';
+        });
+
+        // 损失分布概率密度函数
+        function pdf(x, distributionType, params) {
+            switch(distributionType) {
+                case 'exponential':
+                    return params.lambda * Math.exp(-params.lambda * x);
+                case 'normal':
+                    const normalConstant = 1 / (params.sigma * Math.sqrt(2 * Math.PI));
+                    return normalConstant * Math.exp(-0.5 * Math.pow((x - params.mu) / params.sigma, 2));
+                case 'lognormal':
+                    if (x <= 0) return 0;
+                    const logNormalConstant = 1 / (x * params.logsigma * Math.sqrt(2 * Math.PI));
+                    return logNormalConstant * Math.exp(-0.5 * Math.pow((Math.log(x) - params.logmu) / params.logsigma, 2));
+                default:
+                    return 0;
+            }
+        }
+
+        // 数值积分计算有限期望值
+        function limitedExpectation(limit, distributionType, params) {
+            const steps = 1000;
+            const maxX = distributionType === 'exponential' ? 10 / params.lambda : 
+                         distributionType === 'normal' ? params.mu + 5 * params.sigma :
+                         Math.exp(params.logmu + 5 * params.logsigma);
+            
+            let integral = 0;
+            const dx = maxX / steps;
+            
+            for (let i = 0; i < steps; i++) {
+                const x = i * dx;
+                const payment = Math.min(x, limit);
+                integral += payment * pdf(x, distributionType, params) * dx;
+            }
+            
+            return integral;
+        }
+
+        // 蒙特卡洛模拟
+        function monteCarloSimulation(limit, distributionType, params, sampleSize = 10000) {
+            let lossSamples = [];
+            let paymentSamples = [];
+            
+            for (let i = 0; i < sampleSize; i++) {
+                let loss;
+                switch(distributionType) {
+                    case 'exponential':
+                        loss = -Math.log(1 - Math.random()) / params.lambda;
+                        break;
+                    case 'normal':
+                        // Box-Muller变换生成正态分布随机数
+                        const u1 = Math.random();
+                        const u2 = Math.random();
+                        const z0 = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+                        loss = params.mu + params.sigma * z0;
+                        loss = Math.max(loss, 0); // 损失不能为负
+                        break;
+                    case 'lognormal':
+                        const u1_log = Math.random();
+                        const u2_log = Math.random();
+                        const z0_log = Math.sqrt(-2 * Math.log(u1_log)) * Math.cos(2 * Math.PI * u2_log);
+                        loss = Math.exp(params.logmu + params.logsigma * z0_log);
+                        break;
+                }
+                
+                const payment = Math.min(loss, limit);
+                lossSamples.push(loss);
+                paymentSamples.push(payment);
+            }
+            
+            const avgLoss = lossSamples.reduce((a, b) => a + b, 0) / sampleSize;
+            const avgPayment = paymentSamples.reduce((a, b) => a + b, 0) / sampleSize;
+            const paymentRate = avgPayment / avgLoss;
+            const limitTriggerProb = lossSamples.filter(loss => loss > limit).length / sampleSize;
+            
+            return {
+                lossSamples,
+                paymentSamples,
+                avgLoss,
+                avgPayment,
+                paymentRate,
+                limitTriggerProb
+            };
+        }
+
+        function calculate() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+            
+            setTimeout(() => {
+                try {
+                    // 获取用户输入参数
+                    const distributionType = document.getElementById('distributionType').value;
+                    const limit = parseFloat(document.getElementById('limit').value);
+                    const inflationRate = parseFloat(document.getElementById('inflationRate').value) / 100;
+                    const years = parseInt(document.getElementById('years').value);
+                    
+                    let params = {};
+                    if (distributionType === 'exponential') {
+                        params.lambda = parseFloat(document.getElementById('lambda').value);
+                    } else if (distributionType === 'normal') {
+                        params.mu = parseFloat(document.getElementById('mu').value);
+                        params.sigma = parseFloat(document.getElementById('sigma').value);
+                    } else if (distributionType === 'lognormal') {
+                        params.logmu = parseFloat(document.getElementById('logmu').value);
+                        params.logsigma = parseFloat(document.getElementById('logsigma').value);
+                    }
+                    
+                    // 计算有限期望值
+                    const expectation = limitedExpectation(limit, distributionType, params);
+                    
+                    // 通货膨胀调整
+                    const adjustedLimit = limit * Math.pow(1 + inflationRate, years);
+                    const adjustedExpectation = limitedExpectation(adjustedLimit, distributionType, params);
+                    
+                    // 蒙特卡洛模拟
+                    const simulation = monteCarloSimulation(limit, distributionType, params, 5000);
+                    
+                    // 更新结果表格
+                    updateResultTable(expectation, adjustedExpectation, adjustedLimit, simulation);
+                    
+                    // 生成图表
+                    generateCharts(limit, distributionType, params, simulation);
+                    
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('results').style.display = 'grid';
+                } catch (error) {
+                    document.getElementById('loading').style.display = 'none';
+                    alert('计算过程中出现错误: ' + error.message);
+                }
+            }, 100);
+        }
+
+        function updateResultTable(expectation, adjustedExpectation, adjustedLimit, simulation) {
+            const table = `
+                <table>
+                    <tr><th>指标</th><th>数值</th></tr>
+                    <tr><td>有限期望值</td><td>${expectation.toFixed(2)}</td></tr>
+                    <tr><td>调整后限额</td><td>${adjustedLimit.toFixed(2)}</td></tr>
+                    <tr><td>调整后期望值</td><td>${adjustedExpectation.toFixed(2)}</td></tr>
+                    <tr><td>期望值变化</td><td>${(adjustedExpectation - expectation).toFixed(2)}</td></tr>
+                    <tr><td>平均损失金额</td><td>${simulation.avgLoss.toFixed(2)}</td></tr>
+                    <tr><td>平均赔付金额</td><td>${simulation.avgPayment.toFixed(2)}</td></tr>
+                    <tr><td>赔付率</td><td>${(simulation.paymentRate * 100).toFixed(2)}%</td></tr>
+                    <tr><td>限额触发概率</td><td>${(simulation.limitTriggerProb * 100).toFixed(2)}%</td></tr>
+                </table>
+            `;
+            document.getElementById('resultTable').innerHTML = table;
+        }
+
+        function generateCharts(limit, distributionType, params, simulation) {
+            // 赔付函数图表
+            const paymentFunctionCtx = document.getElementById('paymentFunctionChart').getContext('2d');
+            const lossRange = Array.from({length: 100}, (_, i) => i * 3);
+            const paymentValues = lossRange.map(x => Math.min(x, limit));
+            
+            // 安全销毁现有图表
+            if (window.paymentFunctionChart && typeof window.paymentFunctionChart.destroy === 'function') {
+                window.paymentFunctionChart.destroy();
+            }
+            window.paymentFunctionChart = new Chart(paymentFunctionCtx, {
+                type: 'line',
+                data: {
+                    labels: lossRange,
+                    datasets: [{
+                        label: '赔付金额',
+                        data: paymentValues,
+                        borderColor: 'green',
+                        backgroundColor: 'rgba(0, 255, 0, 0.1)',
+                        fill: true
+                    }, {
+                        label: '损失金额',
+                        data: lossRange,
+                        borderColor: 'red',
+                        borderDash: [5, 5],
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { title: { display: true, text: '损失金额' } },
+                        y: { title: { display: true, text: '赔付金额' } }
+                    }
+                }
+            });
+            
+            // 有限期望值曲线
+            const expectationCtx = document.getElementById('expectationChart').getContext('2d');
+            const limitRange = Array.from({length: 50}, (_, i) => i * 20);
+            const expectationValues = limitRange.map(l => limitedExpectation(l, distributionType, params));
+            
+            // 安全销毁现有图表
+            if (window.expectationChart && typeof window.expectationChart.destroy === 'function') {
+                window.expectationChart.destroy();
+            }
+            window.expectationChart = new Chart(expectationCtx, {
+                type: 'line',
+                data: {
+                    labels: limitRange,
+                    datasets: [{
+                        label: '有限期望值',
+                        data: expectationValues,
+                        borderColor: 'blue',
+                        backgroundColor: 'rgba(0, 0, 255, 0.1)',
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { title: { display: true, text: '赔付限额' } },
+                        y: { title: { display: true, text: '有限期望值' } }
+                    }
+                }
+            });
+            
+            // 损失与赔付分布
+            const distributionCtx = document.getElementById('distributionChart').getContext('2d');
+            const histData = createHistogramData(simulation.lossSamples, simulation.paymentSamples, 20);
+            
+            // 安全销毁现有图表
+            if (window.distributionChart && typeof window.distributionChart.destroy === 'function') {
+                window.distributionChart.destroy();
+            }
+            window.distributionChart = new Chart(distributionCtx, {
+                type: 'bar',
+                data: {
+                    labels: histData.labels,
+                    datasets: [{
+                        label: '损失金额分布',
+                        data: histData.lossFreq,
+                        backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        borderWidth: 1
+                    }, {
+                        label: '赔付金额分布',
+                        data: histData.paymentFreq,
+                        backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { title: { display: true, text: '金额区间' } },
+                        y: { title: { display: true, text: '频率' } }
+                    }
+                }
+            });
+        }
+        
+        function createHistogramData(lossSamples, paymentSamples, bins) {
+            const maxVal = Math.max(...lossSamples, ...paymentSamples);
+            const binWidth = maxVal / bins;
+            const labels = Array.from({length: bins}, (_, i) => 
+                `${(i * binWidth).toFixed(0)}-${((i + 1) * binWidth).toFixed(0)}`
+            );
+            
+            const lossFreq = Array(bins).fill(0);
+            const paymentFreq = Array(bins).fill(0);
+            
+            lossSamples.forEach(val => {
+                const binIndex = Math.min(Math.floor(val / binWidth), bins - 1);
+                lossFreq[binIndex]++;
+            });
+            
+            paymentSamples.forEach(val => {
+                const binIndex = Math.min(Math.floor(val / binWidth), bins - 1);
+                paymentFreq[binIndex]++;
+            });
+            
+            // 归一化
+            const total = lossSamples.length;
+            return {
+                labels,
+                lossFreq: lossFreq.map(f => f / total),
+                paymentFreq: paymentFreq.map(f => f / total)
+            };
+        }
+        
+        // 初始化页面时显示默认分布参数
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('distributionType').dispatchEvent(new Event('change'));
+        });
+    </script>
+</body>
+</html>

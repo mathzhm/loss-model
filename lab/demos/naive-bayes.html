@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Naïve Bayes (生成式分类) 参数变化与分类边界</title>
+    <script src="vendor/chart.umd.min.js"></script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f6f9;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+        .container {
+            display: flex;
+            flex: 1;
+            gap: 20px;
+            overflow: hidden;
+        }
+        .sidebar {
+            width: 320px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .main-content {
+            flex: 1;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        .control-group {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .control-group:last-child {
+            border-bottom: none;
+        }
+        .control-group h3 {
+            margin: 0 0 10px 0;
+            font-size: 1rem;
+            color: #34495e;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+            color: #555;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+        .value-display {
+            float: right;
+            font-weight: bold;
+            color: #3498db;
+        }
+        .canvas-container {
+            flex: 1;
+            position: relative;
+            width: 100%;
+            min-height: 400px;
+        }
+        canvas {
+            width: 100%;
+            height: 100%;
+        }
+        .metrics-panel {
+            margin-top: 10px;
+            padding: 10px;
+            background: #eef2f7;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-around;
+        }
+        .metric {
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #2980b9;
+        }
+        .metric-label {
+            font-size: 0.8rem;
+            color: #7f8c8d;
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .color-box {
+            width: 15px;
+            height: 15px;
+            border-radius: 3px;
+        }
+        .note {
+            font-size: 0.85rem;
+            color: #666;
+            background: #fff3cd;
+            padding: 8px;
+            border-left: 4px solid #ffc107;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Naïve Bayes (生成式分类) 参数变化与分类边界</h1>
+
+    <div class="container">
+        <div class="sidebar">
+            <div class="control-group">
+                <h3>先验概率 (Priors)</h3>
+                <label>
+                    P(Class 1) <span id="prior1-val" class="value-display">0.5</span>
+                    <input type="range" id="prior1" min="0.01" max="0.99" step="0.01" value="0.5">
+                </label>
+                <div class="note">
+                    改变先验会整体平移分类边界。P(C1) 越大，决策区域越向 C1 扩张。
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3>Class 0 (蓝) 参数</h3>
+                <label>均值 X: <span id="mu0x-val" class="value-display">2</span>
+                    <input type="range" id="mu0x" min="-5" max="10" step="0.1" value="2">
+                </label>
+                <label>均值 Y: <span id="mu0y-val" class="value-display">2</span>
+                    <input type="range" id="mu0y" min="-5" max="10" step="0.1" value="2">
+                </label>
+                <label>标准差 (Sigma): <span id="sigma0-val" class="value-display">1.5</span>
+                    <input type="range" id="sigma0" min="0.5" max="5" step="0.1" value="1.5">
+                </label>
+            </div>
+
+            <div class="control-group">
+                <h3>Class 1 (红) 参数</h3>
+                <label>均值 X: <span id="mu1x-val" class="value-display">6</span>
+                    <input type="range" id="mu1x" min="-5" max="10" step="0.1" value="6">
+                </label>
+                <label>均值 Y: <span id="mu1y-val" class="value-display">6</span>
+                    <input type="range" id="mu1y" min="-5" max="10" step="0.1" value="6">
+                </label>
+                <label>标准差 (Sigma): <span id="sigma1-val" class="value-display">1.5</span>
+                    <input type="range" id="sigma1" min="0.5" max="5" step="0.1" value="1.5">
+                </label>
+            </div>
+
+            <div class="control-group">
+                <h3>数据生成设置 (Data Gen)</h3>
+                <label>
+                    特征相关性 Correlation (Violation): <span id="rho-val" class="value-display">0.0</span>
+                    <input type="range" id="rho" min="-0.95" max="0.95" step="0.05" value="0.0">
+                </label>
+                <div class="note">
+                    此选项仅改变**生成数据**的真实分布。朴素贝叶斯模型始终假设特征独立 (Correlation=0)。<br>
+                    当相关性很高时，由于违反了独立性假设，模型性能会下降。
+                </div>
+                <button onclick="generateAndDraw()" style="width:100%; padding:8px; margin-top:10px; cursor:pointer; background:#3498db; color:white; border:none; border-radius:4px;">重新生成数据</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="legend">
+                <div class="legend-item"><div class="color-box" style="background:rgba(54, 162, 235, 0.8)"></div> Class 0 (Data)</div>
+                <div class="legend-item"><div class="color-box" style="background:rgba(255, 99, 132, 0.8)"></div> Class 1 (Data)</div>
+                <div class="legend-item"><div class="color-box" style="background:rgba(54, 162, 235, 0.2)"></div> Region 0</div>
+                <div class="legend-item"><div class="color-box" style="background:rgba(255, 99, 132, 0.2)"></div> Region 1</div>
+            </div>
+
+            <div class="canvas-container">
+                <canvas id="mainCanvas"></canvas>
+            </div>
+
+            <div class="metrics-panel">
+                <div class="metric">
+                    <div class="metric-value" id="accuracy">0.00%</div>
+                    <div class="metric-label">测试集准确率 (Accuracy)</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" id="bayes-error">0.00</div>
+                    <div class="metric-label">Log-Likelihood (Approximated)</div>
+                </div>
+            </div>
+
+            <div style="margin-top: 15px; padding: 10px; background: #fafafa; border: 1px solid #eee; border-radius: 5px;">
+                <h4>核心公式：Gaussian Naive Bayes</h4>
+                <p>
+                    $$ P(y|x) \propto P(y) \prod_{j=1}^{d} P(x_j|y) $$
+                    其中条件概率假设为高斯分布：
+                    $$ P(x_j|y=k) = \frac{1}{\sqrt{2\pi\sigma_{kj}^2}} \exp\left(-\frac{(x_j - \mu_{kj})^2}{2\sigma_{kj}^2}\right) $$
+                    决策边界即 $P(y=1|x) = P(y=0|x)$ 的等值线。
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('mainCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // State
+        let dataPoints = [];
+        const n_samples = 300;
+        
+        // Parameters
+        const params = {
+            prior1: 0.5,
+            mu0x: 2, mu0y: 2, sigma0: 1.5,
+            mu1x: 6, mu1y: 6, sigma1: 1.5,
+            rho: 0.0 // Correlation for data generation only
+        };
+
+        // Inputs
+        const inputs = {
+            prior1: document.getElementById('prior1'),
+            mu0x: document.getElementById('mu0x'),
+            mu0y: document.getElementById('mu0y'),
+            sigma0: document.getElementById('sigma0'),
+            mu1x: document.getElementById('mu1x'),
+            mu1y: document.getElementById('mu1y'),
+            sigma1: document.getElementById('sigma1'),
+            rho: document.getElementById('rho')
+        };
+
+        // Bind events
+        Object.keys(inputs).forEach(key => {
+            inputs[key].addEventListener('input', (e) => {
+                params[key] = parseFloat(e.target.value);
+                document.getElementById(key + '-val').innerText = params[key];
+                // If data generation params change (rho, or means/sigmas if we consider them "ground truth"), 
+                // strictly speaking we should regenerate data? 
+                // The prompt says "Inputs: Conditional parameters". 
+                // Let's make it so: 
+                // 1. Changing Priors/Means/Sigmas updates BOTH the Model AND the Data Generation (to keep them synced as "True Params").
+                // 2. Changing Rho ONLY changes Data Generation (Model assumes Rho=0).
+                
+                // However, for better interactivity, let's regenerate data on every change 
+                // to show how the *distribution* shifts.
+                generateAndDraw();
+            });
+        });
+
+        function randn_bm() {
+            let u = 0, v = 0;
+            while(u === 0) u = Math.random(); 
+            while(v === 0) v = Math.random();
+            return Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
+        }
+
+        function generateData() {
+            dataPoints = [];
+            const p1 = params.prior1;
+            
+            for(let i=0; i<n_samples; i++) {
+                // 1. Choose class
+                const y = Math.random() < p1 ? 1 : 0;
+                
+                // 2. Generate features
+                // Bivariate Normal with correlation rho
+                // X ~ N(0, 1), Y ~ N(0, 1) correlated
+                let z1 = randn_bm();
+                let z2 = randn_bm();
+                
+                // Apply correlation
+                // x_std = z1
+                // y_std = rho * z1 + sqrt(1 - rho^2) * z2
+                let x_std = z1;
+                let y_std = params.rho * z1 + Math.sqrt(1 - params.rho*params.rho) * z2;
+                
+                // Scale and shift
+                let x, y_coord;
+                if (y === 0) {
+                    x = params.mu0x + x_std * params.sigma0;
+                    y_coord = params.mu0y + y_std * params.sigma0;
+                } else {
+                    x = params.mu1x + x_std * params.sigma1;
+                    y_coord = params.mu1y + y_std * params.sigma1;
+                }
+                
+                dataPoints.push({ x, y: y_coord, label: y });
+            }
+        }
+
+        // Gaussian PDF
+        function gaussian(x, mu, sigma) {
+            return (1 / (Math.sqrt(2 * Math.PI) * sigma)) * Math.exp(-0.5 * Math.pow((x - mu) / sigma, 2));
+        }
+
+        // Naive Bayes Predict (returns P(C1|x))
+        function predictProba(x, y) {
+            // Likelihoods (Independence Assumption: P(x,y|C) = P(x|C)*P(y|C))
+            // Class 0
+            const p_x_c0 = gaussian(x, params.mu0x, params.sigma0);
+            const p_y_c0 = gaussian(y, params.mu0y, params.sigma0);
+            const like0 = p_x_c0 * p_y_c0;
+            
+            // Class 1
+            const p_x_c1 = gaussian(x, params.mu1x, params.sigma1);
+            const p_y_c1 = gaussian(y, params.mu1y, params.sigma1);
+            const like1 = p_x_c1 * p_y_c1;
+            
+            // Priors
+            const prior1 = params.prior1;
+            const prior0 = 1 - prior1;
+            
+            // Posterior (unnormalized)
+            const post0 = like0 * prior0;
+            const post1 = like1 * prior1;
+            
+            // Normalize
+            if (post0 + post1 === 0) return 0.5; // Avoid division by zero
+            return post1 / (post0 + post1);
+        }
+
+        function draw() {
+            // Set canvas size
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            
+            // Define viewport
+            // Find reasonable bounds based on means and sigmas
+            const allMu = [params.mu0x, params.mu0y, params.mu1x, params.mu1y];
+            const allSigma = [params.sigma0, params.sigma1];
+            const maxSigma = Math.max(...allSigma);
+            const minMu = Math.min(...allMu);
+            const maxMu = Math.max(...allMu);
+            
+            const viewMinX = minMu - 4 * maxSigma;
+            const viewMaxX = maxMu + 4 * maxSigma;
+            const viewMinY = minMu - 4 * maxSigma; // Keep aspect ratio roughly 1:1 if possible, but dynamic is fine
+            const viewMaxY = maxMu + 4 * maxSigma;
+            
+            // Transform functions
+            function toCanvasX(x) {
+                return (x - viewMinX) / (viewMaxX - viewMinX) * canvas.width;
+            }
+            function toCanvasY(y) {
+                return canvas.height - (y - viewMinY) / (viewMaxY - viewMinY) * canvas.height;
+            }
+            
+            // 1. Draw Decision Regions (Heatmap)
+            // Low res scan for performance
+            const resolution = 4; // pixel size of grid blocks
+            for (let px = 0; px < canvas.width; px += resolution) {
+                for (let py = 0; py < canvas.height; py += resolution) {
+                    // Map back to data space
+                    const x = viewMinX + (px / canvas.width) * (viewMaxX - viewMinX);
+                    const y = viewMinY + ((canvas.height - py) / canvas.height) * (viewMaxY - viewMinY);
+                    
+                    const prob1 = predictProba(x, y);
+                    
+                    // Color: Blue (C0) to Red (C1)
+                    // Use rgba for transparency
+                    // C0 color: 54, 162, 235
+                    // C1 color: 255, 99, 132
+                    
+                    let r, g, b, alpha;
+                    
+                    // Hard decision boundary or Gradient? 
+                    // Let's do Gradient to show uncertainty, but sharper near 0.5
+                    // Or simple regions. Let's do simple regions with light color.
+                    
+                    if (prob1 > 0.5) {
+                        // Region 1 (Red)
+                        // Intensity based on confidence?
+                        const conf = (prob1 - 0.5) * 2; // 0 to 1
+                        r = 255; g = 99; b = 132;
+                        alpha = 0.1 + 0.3 * conf;
+                    } else {
+                        // Region 0 (Blue)
+                        const conf = (0.5 - prob1) * 2; // 0 to 1
+                        r = 54; g = 162; b = 235;
+                        alpha = 0.1 + 0.3 * conf;
+                    }
+                    
+                    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+                    ctx.fillRect(px, py, resolution, resolution);
+                }
+            }
+            
+            // 2. Draw Data Points
+            let correct = 0;
+            let total = dataPoints.length;
+            
+            dataPoints.forEach(p => {
+                const cx = toCanvasX(p.x);
+                const cy = toCanvasY(p.y);
+                
+                const prob1 = predictProba(p.x, p.y);
+                const pred = prob1 >= 0.5 ? 1 : 0;
+                
+                if (pred === p.label) correct++;
+                
+                ctx.beginPath();
+                ctx.arc(cx, cy, 3, 0, 2 * Math.PI);
+                
+                if (p.label === 1) {
+                    ctx.fillStyle = 'rgba(255, 99, 132, 1)'; // Red
+                    ctx.strokeStyle = '#fff';
+                } else {
+                    ctx.fillStyle = 'rgba(54, 162, 235, 1)'; // Blue
+                    ctx.strokeStyle = '#fff';
+                }
+                
+                // Highlight misclassified
+                if (pred !== p.label) {
+                    ctx.strokeStyle = 'black';
+                    ctx.lineWidth = 2;
+                } else {
+                    ctx.lineWidth = 1;
+                }
+                
+                ctx.fill();
+                ctx.stroke();
+            });
+            
+            // 3. Draw Decision Boundary Line (Contour P=0.5)
+            // Simple approach: marching squares or just checking threshold crossing while scanning?
+            // Since we already scanned, we can just do a visual approx or leave the color regions to define it.
+            // The color transition is visible enough.
+            
+            // Update Metrics
+            const acc = total > 0 ? (correct / total * 100).toFixed(2) : "0.00";
+            document.getElementById('accuracy').innerText = acc + "%";
+        }
+
+        function generateAndDraw() {
+            generateData();
+            draw();
+        }
+
+        // Handle Resize
+        window.addEventListener('resize', draw);
+
+        // Initial Run
+        generateAndDraw();
+
+    </script>
+<script src="vendor/mathjax-loader.js"></script>
+<script src="vendor/mathjax-tex-svg.js"></script>
+</body>
+</html>

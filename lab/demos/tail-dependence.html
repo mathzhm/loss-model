@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tail Dependence 系数可视化</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #e67e22;
+            --bg-color: #f5f7fa;
+            --panel-bg: #ffffff;
+            --text-color: #333;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 { margin-top: 0; color: var(--primary-color); }
+        
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            max-width: 1400px;
+            width: 100%;
+        }
+
+        .control-panel {
+            flex: 1;
+            min-width: 320px;
+            background: var(--panel-bg);
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .charts-panel {
+            flex: 2;
+            min-width: 600px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .chart-container {
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .control-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; }
+        input[type="range"], select { width: 100%; padding: 8px; box-sizing: border-box; }
+        
+        .value-display { font-size: 0.9em; color: #666; margin-top: 5px; display: block; }
+
+        .indicator-box {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .indicator {
+            flex: 1;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+            border: 1px solid #ddd;
+        }
+        .indicator-val { font-size: 1.8em; font-weight: bold; color: var(--primary-color); margin: 5px 0; }
+        .indicator-label { font-size: 0.9em; color: #7f8c8d; }
+        
+        .bar-container {
+            height: 10px;
+            background: #eee;
+            border-radius: 5px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+        .bar-fill {
+            height: 100%;
+            background: var(--accent-color);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .theory-box {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e8f6f3;
+            border-left: 4px solid #1abc9c;
+            border-radius: 4px;
+            font-size: 0.95em;
+            line-height: 1.6;
+        }
+        
+        .code-math { font-family: 'Courier New', monospace; background: rgba(0,0,0,0.05); padding: 2px 4px; border-radius: 3px; }
+
+        canvas { width: 100%; height: 350px; background: #fff; }
+
+    </style>
+</head>
+<body>
+
+    <h1>Tail Dependence Coefficient ($\lambda_L, \lambda_U$)</h1>
+
+    <div class="container">
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <div class="control-group">
+                <label for="copulaType">Copula 类型</label>
+                <select id="copulaType" onchange="updateControls()">
+                    <option value="gumbel">Gumbel (上尾)</option>
+                    <option value="clayton">Clayton (下尾)</option>
+                    <option value="frank">Frank (无)</option>
+                    <option value="gaussian">Gaussian (无)</option>
+                    <option value="t">Student's t (双尾)</option>
+                </select>
+            </div>
+
+            <!-- Parameters Section (Dynamic) -->
+            <div id="paramsSection">
+                <!-- Injected via JS -->
+            </div>
+
+            <div class="theory-box" id="theoryText">
+                <!-- Theoretical Conclusion -->
+            </div>
+            
+            <div class="control-group" style="margin-top: 20px;">
+                <label>显示选项</label>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" id="showCurves" checked onchange="updateSimulation()" style="width: auto;">
+                    <span>显示 $\lambda(q)$ 模拟曲线</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Panel -->
+        <div class="charts-panel">
+            <!-- Numerical Indicators -->
+            <div class="indicator-box">
+                <div class="indicator">
+                    <div class="indicator-label">Lower Tail Dependence ($\lambda_L$)</div>
+                    <div class="indicator-val" id="val_lambdaL">0.00</div>
+                    <div class="bar-container"><div class="bar-fill" id="bar_lambdaL"></div></div>
+                    <div style="font-size:0.8em; color:#999; margin-top:5px;">Theoretical: <span id="theo_lambdaL">-</span></div>
+                </div>
+                <div class="indicator">
+                    <div class="indicator-label">Upper Tail Dependence ($\lambda_U$)</div>
+                    <div class="indicator-val" id="val_lambdaU">0.00</div>
+                    <div class="bar-container"><div class="bar-fill" id="bar_lambdaU"></div></div>
+                    <div style="font-size:0.8em; color:#999; margin-top:5px;">Theoretical: <span id="theo_lambdaU">-</span></div>
+                </div>
+            </div>
+
+            <!-- Curve Chart -->
+            <div class="chart-container">
+                <h3>Tail Dependence Curves $\lambda(q)$</h3>
+                <canvas id="curveCanvas"></canvas>
+                <div style="text-align: center; font-size: 0.85em; color: #666; margin-top: 10px;">
+                    Lower Curve: $P(V \le q \mid U \le q)$ for $q \in (0, 0.5]$ &nbsp;&nbsp;|&nbsp;&nbsp; 
+                    Upper Curve: $P(V > q \mid U > q)$ for $q \in [0.5, 1)$
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Statistical Utilities (Reused) ---
+
+        function stdNormalCDF(x) {
+            var t = 1 / (1 + 0.2316419 * Math.abs(x));
+            var d = 0.3989423 * Math.exp(-x * x / 2);
+            var prob = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+            if (x > 0) prob = 1 - prob;
+            return prob;
+        }
+        
+        // t-CDF approx
+        function tCDF(x, v) {
+            if (v > 1000) return stdNormalCDF(x);
+            let xt = x;
+            let prob = 0;
+            let a = v/2;
+            let b = 0.5;
+            let z = v / (v + xt*xt);
+            // Beta regularized
+            let beta = ibeta(z, a, b);
+            if (xt > 0) prob = 1 - 0.5 * beta;
+            else prob = 0.5 * beta;
+            return prob;
+        }
+
+        // Incomplete Beta
+        function ibeta(x, a, b) {
+            if (x == 0) return 0;
+            if (x == 1) return 1;
+            if (x > (a+1)/(a+b+2)) return 1 - ibeta(1-x, b, a);
+            let lbeta = lngamma(a) + lngamma(b) - lngamma(a+b);
+            let front = Math.exp(a * Math.log(x) + b * Math.log(1-x) - lbeta) / a;
+            let f = 1, C = 1, D = 0;
+            for(let i=1; i<=200; i++) {
+                let numer;
+                let m2 = Math.floor((i-1)/2);
+                if (i % 2 == 0) numer = m2 * (b - m2) * x / ((a + 2*m2 - 1) * (a + 2*m2));
+                else numer = -(a + m2) * (a + b + m2) * x / ((a + 2*m2) * (a + 2*m2 + 1));
+                D = 1 + numer * D; if (Math.abs(D) < 1e-30) D = 1e-30;
+                C = 1 + numer / C; if (Math.abs(C) < 1e-30) C = 1e-30;
+                D = 1/D; f *= C * D;
+                if (Math.abs(C * D - 1) < 1e-8) break;
+            }
+            return front * f;
+        }
+
+        function lngamma(z) {
+            var c = [0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313, -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+            if (z < 0.5) return Math.log(Math.PI / Math.sin(Math.PI * z)) - lngamma(1 - z);
+            z -= 1;
+            var x = c[0];
+            for (var i = 1; i < c.length; i++) x += c[i] / (z + i);
+            var t = z + 7 + 0.5;
+            return 0.5 * Math.log(2 * Math.PI) + (z + 0.5) * Math.log(t) - t + Math.log(x);
+        }
+
+        // Generators
+        function randn() {
+            let u = 0, v = 0;
+            while(u === 0) u = Math.random();
+            while(v === 0) v = Math.random();
+            return Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
+        }
+        function randGamma(k, theta=1) {
+            if (k < 1) return randGamma(1 + k, theta) * Math.pow(Math.random(), 1 / k);
+            let d = k - 1 / 3, c = 1 / Math.sqrt(9 * d);
+            while (true) {
+                let x = randn(), v = 1 + c * x;
+                while (v <= 0) { x = randn(); v = 1 + c * x; }
+                v = v * v * v; let u = Math.random();
+                if (u < 1 - 0.0331 * x * x * x * x) return d * v * theta;
+                if (Math.log(u) < 0.5 * x * x + d * (1 - v + Math.log(v))) return d * v * theta;
+            }
+        }
+        function randStable(alpha) {
+            let theta = (Math.random() - 0.5) * Math.PI;
+            let w = -Math.log(Math.random());
+            let num = Math.sin(alpha * (theta + Math.PI/2));
+            let den = Math.pow(Math.cos(theta), 1/alpha);
+            return (num / den) * Math.pow(Math.cos(theta - alpha * (theta + Math.PI/2)) / w, (1-alpha)/alpha);
+        }
+
+        // --- Copula Logic ---
+
+        const Copulas = {
+            gumbel: {
+                params: [{id: 'alpha', label: 'Parameter (α)', min: 1.1, max: 10, step: 0.1, val: 2.0}],
+                theory: (p) => {
+                    let a = parseFloat(p.alpha);
+                    let lu = 2 - Math.pow(2, 1/a);
+                    return { ll: 0, lu: lu, text: `Gumbel: $\\lambda_L=0$, $\\lambda_U = 2 - 2^{1/\\alpha} = ${lu.toFixed(3)}$ (PDF给出)` };
+                },
+                generate: (m, p) => {
+                    let a = parseFloat(p.alpha);
+                    let invA = 1/a;
+                    let cosPart = Math.cos(Math.PI * invA / 2);
+                    let scale = Math.pow(cosPart, 1/invA);
+                    let data = [];
+                    for(let i=0; i<m; i++) {
+                        let S = randStable(invA) * scale;
+                        let u = Math.exp(-Math.pow(-Math.log(Math.random())/S, invA));
+                        let v = Math.exp(-Math.pow(-Math.log(Math.random())/S, invA));
+                        data.push({x: u, y: v});
+                    }
+                    return data;
+                }
+            },
+            clayton: {
+                params: [{id: 'alpha', label: 'Parameter (α)', min: 0.1, max: 10, step: 0.1, val: 2.0}],
+                theory: (p) => {
+                    let a = parseFloat(p.alpha);
+                    let ll = Math.pow(2, -1/a);
+                    return { ll: ll, lu: 0, text: `Clayton: $\\lambda_U=0$, $\\lambda_L = 2^{-1/\\alpha} = ${ll.toFixed(3)}$ ($\\alpha > 0$情形; PDF表格给出)` };
+                },
+                generate: (m, p) => {
+                    let a = parseFloat(p.alpha);
+                    let data = [];
+                    for(let i=0; i<m; i++) {
+                        let M = randGamma(1/a, 1);
+                        let u = Math.pow(1 + (-Math.log(Math.random()))/M, -1/a);
+                        let v = Math.pow(1 + (-Math.log(Math.random()))/M, -1/a);
+                        data.push({x: u, y: v});
+                    }
+                    return data;
+                }
+            },
+            frank: {
+                params: [{id: 'alpha', label: 'Parameter (α)', min: 0.1, max: 20, step: 0.1, val: 5.0}],
+                theory: (p) => {
+                    return { ll: 0, lu: 0, text: `Frank: $\\lambda_L = \\lambda_U = 0$ (无尾部依赖)` };
+                },
+                generate: (m, p) => {
+                    let a = parseFloat(p.alpha);
+                    let data = [];
+                    for(let i=0; i<m; i++) {
+                        let u = Math.random();
+                        let t = Math.random();
+                        let num = t * (Math.exp(-a) - 1);
+                        let den = Math.exp(-a * u) * (1 - t) + t;
+                        let v = -1/a * Math.log(1 + num / den);
+                        data.push({x: u, y: v});
+                    }
+                    return data;
+                }
+            },
+            gaussian: {
+                params: [{id: 'rho', label: 'Correlation (ρ)', min: -0.99, max: 0.99, step: 0.01, val: 0.7}],
+                theory: (p) => {
+                    let r = parseFloat(p.rho);
+                    let txt = (r >= 0.999) ? "1.0" : "0";
+                    return { ll: (r>=0.999?1:0), lu: (r>=0.999?1:0), text: `Gaussian: $\\lambda_L = \\lambda_U = 0$ (除非 $\\rho = 1$)` };
+                },
+                generate: (m, p) => {
+                    let rho = parseFloat(p.rho);
+                    let data = [];
+                    for(let i=0; i<m; i++) {
+                        let z1 = randn();
+                        let z2 = rho * z1 + Math.sqrt(1 - rho*rho) * randn();
+                        data.push({x: stdNormalCDF(z1), y: stdNormalCDF(z2)});
+                    }
+                    return data;
+                }
+            },
+            t: {
+                params: [
+                    {id: 'rho', label: 'Correlation (ρ)', min: -0.99, max: 0.99, step: 0.01, val: 0.5},
+                    {id: 'nu', label: 'DoF (ν)', min: 1, max: 20, step: 1, val: 3}
+                ],
+                theory: (p) => {
+                    let r = parseFloat(p.rho);
+                    let nu = parseFloat(p.nu);
+                    // Formula: 2 * tCDF( - sqrt((nu+1)(1-rho)/(1+rho)) , nu+1 )
+                    let arg = -Math.sqrt((nu+1)*(1-r)/(1+r));
+                    let lam = 2 * tCDF(arg, nu+1);
+                    return { ll: lam, lu: lam, text: `Student's t: 上下尾相同且随 $\\nu$ 变 ($\\nu$ 越小越强)。当前 $\\lambda \\approx ${lam.toFixed(3)}$` };
+                },
+                generate: (m, p) => {
+                    let rho = parseFloat(p.rho);
+                    let nu = parseFloat(p.nu);
+                    let data = [];
+                    for(let i=0; i<m; i++) {
+                        let z1 = randn();
+                        let z2 = rho * z1 + Math.sqrt(1 - rho*rho) * randn();
+                        let w = randGamma(nu/2, 2);
+                        let s = Math.sqrt(w / nu);
+                        data.push({x: tCDF(z1/s, nu), y: tCDF(z2/s, nu)});
+                    }
+                    return data;
+                }
+            }
+        };
+
+        // --- UI & Viz ---
+
+        function updateControls() {
+            const type = document.getElementById('copulaType').value;
+            const config = Copulas[type];
+            const container = document.getElementById('paramsSection');
+            container.innerHTML = '';
+
+            config.params.forEach(p => {
+                const div = document.createElement('div');
+                div.className = 'control-group';
+                div.innerHTML = `
+                    <label>${p.label}</label>
+                    <input type="range" id="param_${p.id}" 
+                           min="${p.min}" max="${p.max}" step="${p.step}" value="${p.val}" 
+                           oninput="updateVal('${p.id}', this.value); updateSimulation();">
+                    <span class="value-display">${p.id} = <span id="disp_${p.id}">${p.val}</span></span>
+                `;
+                container.appendChild(div);
+            });
+            updateSimulation();
+        }
+
+        function updateVal(id, val) {
+            document.getElementById(`disp_${id}`).innerText = val;
+        }
+
+        function updateSimulation() {
+            const type = document.getElementById('copulaType').value;
+            const config = Copulas[type];
+            const params = {};
+            config.params.forEach(p => {
+                params[p.id] = document.getElementById(`param_${p.id}`).value;
+            });
+
+            // 1. Update Theory Text & Values
+            const theo = config.theory(params);
+            document.getElementById('theoryText').innerHTML = theo.text;
+            document.getElementById('theo_lambdaL').innerText = theo.ll.toFixed(3);
+            document.getElementById('theo_lambdaU').innerText = theo.lu.toFixed(3);
+            
+            // Update Bar Indicators
+            document.getElementById('val_lambdaL').innerText = theo.ll.toFixed(3);
+            document.getElementById('bar_lambdaL').style.width = (theo.ll * 100) + '%';
+            document.getElementById('val_lambdaU').innerText = theo.lu.toFixed(3);
+            document.getElementById('bar_lambdaU').style.width = (theo.lu * 100) + '%';
+
+            // 2. Simulation & Curve Drawing
+            if(document.getElementById('showCurves').checked) {
+                // Generate large sample for smooth curve
+                const m = 5000; 
+                const data = config.generate(m, params);
+                drawCurve(data);
+            } else {
+                const canvas = document.getElementById('curveCanvas');
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0,0,canvas.width,canvas.height);
+            }
+        }
+
+        function drawCurve(data) {
+            const canvas = document.getElementById('curveCanvas');
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width = canvas.offsetWidth;
+            const h = canvas.height = canvas.offsetHeight;
+            const pad = {l: 50, r: 20, t: 30, b: 30};
+            
+            ctx.clearRect(0,0,w,h);
+
+            // Axes
+            ctx.beginPath();
+            ctx.strokeStyle = '#ddd';
+            ctx.moveTo(pad.l, pad.t);
+            ctx.lineTo(pad.l, h - pad.b);
+            ctx.lineTo(w - pad.r, h - pad.b);
+            ctx.stroke();
+
+            // Labels
+            ctx.fillStyle = '#666';
+            ctx.textAlign = 'right';
+            ctx.fillText("1.0", pad.l - 5, pad.t);
+            ctx.fillText("0.0", pad.l - 5, h - pad.b);
+            ctx.textAlign = 'center';
+            ctx.fillText("q", w/2, h - 5);
+
+            // Compute Curves
+            // Lower: q from 0.01 to 0.5. P(V <= q | U <= q)
+            // Upper: q from 0.5 to 0.99. P(V > q | U > q)
+            
+            const n = data.length;
+            
+            // We can bin or compute exactly at steps
+            const steps = 50;
+            
+            // Lower Curve (Blue)
+            ctx.beginPath();
+            ctx.strokeStyle = '#3498db';
+            ctx.lineWidth = 2;
+            let first = true;
+            
+            for(let i=1; i<=steps; i++) {
+                let q = (i / steps) * 0.5; // 0 to 0.5
+                if(q < 0.01) continue;
+                
+                let countU = 0;
+                let countBoth = 0;
+                for(let p of data) {
+                    if(p.x <= q) {
+                        countU++;
+                        if(p.y <= q) countBoth++;
+                    }
+                }
+                let prob = countU > 0 ? countBoth/countU : 0;
+                
+                let x = pad.l + (q / 1.0) * (w - pad.l - pad.r);
+                let y = (h - pad.b) - prob * (h - pad.b - pad.t);
+                
+                if(first) { ctx.moveTo(x, y); first=false; }
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // Upper Curve (Red)
+            ctx.beginPath();
+            ctx.strokeStyle = '#e74c3c';
+            ctx.lineWidth = 2;
+            first = true;
+            
+            for(let i=0; i<steps; i++) {
+                let q = 0.5 + (i / steps) * 0.5; // 0.5 to 1.0
+                if(q > 0.99) break;
+                
+                let countU = 0;
+                let countBoth = 0;
+                for(let p of data) {
+                    if(p.x > q) {
+                        countU++;
+                        if(p.y > q) countBoth++;
+                    }
+                }
+                let prob = countU > 0 ? countBoth/countU : 0;
+                
+                let x = pad.l + (q / 1.0) * (w - pad.l - pad.r);
+                let y = (h - pad.b) - prob * (h - pad.b - pad.t);
+                
+                if(first) { ctx.moveTo(x, y); first=false; }
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            
+            // Middle divider
+            ctx.beginPath();
+            ctx.setLineDash([5, 5]);
+            ctx.strokeStyle = '#ccc';
+            let midX = pad.l + 0.5 * (w - pad.l - pad.r);
+            ctx.moveTo(midX, pad.t);
+            ctx.lineTo(midX, h - pad.b);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Legend
+            ctx.fillStyle = '#3498db';
+            ctx.fillText("Lower Tail (q < 0.5)", pad.l + 100, pad.t - 10);
+            ctx.fillStyle = '#e74c3c';
+            ctx.fillText("Upper Tail (q > 0.5)", w - pad.r - 100, pad.t - 10);
+        }
+
+        // Init
+        updateControls();
+        window.addEventListener('resize', () => updateSimulation());
+
+    </script>
+</body>
+</html>

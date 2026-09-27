@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>决策树与集成学习互动演示</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,'Microsoft YaHei',sans-serif;line-height:1.6;color:#333;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;padding:16px}
+.container{max-width:1280px;margin:0 auto;background:#fff;border-radius:15px;box-shadow:0 20px 40px rgba(0,0,0,.15);overflow:hidden}
+.header{background:linear-gradient(135deg,#2c3e50,#34495e);color:#fff;padding:18px;text-align:center}
+.header h1{font-size:1.6rem;margin-bottom:6px}
+.header p{font-size:1rem;opacity:.9}
+.content{padding:15px;display:flex;flex-direction:column;gap:14px}
+.panel{background:#f8f9fa;border-radius:8px;padding:16px;box-shadow:0 3px 10px rgba(0,0,0,.08)}
+.panel h2{color:#2c3e50;margin-bottom:12px;font-size:1.15rem;border-bottom:2px solid #3498db;padding-bottom:6px}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:15px}
+@media(max-width:820px){.controls{grid-template-columns:1fr}}
+.pc{margin-bottom:14px}
+.pc label{display:block;margin-bottom:5px;font-weight:600;color:#2c3e50}
+.slider-row{display:flex;align-items:center;gap:10px}
+.slider-row input[type=range]{flex:1;height:6px;background:#ddd;border-radius:3px;outline:none;-webkit-appearance:none}
+.slider-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;background:#3498db;border-radius:50%;cursor:pointer}
+.slider-row span{min-width:70px;text-align:center;font-weight:700;color:#3498db}
+.btn{padding:10px 18px;border:none;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;background:#27ae60;color:#fff;transition:all .2s}
+.btn:hover{transform:translateY(-2px);box-shadow:0 5px 15px rgba(0,0,0,.2)}
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:900px){.charts{grid-template-columns:1fr}}
+.chart-box h3{color:#2c3e50;font-size:1rem;margin-bottom:6px;text-align:center}
+.chart-box .sub{display:block;text-align:center;font-size:.82rem;color:#7f8c8d;margin-bottom:6px}
+canvas{width:100%;background:#fff;border-radius:8px;box-shadow:0 3px 10px rgba(0,0,0,.08)}
+.stats-row{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px}
+.stat-item{background:#fff;padding:8px;border-radius:8px;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.07)}
+.stat-value{font-size:1.15rem;font-weight:700;color:#3498db}
+.stat-label{font-size:.78rem;color:#7f8c8d}
+.verdict{margin-top:10px;padding:10px 14px;border-radius:0 6px 6px 0;font-weight:600;font-size:.95rem}
+.theory{background:#f8f9fa;padding:20px;border-radius:10px}
+.theory h3{color:#2c3e50;margin-bottom:12px}
+.theory p{margin-bottom:12px;text-align:justify}
+.math{background:#e8f4fd;padding:12px;border-radius:8px;margin:12px 0;font-family:'Cambria Math',Georgia,serif;text-align:center}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>决策树与集成：单棵树的锯齿 vs 森林的平滑</h1>
+    <p>同一份数据、同样的树深——单棵决策树方差大、边界锯齿状；Bootstrap 聚合（Bagging）平均掉噪声，边界平滑、测试精度更高</p>
+  </div>
+  <div class="content">
+    <div class="controls">
+      <div class="panel">
+        <h2>数据与模型设定</h2>
+        <div class="pc"><label>树的最大深度 depth（浅 = 欠拟合，深 = 高方差）</label>
+          <div class="slider-row"><input type="range" id="depth" min="1" max="10" step="1" value="3"><span id="depth-val">3</span></div></div>
+        <div class="pc"><label>集成棵数 B（1 = 无集成，就是单棵树）</label>
+          <div class="slider-row"><input type="range" id="B" min="1" max="100" step="1" value="1"><span id="B-val">1</span></div></div>
+        <div class="pc"><label>数据噪声 σ</label>
+          <div class="slider-row"><input type="range" id="noise" min="0" max="0.5" step="0.02" value="0.2"><span id="noise-val">0.20</span></div></div>
+      </div>
+      <div class="panel">
+        <h2>操作</h2>
+        <button class="btn" id="go">🎲 重新生成数据并训练</button>
+        <div style="margin-top:12px;background:#e8f4fd;border-left:4px solid #3498db;padding:10px 12px;border-radius:0 6px 6px 0;font-size:.95rem">
+          数据：两个「半月形」类别 + 高斯噪声，70% 训练 / 30% 测试。<br>
+          左图 = 单棵 CART 树（深度 depth）；右图 = B 棵同样深度的树，各用一份 Bootstrap 重抽样训练，多数投票。
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>决策边界对比（背景色 = 模型判定，圆点 = 数据）</h2>
+      <div class="charts">
+        <div class="chart-box">
+          <h3>单棵决策树</h3>
+          <span class="sub">轴对齐切分，边界是台阶状</span>
+          <canvas id="c1" width="480" height="380"></canvas>
+          <div class="stats-row">
+            <div class="stat-item"><div class="stat-value" id="tr1">–</div><div class="stat-label">训练精度</div></div>
+            <div class="stat-item"><div class="stat-value" id="te1">–</div><div class="stat-label">测试精度</div></div>
+          </div>
+        </div>
+        <div class="chart-box">
+          <h3>Bootstrap 集成（B 棵多数投票）</h3>
+          <span class="sub">平均掉单棵树的方差，边界平滑</span>
+          <canvas id="c2" width="480" height="380"></canvas>
+          <div class="stats-row">
+            <div class="stat-item"><div class="stat-value" id="tr2">–</div><div class="stat-label">训练精度</div></div>
+            <div class="stat-item"><div class="stat-value" id="te2">–</div><div class="stat-label">测试精度</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="verdict ok" id="verdict">–</div>
+    </div>
+    <div class="theory">
+      <h3>原理讲解</h3>
+      <p><b>决策树</b>对特征空间做递归的轴对齐切分：在每个节点选「哪个特征、切在哪」使子节点最纯（基尼不纯度最小）。它的优点是直观、能自动捕捉交互；缺点是<b>对训练样本极其敏感</b>——换一份同样分布的样本，深树的边界会大不一样，这正是<b>高方差</b>。</p>
+      <p><b>偏差-方差分解</b>（呼应 Ch21 的 U 形总误差）在树上格外直观：<b>depth 太小 → 高偏差</b>（边界歪歪扭扭也拟合不了月牙，训练测试都差）；<b>depth 太大 → 高方差</b>（训练精度逼近 100%，边界碎成孤岛，测试精度反而下降）。</p>
+      <div class="math">E[(y − ŷ)²] = Bias² + Variance + 不可约噪声<br>
+Bagging：B 棵 Bootstrap 树的多数投票 ≈ 方差降到约 1/B（树间相关越低降得越多）</div>
+      <p><b>为什么 Bagging 有效</b>：每棵树只看一份有放回重抽样的数据，各自「记错」的地方不同，投票把个体误差平均掉——方差下降而偏差几乎不变。把 B 拖到 30–100，右图边界立刻变平滑、测试精度上台阶：这就是随机森林的雏形（随机森林再往每棵树里加「随机选特征」，进一步降低树间相关）。</p>
+      <p><b>操作建议</b>：① depth=1：两图都欠拟合（高偏差）；② depth=8、B=1：左图训练精度≈100% 但测试掉下来（高方差）；③ 同样 depth=8、B=50：右图测试精度追平甚至反超——<b>同样的复杂度，集成把方差吃掉了</b>。调大噪声 σ，集成的优势更明显。</p>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+"use strict";
+var GRID=64; // boundary resolution
+var data=null; // {train:[{x,y,label}], test:[...]}
+function moons(n,noise){
+  var pts=[];
+  for(var i=0;i<n;i++){
+    var cls=i%2,t=Math.PI*Math.random();
+    var x,y;
+    if(cls===0){x=Math.cos(t);y=Math.sin(t);}
+    else{x=1-Math.cos(t);y=0.5-Math.sin(t);}
+    x+=(Math.random()*2-1)*noise;y+=(Math.random()*2-1)*noise;
+    pts.push({x1:x,x2:y,label:cls});
+  }
+  return pts;
+}
+function giniImp(l,c){ // counts
+  if(c===0&&l===0)return 0;
+  var n=l+c;var p1=l/n,p2=c/n;return 1-p1*p1-p2*p2;
+}
+// node: {f:0/1, thr, left, right, pred}
+function buildTree(pts,depth,maxDepth){
+  var l=0,c=0;pts.forEach(function(p){p.label===0?l++:c++;});
+  var node={pred:l>=c?0:1,nl:l,nc:c};
+  if(depth>=maxDepth||pts.length<6||l===0||c===0)return node;
+  var best=null,bestScore=Infinity,n=pts.length;
+  var feats=[0,1];
+  for(var fi=0;fi<feats.length;fi++){
+    var f=feats[fi];
+    var vals=pts.map(function(p){return f?p.x2:p.x1;}).sort(function(a,b){return a-b;});
+    for(var i=0;i<vals.length-1;i++){
+      if(vals[i+1]-vals[i]<1e-9)continue;
+      var thr=(vals[i]+vals[i+1])/2;
+      var ll=0,lc=0,rl=0,rc=0;
+      for(var j=0;j<n;j++){var p=pts[j],v=f?p.x2:p.x1;
+        if(v<=thr){p.label===0?ll++:lc++;}else{p.label===0?rl++:rc++;}}
+      if(ll+lc<2||rl+rc<2)continue;
+      var score=((ll+lc)*giniImp(ll,lc)+(rl+rc)*giniImp(rl,rc))/n;
+      if(score<bestScore-1e-12){bestScore=score;best={f:f,thr:thr};}
+    }
+  }
+  if(!best)return node;
+  var Ls=[],Rs=[];
+  pts.forEach(function(p){var v=best.f?p.x2:p.x1;(v<=best.thr?Ls:Rs).push(p);});
+  if(!Ls.length||!Rs.length)return node;
+  node.f=best.f;node.thr=best.thr;
+  node.left=buildTree(Ls,depth+1,maxDepth);
+  node.right=buildTree(Rs,depth+1,maxDepth);
+  return node;
+}
+function predict(node,x1,x2){
+  while(node.f!==undefined){var v=node.f?x2:x1;node=v<=node.thr?node.left:node.right;}
+  return node.pred;
+}
+function bootstrap(pts){
+  var out=[];for(var i=0;i<pts.length;i++)out.push(pts[Math.floor(Math.random()*pts.length)]);
+  return out;
+}
+function trainEnsemble(train,depth,B){
+  var trees=[];
+  for(var b=0;b<B;b++)trees.push(buildTree(bootstrap(train),0,depth));
+  return trees;
+}
+function vote(trees,x1,x2){
+  var s=0;trees.forEach(function(t){s+=predict(t,x1,x2);});
+  return s*2>=trees.length?1:0;
+}
+function accuracy(trees,pts){
+  var ok=0;pts.forEach(function(p){if(vote(trees,p.x1,p.x2)===p.label)ok++;});
+  return ok/pts.length;
+}
+function drawBoundary(cv,trees,pts,range){
+  var ctx=cv.getContext('2d'),W=cv.width,H=cv.height;
+  // grid prediction to offscreen then scale
+  var off=document.createElement('canvas');off.width=GRID;off.height=GRID;
+  var octx=off.getContext('2d'),img=octx.createImageData(GRID,GRID);
+  for(var gy=0;gy<GRID;gy++){
+    for(var gx=0;gx<GRID;gx++){
+      var x1=range.min1+(range.max1-range.min1)*gx/(GRID-1);
+      var x2=range.min2+(range.max2-range.min2)*gy/(GRID-1);
+      var p=vote(trees,x1,x2);
+      var idx=(gy*GRID+gx)*4;
+      if(p===0){img.data[idx]=120;img.data[idx+1]=180;img.data[idx+2]=255;}
+      else{img.data[idx]=255;img.data[idx+1]=190;img.data[idx+2]=120;}
+      img.data[idx+3]=110;
+    }
+  }
+  octx.putImageData(img,0,0);
+  ctx.clearRect(0,0,W,H);
+  ctx.imageSmoothingEnabled=true;
+  ctx.drawImage(off,0,0,W,H);
+  // points
+  function X(v){return (v-range.min1)/(range.max1-range.min1)*W;}
+  function Y(v){return H-(v-range.min2)/(range.max2-range.min2)*H;}
+  pts.forEach(function(p){
+    ctx.beginPath();ctx.arc(X(p.x1),Y(p.x2),4,0,2*Math.PI);
+    if(p.label===0){ctx.fillStyle='#1a5fb4';}else{ctx.fillStyle='#b45f06';}
+    ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.stroke();
+  });
+  ctx.fillStyle='rgba(255,255,255,.9)';ctx.strokeStyle='#444';
+  ctx.font='11px Arial';ctx.textAlign='left';
+  ctx.fillStyle='#1a5fb4';ctx.fillRect(8,8,12,12);ctx.fillStyle='#333';ctx.fillText('类别 0',24,18);
+  ctx.fillStyle='#b45f06';ctx.fillRect(8,26,12,12);ctx.fillStyle='#333';ctx.fillText('类别 1',24,36);
+}
+function run(){
+  var depth=+document.getElementById('depth').value;
+  var B=+document.getElementById('B').value;
+  var noise=+document.getElementById('noise').value;
+  document.getElementById('depth-val').textContent=depth;
+  document.getElementById('B-val').textContent=B;
+  document.getElementById('noise-val').textContent=noise.toFixed(2);
+  // data
+  var all=moons(280,noise);
+  // shuffle
+  for(var i=all.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=all[i];all[i]=all[j];all[j]=t;}
+  var ntr=Math.floor(all.length*0.7);
+  var train=all.slice(0,ntr),test=all.slice(ntr);
+  // range
+  var m1=Infinity,M1=-Infinity,m2=Infinity,M2=-Infinity;
+  all.forEach(function(p){m1=Math.min(m1,p.x1);M1=Math.max(M1,p.x1);m2=Math.min(m2,p.x2);M2=Math.max(M2,p.x2);});
+  var pad1=(M1-m1)*0.08,pad2=(M2-m2)*0.08;
+  var range={min1:m1-pad1,max1:M1+pad1,min2:m2-pad2,max2:M2+pad2};
+  // model A: single tree
+  var single=[buildTree(train,0,depth)];
+  // model B: ensemble of B (rebuild fresh; when B==1 same as single)
+  var ens=trainEnsemble(train,depth,Math.max(1,B));
+  drawBoundary(document.getElementById('c1'),single,all,range);
+  drawBoundary(document.getElementById('c2'),ens,all,range);
+  document.getElementById('tr1').textContent=(accuracy(single,train)*100).toFixed(1)+'%';
+  document.getElementById('te1').textContent=(accuracy(single,test)*100).toFixed(1)+'%';
+  document.getElementById('tr2').textContent=(accuracy(ens,train)*100).toFixed(1)+'%';
+  document.getElementById('te2').textContent=(accuracy(ens,test)*100).toFixed(1)+'%';
+  var vd=document.getElementById('verdict');
+  var te1=accuracy(single,test),te2=accuracy(ens,test);
+  if(B>1){
+    if(te2>te1)vd.textContent='✅ 集成测试精度 '+(te2*100).toFixed(1)+'% > 单棵树 '+(te1*100).toFixed(1)+'%：方差被 B='+B+' 棵树平均掉了。把 B 拉回 1 对比边界形状。';
+    else vd.textContent='（本次集成与单棵树测试精度接近——点「重新生成」看波动；B 越大集成越稳。）';
+  }else{
+    if(depth>=7)vd.textContent='⚠️ 深树 + 无集成：训练精度逼近 100%、测试精度跟不上——这就是高方差。把 B 拖到 30+ 看集成如何救场。';
+    else if(depth<=2)vd.textContent='⚠️ 树太浅：两图都欠拟合（高偏差）——边界跟不上月牙形状。增大 depth。';
+    else vd.textContent='depth='+depth+' 的单棵树。试试把 depth 拉大观察锯齿恶化，再用 B=50 的集成压住方差。';
+  }
+}
+document.getElementById('go').addEventListener('click',run);
+['depth','B','noise'].forEach(function(id){document.getElementById(id).addEventListener('input',run);});
+window.addEventListener('resize',function(){
+  var c1=document.getElementById('c1'),c2=document.getElementById('c2');
+  var w=Math.min(c1.parentElement.clientWidth,520);
+  c1.width=w;c1.height=Math.round(w*0.79);c2.width=c1.width;c2.height=c1.height;
+  run();
+});
+(function(){var c1=document.getElementById('c1');var w=Math.min(c1.parentElement.clientWidth,520);
+c1.width=w;c1.height=Math.round(w*0.79);document.getElementById('c2').width=w;document.getElementById('c2').height=c1.height;run();})();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>损失估计理论与应用</title>
+    <script src="vendor/plotly.min.js"></script>
+    
+    
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            svg: {
+                fontCache: 'global'
+            }
+        };
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: flex;
+            min-height: 800px;
+        }
+
+        .sidebar {
+            width: 320px;
+            background: #f8f9fa;
+            border-right: 1px solid #e9ecef;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .content-area {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+        }
+
+        .nav-menu {
+            list-style: none;
+        }
+
+        .nav-item {
+            margin-bottom: 10px;
+        }
+
+        .nav-btn {
+            width: 100%;
+            padding: 15px 20px;
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            text-align: left;
+            color: #495057;
+        }
+
+        .nav-btn:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+        }
+
+        .nav-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: #667eea;
+        }
+
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        .theory-box {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            border-left: 4px solid #667eea;
+        }
+
+        .theory-box h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+
+        .formula-box {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+            margin: 15px 0;
+            text-align: center;
+        }
+
+        .example-box {
+            background: #e8f5e8;
+            border: 1px solid #28a745;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+
+        .example-box h4 {
+            color: #155724;
+            margin-bottom: 10px;
+        }
+
+        .warning-box {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .warning-box h4 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+
+        .interactive-section {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .parameters {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .parameter-group {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+
+        .parameter-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .parameter-group input, .parameter-group select, .parameter-group textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .parameter-group textarea {
+            height: 80px;
+            resize: vertical;
+            font-family: 'Courier New', monospace;
+        }
+
+        .calculate-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 20px 10px 20px 0;
+            transition: all 0.3s ease;
+        }
+
+        .calculate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .calculate-btn.secondary {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .result-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+            text-align: center;
+        }
+
+        .result-item .value {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .result-item .label {
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+
+        .plot-container {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        /* 简化的方法比较页面样式 */
+        .simple-table-section {
+            margin: 30px 0;
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .simple-comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0;
+        }
+
+        .simple-comparison-table th,
+        .simple-comparison-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .simple-comparison-table th {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+        }
+
+        .simple-comparison-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .simple-comparison-table td strong {
+            color: #667eea;
+        }
+
+        .simple-controls-section {
+            margin: 30px 0;
+            background: white;
+            border-radius: 8px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .simple-controls-section h4 {
+            color: #495057;
+            margin-bottom: 10px;
+        }
+
+        .simple-controls-section p {
+            color: #6c757d;
+            margin-bottom: 20px;
+        }
+
+        .simple-parameters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .simple-parameters .parameter-group {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .simple-results-section {
+            margin: 30px 0;
+            background: white;
+            border-radius: 8px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .simple-results-section h4 {
+            color: #495057;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 10px;
+        }
+
+        .simple-plot-section {
+            margin: 30px 0;
+            background: white;
+            border-radius: 8px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .simple-plot-section h4 {
+            color: #495057;
+            margin-bottom: 20px;
+            text-align: center;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 10px;
+        }
+
+        .simple-plot-section > div {
+            min-height: 400px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            padding: 10px;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .simple-parameters {
+                flex-direction: column;
+            }
+            
+            .simple-parameters .parameter-group {
+                min-width: auto;
+            }
+            
+            .simple-comparison-table {
+                font-size: 14px;
+            }
+            
+            .simple-comparison-table th,
+            .simple-comparison-table td {
+                padding: 8px 10px;
+            }
+        }
+
+        .step-by-step {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+
+        .step {
+            margin: 15px 0;
+            padding: 15px;
+            background: white;
+            border-radius: 5px;
+            border-left: 3px solid #667eea;
+        }
+
+        .step-number {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 25px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 16px;
+            color: #6c757d;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .data-input {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .sample-data-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 12px;
+            margin: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .sample-data-btn:hover {
+            background: #495057;
+        }
+
+        .estimation-results {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            border: 2px solid #667eea;
+        }
+
+        .confidence-interval {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .quality-metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .metric-item {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            border: 1px solid #e9ecef;
+        }
+
+        .metric-value {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .metric-label {
+            font-size: 0.8em;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>损失估计理论与应用</h1>
+            <p>点估计、估计质量评价与区间估计的交互式学习平台</p>
+            <div class="download-section" style="margin-top: 15px;">
+                <button class="download-btn" onclick="downloadFile('html')" style="margin: 5px; padding: 8px 15px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 0.9em;">📄 下载网页文件</button>
+                <button class="download-btn" onclick="downloadFile('js')" style="margin: 5px; padding: 8px 15px; background: #17a2b8; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 0.9em;">📜 下载JavaScript代码</button>
+                <button class="download-btn" onclick="downloadFile('doc')" style="margin: 5px; padding: 8px 15px; background: #6f42c1; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 0.9em;">📖 下载功能说明文档</button>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="sidebar">
+                <ul class="nav-menu">
+                    <li class="nav-item">
+                        <button class="nav-btn active" data-section="moment-estimation">矩估计</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-btn" data-section="mle-estimation">极大似然估计</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-btn" data-section="quantile-estimation">分位数估计</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-btn" data-section="estimation-quality">估计质量评价</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-btn" data-section="interval-estimation">区间估计</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-btn" data-section="hypothesis-testing">假设检验</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-btn" data-section="comparison">方法比较</button>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="content-area">
+                <!-- 矩估计 -->
+                <div class="section active" id="moment-estimation">
+                    <div class="theory-box">
+                        <h3>1. 矩估计 (Method of Moments)</h3>
+                        <div class="formula-box">
+                            <strong>基本思想：</strong><br>
+                            $$\text{样本矩} = \text{总体矩}$$
+                            $$\frac{1}{n}\sum_{i=1}^n X_i^k = E[X^k] = \mu_k(\theta)$$
+                        </div>
+                        <p>通过令样本矩等于总体矩来求解参数估计值。</p>
+                    </div>
+
+                    <div class="interactive-section">
+                        <h4>矩估计计算器</h4>
+                        
+                        <div class="tabs">
+                            <button class="tab active" onclick="switchDistributionTab('exponential', 'moment')">指数分布</button>
+                            <button class="tab" onclick="switchDistributionTab('gamma', 'moment')">伽马分布</button>
+                            <button class="tab" onclick="switchDistributionTab('pareto', 'moment')">帕累托分布</button>
+                        </div>
+
+                        <!-- 指数分布矩估计 -->
+                        <div class="tab-content active" id="exponential-moment">
+                            <div class="theory-box">
+                                <h4>指数分布矩估计</h4>
+                                <div class="formula-box">
+                                    $$f(x) = \lambda e^{-\lambda x}, \quad x \geq 0$$
+                                    $$E[X] = \frac{1}{\lambda} \Rightarrow \hat{\lambda} = \frac{1}{\bar{X}}$$
+                                </div>
+                            </div>
+                            
+                            <div class="data-input">
+                                <label for="exponential-data-moment">输入数据 (用逗号分隔):</label>
+                                <textarea id="exponential-data-moment" placeholder="例如: 1.2, 0.8, 2.1, 1.5, 0.9, 1.8, 1.1, 2.3, 1.4, 1.7"></textarea>
+                                <div class="parameters">
+                                    <div class="parameter-group">
+                                        <label for="exponential-sample-size-moment">样本量:</label>
+                                        <input type="number" id="exponential-sample-size-moment" value="20" min="5" max="1000" step="5">
+                                    </div>
+                                </div>
+                                <div>
+                                    <button class="sample-data-btn" onclick="generateSampleData('exponential', 'moment')">生成样本数据</button>
+                                    <button class="sample-data-btn" onclick="loadExampleData('exponential', 'moment')">加载示例数据</button>
+                                </div>
+                            </div>
+                            
+                            <button class="calculate-btn" onclick="calculateMomentEstimation('exponential')">计算矩估计</button>
+                            
+                            <div class="estimation-results" id="exponential-moment-results">
+                                <!-- 结果将在这里显示 -->
+                            </div>
+                        </div>
+
+                        <!-- 伽马分布矩估计 -->
+                        <div class="tab-content" id="gamma-moment">
+                            <div class="theory-box">
+                                <h4>伽马分布矩估计</h4>
+                                <div class="formula-box">
+                                    $$f(x) = \frac{\beta^\alpha}{\Gamma(\alpha)} x^{\alpha-1} e^{-\beta x}$$
+                                    $$E[X] = \frac{\alpha}{\beta}, \quad \text{Var}[X] = \frac{\alpha}{\beta^2}$$
+                                    $$\hat{\alpha} = \frac{\bar{X}^2}{S^2}, \quad \hat{\beta} = \frac{\bar{X}}{S^2}$$
+                                </div>
+                            </div>
+                            
+                            <div class="data-input">
+                                <label for="gamma-data-moment">输入数据 (用逗号分隔):</label>
+                                <textarea id="gamma-data-moment" placeholder="例如: 2.1, 1.8, 3.2, 2.5, 1.9, 2.8, 2.1, 3.3, 2.4, 2.7"></textarea>
+                                <div class="parameters">
+                                    <div class="parameter-group">
+                                        <label for="gamma-sample-size-moment">样本量:</label>
+                                        <input type="number" id="gamma-sample-size-moment" value="20" min="5" max="1000" step="5">
+                                    </div>
+                                </div>
+                                <div>
+                                    <button class="sample-data-btn" onclick="generateSampleData('gamma', 'moment')">生成样本数据</button>
+                                    <button class="sample-data-btn" onclick="loadExampleData('gamma', 'moment')">加载示例数据</button>
+                                </div>
+                            </div>
+                            
+                            <button class="calculate-btn" onclick="calculateMomentEstimation('gamma')">计算矩估计</button>
+                            
+                            <div class="estimation-results" id="gamma-moment-results">
+                                <!-- 结果将在这里显示 -->
+                            </div>
+                        </div>
+
+                        <!-- 帕累托分布矩估计 -->
+                        <div class="tab-content" id="pareto-moment">
+                            <div class="theory-box">
+                                <h4>帕累托分布矩估计</h4>
+                                <div class="formula-box">
+                                    $$f(x) = \frac{\alpha x_m^\alpha}{x^{\alpha+1}}, \quad x \geq x_m$$
+                                    $$E[X] = \frac{\alpha x_m}{\alpha - 1} \quad (\alpha > 1)$$
+                                    $$\hat{x_m} = \min(X_i), \quad \hat{\alpha} = 1 + \frac{n \hat{x_m}}{\sum_{i=1}^n (X_i - \hat{x_m})}$$
+                                </div>
+                            </div>
+                            
+                            <div class="data-input">
+                                <label for="pareto-data-moment">输入数据 (用逗号分隔):</label>
+                                <textarea id="pareto-data-moment" placeholder="例如: 1.5, 2.1, 1.8, 3.2, 2.5, 1.9, 2.8, 4.1, 3.3, 2.4"></textarea>
+                                <div class="parameters">
+                                    <div class="parameter-group">
+                                        <label for="pareto-sample-size-moment">样本量:</label>
+                                        <input type="number" id="pareto-sample-size-moment" value="20" min="5" max="1000" step="5">
+                                    </div>
+                                </div>
+                                <div>
+                                    <button class="sample-data-btn" onclick="generateSampleData('pareto', 'moment')">生成样本数据</button>
+                                    <button class="sample-data-btn" onclick="loadExampleData('pareto', 'moment')">加载示例数据</button>
+                                </div>
+                            </div>
+                            
+                            <button class="calculate-btn" onclick="calculateMomentEstimation('pareto')">计算矩估计</button>
+                            
+                            <div class="estimation-results" id="pareto-moment-results">
+                                <!-- 结果将在这里显示 -->
+                            </div>
+                        </div>
+
+                        <div class="plot-container">
+                            <div id="moment-estimation-plot"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 极大似然估计 -->
+                <div class="section" id="mle-estimation">
+                    <div class="theory-box">
+                        <h3>2. 极大似然估计 (Maximum Likelihood Estimation)</h3>
+                        <div class="formula-box">
+                            <strong>似然函数：</strong><br>
+                            $$L(\theta) = \prod_{i=1}^n f(x_i; \theta)$$
+                            <strong>对数似然函数：</strong><br>
+                            $$\ell(\theta) = \sum_{i=1}^n \ln f(x_i; \theta)$$
+                            <strong>MLE：</strong><br>
+                            $$\hat{\theta}_{MLE} = \arg\max_\theta \ell(\theta)$$
+                        </div>
+                    </div>
+
+                    <div class="interactive-section">
+                        <h4>极大似然估计计算器</h4>
+                        
+                        <div class="tabs">
+                            <button class="tab active" onclick="switchDistributionTab('exponential', 'mle')">指数分布</button>
+                            <button class="tab" onclick="switchDistributionTab('gamma', 'mle')">伽马分布</button>
+                            <button class="tab" onclick="switchDistributionTab('pareto', 'mle')">帕累托分布</button>
+                        </div>
+
+                        <!-- 指数分布MLE -->
+                        <div class="tab-content active" id="exponential-mle">
+                            <div class="theory-box">
+                                <h4>指数分布MLE</h4>
+                                <div class="formula-box">
+                                    $$\ell(\lambda) = n\ln\lambda - \lambda\sum_{i=1}^n x_i$$
+                                    $$\frac{d\ell}{d\lambda} = \frac{n}{\lambda} - \sum_{i=1}^n x_i = 0$$
+                                    $$\hat{\lambda}_{MLE} = \frac{n}{\sum_{i=1}^n x_i} = \frac{1}{\bar{x}}$$
+                                </div>
+                            </div>
+                            
+                            <div class="data-input">
+                                <label for="exponential-data-mle">输入数据 (用逗号分隔):</label>
+                                <textarea id="exponential-data-mle" placeholder="例如: 1.2, 0.8, 2.1, 1.5, 0.9, 1.8, 1.1, 2.3, 1.4, 1.7"></textarea>
+                                <div class="parameters">
+                                    <div class="parameter-group">
+                                        <label for="exponential-sample-size-mle">样本量:</label>
+                                        <input type="number" id="exponential-sample-size-mle" value="20" min="5" max="1000" step="5">
+                                    </div>
+                                </div>
+                                <div>
+                                    <button class="sample-data-btn" onclick="generateSampleData('exponential', 'mle')">生成样本数据</button>
+                                    <button class="sample-data-btn" onclick="loadExampleData('exponential', 'mle')">加载示例数据</button>
+                                </div>
+                            </div>
+                            
+                            <button class="calculate-btn" onclick="calculateMLEEstimation('exponential')">计算MLE</button>
+                            <button class="calculate-btn secondary" onclick="showLikelihoodSurface('exponential')">显示似然面</button>
+                            
+                            <div class="estimation-results" id="exponential-mle-results">
+                                <!-- 结果将在这里显示 -->
+                            </div>
+                        </div>
+
+                        <!-- 伽马分布MLE -->
+                        <div class="tab-content" id="gamma-mle">
+                            <div class="theory-box">
+                                <h4>伽马分布MLE</h4>
+                                <div class="formula-box">
+                                    $$\ell(\alpha, \beta) = n\alpha\ln\beta - n\ln\Gamma(\alpha) + (\alpha-1)\sum_{i=1}^n\ln x_i - \beta\sum_{i=1}^n x_i$$
+                                    <strong>需要数值方法求解</strong>
+                                </div>
+                            </div>
+                            
+                            <div class="data-input">
+                                <label for="gamma-data-mle">输入数据 (用逗号分隔):</label>
+                                <textarea id="gamma-data-mle" placeholder="例如: 2.1, 1.8, 3.2, 2.5, 1.9, 2.8, 2.1, 3.3, 2.4, 2.7"></textarea>
+                                <div class="parameters">
+                                    <div class="parameter-group">
+                                        <label for="gamma-sample-size-mle">样本量:</label>
+                                        <input type="number" id="gamma-sample-size-mle" value="20" min="5" max="1000" step="5">
+                                    </div>
+                                </div>
+                                <div>
+                                    <button class="sample-data-btn" onclick="generateSampleData('gamma', 'mle')">生成样本数据</button>
+                                    <button class="sample-data-btn" onclick="loadExampleData('gamma', 'mle')">加载示例数据</button>
+                                </div>
+                            </div>
+                            
+                            <button class="calculate-btn" onclick="calculateMLEEstimation('gamma')">计算MLE</button>
+                            <button class="calculate-btn secondary" onclick="showLikelihoodSurface('gamma')">显示似然面</button>
+                            
+                            <div class="estimation-results" id="gamma-mle-results">
+                                <!-- 结果将在这里显示 -->
+                            </div>
+                        </div>
+
+                        <!-- 帕累托分布MLE -->
+                        <div class="tab-content" id="pareto-mle">
+                            <div class="theory-box">
+                                <h4>帕累托分布MLE</h4>
+                                <div class="formula-box">
+                                    $$\ell(\alpha, x_m) = n\ln\alpha + n\alpha\ln x_m - (\alpha+1)\sum_{i=1}^n\ln x_i$$
+                                    $$\hat{x_m} = \min(X_i)$$
+                                    $$\hat{\alpha}_{MLE} = \frac{n}{\sum_{i=1}^n \ln(X_i/\hat{x_m})}$$
+                                </div>
+                            </div>
+                            
+                            <div class="data-input">
+                                <label for="pareto-data-mle">输入数据 (用逗号分隔):</label>
+                                <textarea id="pareto-data-mle" placeholder="例如: 1.5, 2.1, 1.8, 3.2, 2.5, 1.9, 2.8, 4.1, 3.3, 2.4"></textarea>
+                                <div class="parameters">
+                                    <div class="parameter-group">
+                                        <label for="pareto-sample-size-mle">样本量:</label>
+                                        <input type="number" id="pareto-sample-size-mle" value="20" min="5" max="1000" step="5">
+                                    </div>
+                                </div>
+                                <div>
+                                    <button class="sample-data-btn" onclick="generateSampleData('pareto', 'mle')">生成样本数据</button>
+                                    <button class="sample-data-btn" onclick="loadExampleData('pareto', 'mle')">加载示例数据</button>
+                                </div>
+                            </div>
+                            
+                            <button class="calculate-btn" onclick="calculateMLEEstimation('pareto')">计算MLE</button>
+                            <button class="calculate-btn secondary" onclick="showLikelihoodSurface('pareto')">显示似然面</button>
+                            
+                            <div class="estimation-results" id="pareto-mle-results">
+                                <!-- 结果将在这里显示 -->
+                            </div>
+                        </div>
+
+                        <div class="plot-container">
+                            <div id="mle-estimation-plot"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 分位数估计 -->
+                <div class="section" id="quantile-estimation">
+                    <div class="theory-box">
+                        <h3>3. 分位数估计 (Quantile Estimation)</h3>
+                        <div class="formula-box">
+                            <strong>经验分位数：</strong><br>
+                            $$\hat{q}_p = X_{(\lceil np \rceil)} \quad \text{或插值方法}$$
+                            <strong>理论分位数：</strong><br>
+                            $$F(q_p) = p \Rightarrow q_p = F^{-1}(p)$$
+                        </div>
+                    </div>
+
+                    <div class="interactive-section">
+                        <h4>分位数估计计算器</h4>
+                        
+                        <div class="data-input">
+                            <label for="quantile-data">输入数据 (用逗号分隔):</label>
+                            <textarea id="quantile-data" placeholder="例如: 1.2, 0.8, 2.1, 1.5, 0.9, 1.8, 1.1, 2.3, 1.4, 1.7, 2.5, 0.7, 1.9, 1.3, 2.0"></textarea>
+                            <div class="parameters">
+                                <div class="parameter-group">
+                                    <label for="quantile-sample-size">样本量:</label>
+                                    <input type="number" id="quantile-sample-size" value="30" min="5" max="1000" step="5">
+                                </div>
+                            </div>
+                            <div>
+                                <button class="sample-data-btn" onclick="generateQuantileData()">生成样本数据</button>
+                                <button class="sample-data-btn" onclick="loadQuantileExample()">加载示例数据</button>
+                            </div>
+                        </div>
+
+                        <div class="parameters">
+                            <div class="parameter-group">
+                                <label for="quantile-levels">分位数水平 (用逗号分隔):</label>
+                                <input type="text" id="quantile-levels" value="0.25, 0.5, 0.75, 0.9, 0.95, 0.99">
+                            </div>
+                            <div class="parameter-group">
+                                <label for="quantile-method">计算方法:</label>
+                                <select id="quantile-method">
+                                    <option value="linear">线性插值</option>
+                                    <option value="nearest">最近邻</option>
+                                    <option value="lower">下分位数</option>
+                                    <option value="higher">上分位数</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <button class="calculate-btn" onclick="calculateQuantiles()">计算分位数</button>
+                        <button class="calculate-btn secondary" onclick="showQuantileProcess()">显示计算过程</button>
+
+                        <div class="step-by-step" id="quantile-process">
+                            <!-- 计算过程将在这里显示 -->
+                        </div>
+
+                        <div class="results-grid" id="quantile-results">
+                            <!-- 结果将在这里显示 -->
+                        </div>
+
+                        <div class="plot-container">
+                            <div id="quantile-plot"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 估计质量评价 -->
+                <div class="section" id="estimation-quality">
+                    <div class="theory-box">
+                        <h3>4. 估计质量评价</h3>
+                        
+                        <div class="example-box">
+                            <h4>无偏性 (Unbiasedness)</h4>
+                            <div class="formula-box">
+                                $$E[\hat{\theta}] = \theta$$
+                            </div>
+                            <p>估计量的期望值等于真实参数值</p>
+                        </div>
+
+                        <div class="example-box">
+                            <h4>一致性 (Consistency)</h4>
+                            <div class="formula-box">
+                                $$\hat{\theta}_n \xrightarrow{P} \theta \quad \text{当} \quad n \to \infty$$
+                            </div>
+                            <p>随着样本量增加，估计量依概率收敛到真实值</p>
+                        </div>
+
+                        <div class="example-box">
+                            <h4>均方误差 (Mean Squared Error)</h4>
+                            <div class="formula-box">
+                                $$MSE(\hat{\theta}) = E[(\hat{\theta} - \theta)^2] = \text{Var}(\hat{\theta}) + [\text{Bias}(\hat{\theta})]^2$$
+                            </div>
+                            <p>衡量估计量的总体精度</p>
+                        </div>
+                    </div>
+
+                    <div class="interactive-section">
+                        <h4>估计质量模拟器</h4>
+                        
+                        <div class="parameters">
+                            <div class="parameter-group">
+                                <label for="true-distribution">真实分布:</label>
+                                <select id="true-distribution">
+                                    <option value="exponential">指数分布</option>
+                                    <option value="gamma">伽马分布</option>
+                                    <option value="pareto">帕累托分布</option>
+                                </select>
+                            </div>
+                            <div class="parameter-group">
+                                <label for="true-param1">真实参数1:</label>
+                                <input type="number" id="true-param1" value="2" step="0.1">
+                            </div>
+                            <div class="parameter-group">
+                                <label for="true-param2">真实参数2:</label>
+                                <input type="number" id="true-param2" value="1" step="0.1">
+                            </div>
+                            <div class="parameter-group">
+                                <label for="sample-sizes">样本量 (用逗号分隔):</label>
+                                <input type="text" id="sample-sizes" value="10, 20, 50, 100, 200, 500">
+                            </div>
+                            <div class="parameter-group">
+                                <label for="num-simulations">模拟次数:</label>
+                                <input type="number" id="num-simulations" value="1000" step="100" min="100">
+                            </div>
+                        </div>
+
+                        <button class="calculate-btn" onclick="simulateEstimationQuality()">开始模拟</button>
+
+                        <div class="quality-metrics" id="quality-metrics">
+                            <!-- 质量指标将在这里显示 -->
+                        </div>
+
+                        <div id="quality-table-container" style="margin: 20px 0;">
+                            <h4>模拟结果汇总表</h4>
+                            <div id="quality-table"></div>
+                        </div>
+
+                        <div class="plot-container">
+                            <div id="quality-plot"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 区间估计 -->
+                <div class="section" id="interval-estimation">
+                    <div class="theory-box">
+                        <h3>5. 区间估计 (Interval Estimation)</h3>
+                        <div class="formula-box">
+                            <strong>置信区间：</strong><br>
+                            $$P(L \leq \theta \leq U) = 1 - \alpha$$
+                            <strong>其中 $[L, U]$ 是 $(1-\alpha)$ 置信区间</strong>
+                        </div>
+                    </div>
+
+                    <div class="interactive-section">
+                        <h4>置信区间计算器</h4>
+                        
+                        <div class="tabs">
+                            <button class="tab active" onclick="switchConfidenceTab('normal')">正态分布</button>
+                            <button class="tab" onclick="switchConfidenceTab('exponential')">指数分布</button>
+                            <button class="tab" onclick="switchConfidenceTab('bootstrap')">Bootstrap方法</button>
+                        </div>
+
+                        <!-- 正态分布置信区间 -->
+                        <div class="tab-content active" id="normal-confidence">
+                            <div class="theory-box">
+                                <h4>正态分布置信区间</h4>
+                                <div class="formula-box">
+                                    $$\bar{X} \pm z_{\alpha/2} \frac{\sigma}{\sqrt{n}} \quad \text{(已知方差)}$$
+                                    $$\bar{X} \pm t_{\alpha/2, n-1} \frac{S}{\sqrt{n}} \quad \text{(未知方差)}$$
+                                </div>
+                            </div>
+                            
+                            <div class="data-input">
+                                <label for="normal-ci-data">输入数据:</label>
+                                <textarea id="normal-ci-data" placeholder="例如: 98.2, 99.1, 100.5, 98.8, 99.7, 100.2, 99.3, 98.9, 100.1, 99.5"></textarea>
+                                <div class="parameters">
+                                    <div class="parameter-group">
+                                        <label for="normal-sample-size">样本量:</label>
+                                        <input type="number" id="normal-sample-size" value="30" min="5" max="1000" step="5">
+                                    </div>
+                                </div>
+                                <div>
+                                    <button class="sample-data-btn" onclick="generateConfidenceData('normal')">生成样本数据</button>
+                                    <button class="sample-data-btn" onclick="loadConfidenceExample('normal')">加载示例数据</button>
+                                </div>
+                                
+                                <div id="normal-ci-info"></div>
+                            </div>
+                            
+                            <div class="parameters">
+                                <div class="parameter-group">
+                                    <label for="confidence-level">置信水平:</label>
+                                    <select id="confidence-level">
+                                        <option value="0.90">90%</option>
+                                        <option value="0.95" selected>95%</option>
+                                        <option value="0.99">99%</option>
+                                    </select>
+                                </div>
+                                <div class="parameter-group">
+                                    <label for="known-variance">已知方差:</label>
+                                    <input type="number" id="known-variance" placeholder="留空表示未知方差" step="0.01">
+                                </div>
+                            </div>
+                            
+                            <button class="calculate-btn" onclick="calculateConfidenceInterval('normal')">计算置信区间</button>
+                            
+                            <div class="confidence-interval" id="normal-ci-results">
+                                <!-- 结果将在这里显示 -->
+                            </div>
+                        </div>
+
+                        <!-- 指数分布置信区间 -->
+                        <div class="tab-content" id="exponential-confidence">
+                            <div class="theory-box">
+                                <h4>指数分布置信区间</h4>
+                                <div class="formula-box">
+                                    $$\frac{2n\bar{X}}{\chi^2_{\alpha/2, 2n}} \leq \frac{1}{\lambda} \leq \frac{2n\bar{X}}{\chi^2_{1-\alpha/2, 2n}}$$
+                                </div>
+                            </div>
+                            
+                            <div class="data-input">
+                                <label for="exp-ci-data">输入数据:</label>
+                                <textarea id="exp-ci-data" placeholder="例如: 1.2, 0.8, 2.1, 1.5, 0.9, 1.8, 1.1, 2.3, 1.4, 1.7"></textarea>
+                                <div class="parameters">
+                                    <div class="parameter-group">
+                                        <label for="exp-ci-sample-size">样本量:</label>
+                                        <input type="number" id="exp-ci-sample-size" value="25" min="5" max="1000" step="5">
+                                    </div>
+                                </div>
+                                <div>
+                                    <button class="sample-data-btn" onclick="generateCIData('exponential')">生成样本数据</button>
+                                    <button class="sample-data-btn" onclick="loadCIExample('exponential')">加载示例数据</button>
+                                </div>
+                                
+                                <div id="exp-ci-info"></div>
+                            </div>
+                            
+                            <button class="calculate-btn" onclick="calculateConfidenceInterval('exponential')">计算置信区间</button>
+                            
+                            <div class="confidence-interval" id="exp-ci-results">
+                                <!-- 结果将在这里显示 -->
+                            </div>
+                        </div>
+
+                        <!-- Bootstrap置信区间 -->
+                        <div class="tab-content" id="bootstrap-confidence">
+                            <div class="theory-box">
+                                <h4>Bootstrap置信区间</h4>
+                                <div class="formula-box">
+                                    <strong>百分位数方法：</strong><br>
+                                    $$[\hat{\theta}^*_{(\alpha/2)}, \hat{\theta}^*_{(1-\alpha/2)}]$$
+                                </div>
+                            </div>
+                            
+                            <div class="data-input">
+                                <label for="bootstrap-data">输入数据:</label>
+                                <textarea id="bootstrap-data" placeholder="例如: 1.2, 0.8, 2.1, 1.5, 0.9, 1.8, 1.1, 2.3, 1.4, 1.7"></textarea>
+                                <div class="parameters">
+                                    <div class="parameter-group">
+                                        <label for="bootstrap-sample-size">样本量:</label>
+                                        <input type="number" id="bootstrap-sample-size" value="25" min="5" max="1000" step="5">
+                                    </div>
+                                </div>
+                                <div>
+                                    <button class="sample-data-btn" onclick="generateCIData('bootstrap')">生成样本数据</button>
+                                    <button class="sample-data-btn" onclick="loadCIExample('bootstrap')">加载示例数据</button>
+                                </div>
+                                
+                                <div id="bootstrap-ci-info"></div>
+                            </div>
+                            
+                            <div class="parameters">
+                                <div class="parameter-group">
+                                    <label for="bootstrap-samples">Bootstrap样本数:</label>
+                                    <input type="number" id="bootstrap-samples" value="1000" step="100" min="100">
+                                </div>
+                                <div class="parameter-group">
+                                    <label for="bootstrap-statistic">统计量:</label>
+                                    <select id="bootstrap-statistic">
+                                        <option value="mean">均值</option>
+                                        <option value="median">中位数</option>
+                                        <option value="std">标准差</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <button class="calculate-btn" onclick="calculateConfidenceInterval('bootstrap')">计算Bootstrap置信区间</button>
+                            
+                            <div class="confidence-interval" id="bootstrap-ci-results">
+                                <!-- 结果将在这里显示 -->
+                            </div>
+                        </div>
+
+                        <div class="plot-container">
+                            <div id="confidence-interval-plot"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 假设检验 -->
+                <div class="section" id="hypothesis-testing">
+                    <div class="theory-box">
+                        <h3>6. 假设检验 (Hypothesis Testing)</h3>
+                        <div class="formula-box">
+                            <strong>基本框架：</strong><br>
+                            $$H_0: \theta = \theta_0 \quad \text{vs} \quad H_1: \theta \neq \theta_0$$
+                            <strong>检验统计量：</strong><br>
+                            $$T = \frac{\hat{\theta} - \theta_0}{\text{SE}(\hat{\theta})}$$
+                        </div>
+                    </div>
+
+                    <div class="interactive-section">
+                        <h4>假设检验计算器</h4>
+                        
+                        <div class="parameters">
+                            <div class="parameter-group">
+                                <label for="test-type">检验类型:</label>
+                                <select id="test-type">
+                                    <option value="one-sample-t">单样本t检验</option>
+                                    <option value="one-sample-z">单样本z检验</option>
+                                    <option value="ks-test">K-S拟合优度检验</option>
+                                </select>
+                            </div>
+                            <div class="parameter-group">
+                                <label for="null-hypothesis">原假设值:</label>
+                                <input type="number" id="null-hypothesis" value="0" step="0.1">
+                            </div>
+                            <div class="parameter-group">
+                                <label for="alternative">备择假设:</label>
+                                <select id="alternative">
+                                    <option value="two-sided">双侧检验</option>
+                                    <option value="greater">右侧检验</option>
+                                    <option value="less">左侧检验</option>
+                                </select>
+                            </div>
+                            <div class="parameter-group">
+                                <label for="significance-level">显著性水平:</label>
+                                <select id="significance-level">
+                                    <option value="0.01">0.01</option>
+                                    <option value="0.05" selected>0.05</option>
+                                    <option value="0.10">0.10</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="data-input">
+                            <label for="test-data">输入数据:</label>
+                            <textarea id="test-data" placeholder="例如: 98.2, 99.1, 100.5, 98.8, 99.7, 100.2, 99.3, 98.9, 100.1, 99.5"></textarea>
+                            
+                            <div class="parameters">
+                                <div class="parameter-group">
+                                    <label for="test-data-distribution">数据生成分布:</label>
+                                    <select id="test-data-distribution">
+                                        <option value="normal">正态分布</option>
+                                        <option value="exponential">指数分布</option>
+                                        <option value="gamma">伽马分布</option>
+                                    </select>
+                                </div>
+                                <div class="parameter-group">
+                                    <label for="test-data-param1">参数1:</label>
+                                    <input type="number" id="test-data-param1" value="100" step="0.1">
+                                </div>
+                                <div class="parameter-group">
+                                    <label for="test-data-param2">参数2:</label>
+                                    <input type="number" id="test-data-param2" value="10" step="0.1">
+                                </div>
+                                <div class="parameter-group">
+                                    <label for="test-sample-size">样本量:</label>
+                                    <input type="number" id="test-sample-size" value="30" min="5" max="1000" step="5">
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <button class="sample-data-btn" onclick="generateTestData()">生成样本数据</button>
+                                <button class="sample-data-btn" onclick="loadTestExample()">加载示例数据</button>
+                            </div>
+                            
+                            <div id="test-data-info"></div>
+                        </div>
+
+                        <button class="calculate-btn" onclick="performHypothesisTest()">执行假设检验</button>
+
+                        <div class="estimation-results" id="hypothesis-test-results">
+                            <!-- 结果将在这里显示 -->
+                        </div>
+
+                        <div class="plot-container">
+                            <div id="hypothesis-test-plot"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 方法比较 -->
+                <div class="section" id="comparison">
+                    <div class="theory-box">
+                        <h3>7. 估计方法比较</h3>
+                    </div>
+
+                    <!-- 方法对比表格 -->
+                    <div class="simple-table-section">
+                        <table class="simple-comparison-table">
+                            <thead>
+                                <tr>
+                                    <th>估计方法</th>
+                                    <th>优点</th>
+                                    <th>缺点</th>
+                                    <th>适用场景</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>矩估计</strong></td>
+                                    <td>计算简单，直观易懂</td>
+                                    <td>效率较低，可能不唯一</td>
+                                    <td>初步估计，简单分布</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>极大似然估计</strong></td>
+                                    <td>渐近最优，一致性好</td>
+                                    <td>计算复杂，可能无解析解</td>
+                                    <td>大样本，复杂分布</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>分位数估计</strong></td>
+                                    <td>稳健性好，不依赖分布</td>
+                                    <td>信息利用不充分</td>
+                                    <td>异常值较多，非参数情况</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Bootstrap</strong></td>
+                                    <td>分布自由，适用性广</td>
+                                    <td>计算量大，依赖样本</td>
+                                    <td>复杂统计量，小样本</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- 模拟器控制面板 -->
+                    <div class="simple-controls-section">
+                        <h4>方法比较模拟器</h4>
+                        <p>通过蒙特卡洛模拟比较不同估计方法的性能</p>
+                        
+                        <div class="simple-parameters">
+                            <div class="parameter-group">
+                                <label for="comparison-distribution">分布类型:</label>
+                                <select id="comparison-distribution">
+                                    <option value="exponential">指数分布</option>
+                                    <option value="gamma">伽马分布</option>
+                                    <option value="pareto">帕累托分布</option>
+                                </select>
+                            </div>
+                            <div class="parameter-group">
+                                <label for="comparison-sample-size">样本量:</label>
+                                <input type="number" id="comparison-sample-size" value="50" step="10" min="10">
+                            </div>
+                            <div class="parameter-group">
+                                <label for="comparison-simulations">模拟次数:</label>
+                                <input type="number" id="comparison-simulations" value="500" step="100" min="100">
+                            </div>
+                        </div>
+                        
+                        <button class="calculate-btn" onclick="compareEstimationMethods()">开始比较分析</button>
+                    </div>
+
+                    <!-- 模拟设置信息区域 -->
+                    <div class="simple-results-section">
+                        <h4>📊 模拟设置信息</h4>
+                        <div id="simulation-info">
+                            <!-- 模拟设置信息将在这里显示 -->
+                        </div>
+                    </div>
+
+                    <!-- 方法比较详细结果区域 -->
+                    <div class="simple-results-section">
+                        <h4>📋 方法比较详细结果</h4>
+                        <div id="detailed-results">
+                            <!-- 详细结果表格将在这里显示 -->
+                        </div>
+                    </div>
+
+                    <!-- 方法评价总结区域 -->
+                    <div class="simple-results-section">
+                        <h4>🏆 方法评价总结</h4>
+                        <div id="evaluation-summary">
+                            <!-- 方法评价总结将在这里显示 -->
+                        </div>
+                    </div>
+
+                    <!-- 图表1 -->
+                    <div class="simple-plot-section">
+                        <h4>📈 估计值分布比较</h4>
+                        <div id="comparison-plot"></div>
+                    </div>
+                    
+                    <!-- 图表2 -->
+                    <div class="simple-plot-section">
+                        <h4>📊 方法性能评估</h4>
+                        <div id="comparison-plot2"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="loss_estimation.js"></script>
+  <script>window.__MJ_DOLLAR=1;</script>
+  <script src="vendor/mathjax-loader.js"></script>
+  <script src="vendor/mathjax-tex-svg.js"></script>
+</body>
+</html>

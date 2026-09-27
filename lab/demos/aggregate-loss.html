@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>再保险下的聚合赔款 (Aggregate Loss under Reinsurance)</title>
+    
+    <script src="vendor/tailwind.js"></script>
+    <script src="vendor/chart.umd.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; }
+        .canvas-container { position: relative; height: 350px; width: 100%; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 10px; margin-bottom: 20px; }
+        .control-panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .stat-card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); text-align: center; }
+        .stat-value { font-size: 1.25rem; font-weight: bold; color: #1f2937; }
+        .stat-label { font-size: 0.875rem; color: #6b7280; }
+        .slider-label { display: flex; justify-content: space-between; font-size: 0.9em; margin-bottom: 2px; }
+    </style>
+</head>
+<body class="p-6">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-6">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">再保险下的聚合赔款 (Aggregate Loss under Reinsurance)</h1>
+            <p class="text-gray-600">
+                本实验展示不同再保险安排（比例、单损超赔、聚合超赔）如何改变聚合赔款 \( S \) 在保险人 (Insurer) 和再保险人 (Reinsurer) 之间的分配，以及对期望 \( E[\cdot] \) 和方差 \( \text{Var}(\cdot) \) 的影响。
+            </p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Controls -->
+            <div class="lg:col-span-4 space-y-6">
+                
+                <!-- Frequency Dist -->
+                <div class="control-panel">
+                    <h3 class="text-lg font-semibold mb-3 text-gray-700">1. 频率分布 (Frequency)</h3>
+                    <div class="mb-3">
+                        <label class="block text-sm font-medium text-gray-700">分布类型</label>
+                        <select id="freqDist" class="w-full p-2 border rounded mt-1" onchange="updateUI()">
+                            <option value="poisson">Poisson (泊松)</option>
+                            <option value="negbin">Negative Binomial (负二项)</option>
+                        </select>
+                    </div>
+                    <div id="freqParams">
+                        <!-- Injected via JS -->
+                    </div>
+                </div>
+
+                <!-- Severity Dist -->
+                <div class="control-panel">
+                    <h3 class="text-lg font-semibold mb-3 text-gray-700">2. 单次赔款分布 (Severity)</h3>
+                    <div class="mb-3">
+                        <label class="block text-sm font-medium text-gray-700">分布类型</label>
+                        <select id="sevDist" class="w-full p-2 border rounded mt-1" onchange="updateUI()">
+                            <option value="lnorm">Lognormal (对数正态)</option>
+                            <option value="pareto">Pareto (帕累托)</option>
+                            <option value="exp">Exponential (指数)</option>
+                        </select>
+                    </div>
+                    <div id="sevParams">
+                        <!-- Injected via JS -->
+                    </div>
+                </div>
+
+                <!-- Reinsurance -->
+                <div class="control-panel">
+                    <h3 class="text-lg font-semibold mb-3 text-gray-700">3. 再保险安排 (Reinsurance)</h3>
+                    <div class="mb-3">
+                        <label class="block text-sm font-medium text-gray-700">再保类型</label>
+                        <select id="reinsType" class="w-full p-2 border rounded mt-1" onchange="updateUI()">
+                            <option value="quota">Proportional / Quota Share (比例再保)</option>
+                            <option value="xol">Excess of Loss per Risk (单损超赔)</option>
+                            <option value="stoploss">Aggregate Stop Loss (聚合超赔)</option>
+                        </select>
+                    </div>
+                    <div id="reinsParams">
+                        <!-- Injected via JS -->
+                    </div>
+                    
+                    <button onclick="runSimulation()" class="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition">
+                        开始模拟 (Simulate)
+                    </button>
+                </div>
+
+            </div>
+
+            <!-- Results -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Stats Grid -->
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="stat-card border-l-4 border-gray-500">
+                        <div class="stat-label">Total Loss \( S \) Mean</div>
+                        <div id="stat_S_mean" class="stat-value">-</div>
+                        <div class="stat-label mt-1">Variance</div>
+                        <div id="stat_S_var" class="stat-value text-sm">-</div>
+                    </div>
+                    <div class="stat-card border-l-4 border-blue-500">
+                        <div class="stat-label">Insurer \( S_I \) Mean</div>
+                        <div id="stat_SI_mean" class="stat-value">-</div>
+                        <div class="stat-label mt-1">Variance</div>
+                        <div id="stat_SI_var" class="stat-value text-sm">-</div>
+                    </div>
+                    <div class="stat-card border-l-4 border-red-500">
+                        <div class="stat-label">Reinsurer \( S_R \) Mean</div>
+                        <div id="stat_SR_mean" class="stat-value">-</div>
+                        <div class="stat-label mt-1">Variance</div>
+                        <div id="stat_SR_var" class="stat-value text-sm">-</div>
+                    </div>
+                </div>
+
+                <!-- Math Hints -->
+                <div id="mathHint" class="bg-yellow-50 border border-yellow-200 p-4 rounded text-sm text-gray-700">
+                    <!-- Dynamic Hints -->
+                </div>
+
+                <!-- Charts -->
+                <div class="canvas-container">
+                    <h4 class="text-center font-semibold text-gray-600 mb-2">赔款分布对比 (Distribution Comparison)</h4>
+                    <canvas id="mainChart"></canvas>
+                </div>
+                
+                <div class="bg-white p-4 rounded shadow text-sm text-gray-600">
+                    <h4 class="font-semibold mb-2">观察指南：</h4>
+                    <ul class="list-disc pl-5 space-y-1">
+                        <li><strong>比例再保 (Quota Share)</strong>: Insurer 和 Reinsurer 分担固定比例，图形形状与总赔款完全一致，只是横轴缩放。变异系数 (CV) 不变。</li>
+                        <li><strong>单损超赔 (XOL)</strong>: Insurer 截断了大额赔款，因此 \( S_I \) 的分布尾部变轻，方差显著降低。Reinsurer 承担尾部风险，\( S_R \) 经常为 0（如果没有超过 M 的损失）。</li>
+                        <li><strong>聚合超赔 (Stop Loss)</strong>: Insurer 承担 \( S \) 直到 \( M \)，\( S_I \) 在 \( M \) 处有概率质量堆积 (Probability Mass)。Reinsurer 仅承担超过 \( M \) 的部分，风险极大。</li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Distribution Utils ---
+        const DistUtils = {
+            // Standard Normal
+            randn: () => {
+                let u = 0, v = 0;
+                while(u === 0) u = Math.random();
+                while(v === 0) v = Math.random();
+                return Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
+            },
+            // Poisson: Knuth's algo for small lambda, Normal approx for large? 
+            // Or just inverse transform for all to be safe and exact
+            poisson: (lambda) => {
+                const L = Math.exp(-lambda);
+                let k = 0;
+                let p = 1;
+                do {
+                    k++;
+                    p *= Math.random();
+                } while (p > L);
+                return k - 1;
+            },
+            // Negative Binomial (r, p) number of failures before r successes
+            // Or Gamma-Poisson mixture. N ~ Pois(Lambda), Lambda ~ Gamma(r, p/(1-p) ?)
+            // Let's use Inverse Transform on CDF for stability if r is integer.
+            // If r is real, Gamma-Poisson is best.
+            // X ~ NegBin(r, p), mean = r(1-p)/p. 
+            // Parametrization: p is probability of success. Mean = r(1-p)/p
+            // Alternative: Mean = mu, Var = mu + mu^2/r.
+            // Let's use Polya distribution via Gamma-Poisson.
+            // Lambda ~ Gamma(shape=r, scale=(1-p)/p) -> No.
+            // Correct mixture: N|L ~ Pois(L), L ~ Gamma(r, (1-p)/p) scale?
+            // Let's use simple geometric sum if r is int? No.
+            // Let's use standard library approach:
+            // Generate Gamma(r, theta=(1-p)/p). Then Poisson.
+            negbin: (r, p) => {
+                // Generate Gamma
+                // Marsaglia and Tsang method for alpha > 1
+                const gamma = (alpha, beta) => {
+                    if (alpha < 1) {
+                        return gamma(1 + alpha, beta) * Math.pow(Math.random(), 1 / alpha);
+                    }
+                    const d = alpha - 1 / 3;
+                    const c = 1 / Math.sqrt(9 * d);
+                    while (true) {
+                        const x = DistUtils.randn();
+                        const v = 1 + c * x;
+                        if (v <= 0) continue;
+                        const v3 = v * v * v;
+                        const u = Math.random();
+                        if (u < 1 - 0.0331 * x * x * x * x) return d * v3 * beta;
+                        if (Math.log(u) < 0.5 * x * x + d * (1 - v3 + Math.log(v3))) return d * v3 * beta;
+                    }
+                };
+                const lambda = gamma(r, (1-p)/p);
+                return DistUtils.poisson(lambda);
+            },
+            // Lognormal(mu, sigma)
+            lnorm: (mu, sigma) => Math.exp(mu + sigma * DistUtils.randn()),
+            // Pareto(alpha, theta): F(x) = 1 - (1 + x/theta)^-alpha
+            pareto: (alpha, theta) => {
+                const u = Math.random();
+                return theta * (Math.pow(1 - u, -1 / alpha) - 1);
+            },
+            // Exponential(mean): F(x) = 1 - exp(-x/mean)
+            exp: (mean) => -mean * Math.log(1 - Math.random())
+        };
+
+        // --- Config ---
+        const Config = {
+            freq: {
+                poisson: { params: [{id:'lambda', label:'Lambda (λ)', val:10, min:1, max:100, step:1}] },
+                negbin: { params: [{id:'r', label:'r (Successes)', val:5, min:1, max:50, step:1}, {id:'p', label:'p (Prob)', val:0.5, min:0.1, max:0.9, step:0.05}] }
+            },
+            sev: {
+                lnorm: { params: [{id:'mu', label:'Mu (μ)', val:5, min:1, max:10, step:0.1}, {id:'sigma', label:'Sigma (σ)', val:1, min:0.1, max:3, step:0.1}] },
+                pareto: { params: [{id:'alpha', label:'Alpha (α)', val:3, min:1.1, max:10, step:0.1}, {id:'theta', label:'Theta (θ)', val:100, min:10, max:1000, step:10}] },
+                exp: { params: [{id:'mean', label:'Mean', val:200, min:10, max:1000, step:10}] }
+            },
+            reins: {
+                quota: { 
+                    label: 'Proportional', 
+                    params: [{id:'c', label:'Retention Level c (0-1)', val:0.7, min:0, max:1, step:0.05}],
+                    desc: 'Insurer retains c%, Reinsurer takes (1-c)%'
+                },
+                xol: { 
+                    label: 'Excess of Loss', 
+                    params: [{id:'M', label:'Retention M (Per Risk)', val:100, min:0, max:2000, step:50}],
+                    desc: 'For each loss X: Y = min(X, M), Z = max(0, X-M)'
+                },
+                stoploss: { 
+                    label: 'Stop Loss', 
+                    params: [{id:'M_agg', label:'Retention M (Aggregate)', val:2000, min:0, max:10000, step:100}],
+                    desc: 'For total loss S: S_I = min(S, M), S_R = max(0, S-M)'
+                }
+            }
+        };
+
+        let myChart = null;
+
+        // --- UI Logic ---
+        function init() {
+            updateUI(); // Build initial controls
+            // runSimulation(); // Auto run? Maybe wait for user.
+        }
+
+        function updateUI() {
+            // 1. Frequency Params
+            const fType = document.getElementById('freqDist').value;
+            renderParams('freqParams', Config.freq[fType].params, 'f');
+
+            // 2. Severity Params
+            const sType = document.getElementById('sevDist').value;
+            renderParams('sevParams', Config.sev[sType].params, 's');
+
+            // 3. Reinsurance Params
+            const rType = document.getElementById('reinsType').value;
+            renderParams('reinsParams', Config.reins[rType].params, 'r');
+            
+            // 4. Update Hints
+            updateMathHint(rType);
+        }
+
+        function renderParams(containerId, params, prefix) {
+            const div = document.getElementById(containerId);
+            div.innerHTML = '';
+            params.forEach(p => {
+                const html = `
+                    <div class="mb-2">
+                        <div class="slider-label">
+                            <span>${p.label}</span>
+                            <span id="disp_${prefix}_${p.id}">${p.val}</span>
+                        </div>
+                        <input type="range" id="inp_${prefix}_${p.id}" 
+                            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                            min="${p.min}" max="${p.max}" step="${p.step}" value="${p.val}"
+                            oninput="document.getElementById('disp_${prefix}_${p.id}').innerText = this.value">
+                    </div>
+                `;
+                div.innerHTML += html;
+            });
+        }
+
+        function getParams(prefix, configParams) {
+            const p = {};
+            configParams.forEach(cp => {
+                p[cp.id] = parseFloat(document.getElementById(`inp_${prefix}_${cp.id}`).value);
+            });
+            return p;
+        }
+
+        function updateMathHint(type) {
+            const div = document.getElementById('mathHint');
+            let tex = '';
+            if(type === 'quota') {
+                tex = `$$ Y = cX, \\quad Z = (1-c)X $$ 
+                       $$ E[S_I] = c E[S], \\quad \\text{Var}(S_I) = c^2 \\text{Var}(S) $$`;
+            } else if (type === 'xol') {
+                tex = `$$ Y = \\min(X, M), \\quad Z = (X-M)_+ $$ 
+                       $$ E[S_I] = E[N]E[Y], \\quad E[S_R] = E[N]E[Z] $$`;
+            } else if (type === 'stoploss') {
+                tex = `$$ S_I = \\min(S, M), \\quad S_R = (S-M)_+ $$ 
+                       $$ E[S_R] = E[(S-M)_+] \\quad (\\text{Stop-Loss Premium}) $$`;
+            }
+            div.innerHTML = `<h5 class="font-bold mb-1">理论公式 (Theory):</h5>` + tex;
+            MathJax.Hub.Queue(["Typeset", MathJax.Hub, div]);
+        }
+
+        // --- Simulation ---
+        function runSimulation() {
+            // Get inputs
+            const fType = document.getElementById('freqDist').value;
+            const fParams = getParams('f', Config.freq[fType].params);
+            
+            const sType = document.getElementById('sevDist').value;
+            const sParams = getParams('s', Config.sev[sType].params);
+            
+            const rType = document.getElementById('reinsType').value;
+            const rParams = getParams('r', Config.reins[rType].params);
+
+            const N_sim = 10000;
+            const S_vals = [];
+            const SI_vals = [];
+            const SR_vals = [];
+
+            for(let i=0; i<N_sim; i++) {
+                // 1. Generate N
+                let N = 0;
+                if(fType === 'poisson') N = DistUtils.poisson(fParams.lambda);
+                else if(fType === 'negbin') N = DistUtils.negbin(fParams.r, fParams.p);
+
+                // 2. Generate Losses
+                let S = 0;
+                let SI = 0;
+                let SR = 0;
+
+                // Optimization: Generate and Process on the fly
+                // To support Aggregate Stop Loss, we need total S first.
+                // To support XOL/Quota, we can sum components.
+                
+                let currentS = 0;
+                let currentSI_XOL = 0;
+                let currentSR_XOL = 0;
+
+                for(let j=0; j<N; j++) {
+                    let X = 0;
+                    if(sType === 'lnorm') X = DistUtils.lnorm(sParams.mu, sParams.sigma);
+                    else if(sType === 'pareto') X = DistUtils.pareto(sParams.alpha, sParams.theta);
+                    else if(sType === 'exp') X = DistUtils.exp(sParams.mean);
+
+                    currentS += X;
+
+                    // Per Risk Logic
+                    if(rType === 'quota') {
+                        // handled later
+                    } else if(rType === 'xol') {
+                        const M = rParams.M;
+                        currentSI_XOL += Math.min(X, M);
+                        currentSR_XOL += Math.max(0, X - M);
+                    }
+                }
+
+                S = currentS;
+
+                // Apply Reinsurance Logic to Totals
+                if(rType === 'quota') {
+                    const c = rParams.c;
+                    SI = S * c;
+                    SR = S * (1 - c);
+                } else if(rType === 'xol') {
+                    SI = currentSI_XOL;
+                    SR = currentSR_XOL;
+                } else if(rType === 'stoploss') {
+                    const M = rParams.M_agg;
+                    SI = Math.min(S, M);
+                    SR = Math.max(0, S - M);
+                }
+
+                S_vals.push(S);
+                SI_vals.push(SI);
+                SR_vals.push(SR);
+            }
+
+            // Calc Stats
+            const getStats = (arr) => {
+                const n = arr.length;
+                const m = arr.reduce((a,b)=>a+b,0)/n;
+                const v = arr.reduce((a,b)=>a+(b-m)**2,0)/(n-1);
+                return {mean: m, var: v};
+            };
+
+            const sStats = getStats(S_vals);
+            const siStats = getStats(SI_vals);
+            const srStats = getStats(SR_vals);
+
+            // Update DOM
+            document.getElementById('stat_S_mean').innerText = sStats.mean.toFixed(1);
+            document.getElementById('stat_S_var').innerText = sStats.var.toFixed(0);
+            document.getElementById('stat_SI_mean').innerText = siStats.mean.toFixed(1);
+            document.getElementById('stat_SI_var').innerText = siStats.var.toFixed(0);
+            document.getElementById('stat_SR_mean').innerText = srStats.mean.toFixed(1);
+            document.getElementById('stat_SR_var').innerText = srStats.var.toFixed(0);
+
+            // Update Charts
+            updateChart(S_vals, SI_vals, SR_vals);
+        }
+
+        function updateChart(S, SI, SR) {
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            
+            // Binning
+            // Find max to set range
+            const maxVal = Math.max(...S); // S is always >= SI and SR usually
+            const minVal = 0;
+            const bins = 40;
+            const binSize = (maxVal - minVal) / bins;
+            
+            const histS = new Array(bins).fill(0);
+            const histSI = new Array(bins).fill(0);
+            const histSR = new Array(bins).fill(0);
+            const labels = [];
+
+            for(let i=0; i<bins; i++) {
+                labels.push((i*binSize).toFixed(0));
+            }
+
+            // Fill histograms
+            const fillHist = (arr, hist) => {
+                arr.forEach(v => {
+                    let idx = Math.floor((v - minVal) / binSize);
+                    if(idx >= bins) idx = bins - 1;
+                    hist[idx]++;
+                });
+            };
+
+            fillHist(S, histS);
+            fillHist(SI, histSI);
+            fillHist(SR, histSR);
+
+            if(myChart) myChart.destroy();
+
+            myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Total Loss S',
+                            data: histS,
+                            backgroundColor: 'rgba(107, 114, 128, 0.3)', // Gray
+                            borderColor: 'rgba(107, 114, 128, 1)',
+                            borderWidth: 1,
+                            barPercentage: 1.0,
+                            categoryPercentage: 1.0
+                        },
+                        {
+                            label: 'Insurer SI',
+                            data: histSI,
+                            backgroundColor: 'rgba(59, 130, 246, 0.5)', // Blue
+                            borderColor: 'rgba(59, 130, 246, 1)',
+                            borderWidth: 1,
+                            barPercentage: 1.0,
+                            categoryPercentage: 1.0
+                        },
+                        {
+                            label: 'Reinsurer SR',
+                            data: histSR,
+                            backgroundColor: 'rgba(239, 68, 68, 0.5)', // Red
+                            borderColor: 'rgba(239, 68, 68, 1)',
+                            borderWidth: 1,
+                            barPercentage: 1.0,
+                            categoryPercentage: 1.0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { title: { display: true, text: 'Loss Amount' } },
+                        y: { title: { display: true, text: 'Frequency' }, beginAtZero: true }
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                title: (ctx) => `Range: ${ctx[0].label} - ${(parseFloat(ctx[0].label)+binSize).toFixed(0)}`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Run init
+        window.onload = init;
+
+    </script>
+  <script src="vendor/mathjax-loader.js"></script>
+  <script src="vendor/mathjax-tex-svg.js"></script>
+</body>
+</html>

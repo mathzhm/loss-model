@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>演示库 · LOSS LAB 损失模型实验舱</title>
+<link rel="stylesheet" href="style.css">
+<script>try{if(localStorage.getItem('losslab_theme')==='light')document.documentElement.dataset.theme='light';}catch(e){}</script>
+<style>
+  .lib-hero{padding:34px 0 10px;text-align:center}
+  .lib-hero h1{font-size:30px;margin:0 0 8px;font-weight:700;letter-spacing:.5px}
+  .lib-hero h1 .em{color:var(--ch17)}
+  .lib-hero p{color:var(--muted);max-width:760px;margin:0 auto;line-height:1.75;font-size:14.5px}
+  .lib-note{max-width:760px;margin:14px auto 0;font-size:12.5px;color:var(--muted2);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 16px;line-height:1.7}
+  .lib-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(285px,1fr));gap:16px;margin:26px 0 60px}
+  .lib-card{background:linear-gradient(160deg,var(--panel),var(--bg2));border:1px solid var(--line);border-radius:14px;padding:18px 18px 16px;cursor:pointer;transition:.18s;position:relative;overflow:hidden;display:flex;flex-direction:column}
+  .lib-card:hover{transform:translateY(-3px);border-color:var(--line2);box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  .lib-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--tag,var(--ch17))}
+  .lc-top{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+  .lc-ic{font-size:26px;line-height:1}
+  .lc-title{font-size:16px;font-weight:600;color:var(--ink)}
+  .lc-tag{display:inline-block;font-size:11px;color:var(--tag,var(--ch17));border:1px solid var(--tag,var(--ch17));border-radius:20px;padding:1px 9px;margin:0 0 9px;opacity:.85}
+  .lc-desc{font-size:13px;color:var(--ink2);line-height:1.7;flex:1}
+  .lc-foot{display:flex;justify-content:space-between;align-items:center;margin-top:13px}
+  .lc-lib{font-size:11px;color:var(--muted2);font-family:'JetBrains Mono',monospace}
+  .lc-open{font-size:12.5px;color:var(--tag,var(--ch17));font-weight:600}
+  /* 浮层 */
+  .ov{position:fixed;inset:0;background:rgba(4,10,20,.92);z-index:999;display:none;flex-direction:column}
+  .ov.on{display:flex}
+  .ov-bar{display:flex;align-items:center;gap:12px;padding:10px 18px;background:var(--bg2);border-bottom:1px solid var(--line)}
+  .ov-title{font-size:15px;font-weight:600;color:var(--ink);flex:1}
+  .ov-btn{background:var(--panel2);border:1px solid var(--line2);color:var(--ink2);border-radius:8px;padding:6px 13px;font-size:13px;cursor:pointer;text-decoration:none}
+  .ov-btn:hover{color:var(--ink);border-color:var(--ch17)}
+  .ov iframe{flex:1;border:0;width:100%;background:#fff}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="wrap" id="topbar"></div></div>
+
+<div class="wrap">
+  <div class="lib-hero">
+    <h1>🔬 演示库 · <span class="em">拓展互动演示</span></h1>
+    <p>这里收录课程框架之外、由同学们制作的专题互动演示——它们暂未纳入正式知识点（KP），但同样把抽象的精算与统计概念变成了可以动手拖拽的实验。全部已离线本地化，点开即用。</p>
+    <div class="lib-note">💡 这些演示覆盖 <b>(a,b,0)/(a,b,1) 类分布、极值 Copula、赔偿限额、免赔额对赔付次数的影响、利润分布、计数过程</b>，以及机器学习侧的 <b>训练/验证/测试划分、损失函数、朴素贝叶斯</b>。点击卡片在页内打开，或右上角「新窗口」全屏体验。</div>
+  </div>
+  <div class="lib-grid" id="grid"></div>
+</div>
+
+<div class="ov" id="ov">
+  <div class="ov-bar">
+    <span class="ov-title" id="ovTitle"></span>
+    <a class="ov-btn" id="ovPop" target="_blank" rel="noopener">⧉ 新窗口打开</a>
+    <button class="ov-btn" onclick="closeOv()">✕ 关闭</button>
+  </div>
+  <iframe id="ovFrame" title="演示"></iframe>
+</div>
+
+<script src="course.js"></script>
+<script src="game.js"></script>
+<script>
+Game.renderTopbar(document.getElementById('topbar'),'library');
+
+const LIB=[
+  {src:"demos/ab0-class.html", icon:"🔢", title:"(a,b,0) 类分布", tag:"Ch15 · 频度分布", color:"var(--ch15)", lib:"Plotly",
+   desc:"泊松、二项、负二项三大计数分布的统一递推框架 pₖ=(a+b/k)·pₖ₋₁。拖动参数，看三类分布的概率质量如何此消彼长。"},
+  {src:"demos/ab1-class.html", icon:"🧮", title:"(a,b,1) 类分布", tag:"Ch15 · 频度分布", color:"var(--ch15)", lib:"Chart.js",
+   desc:"在 (a,b,0) 基础上对「零点」做文章：零截断与零膨胀分布，专门刻画索赔次数里异常多（或异常少）的零。"},
+  {src:"demos/extreme-value-copulas.html", icon:"🌊", title:"极值 Copula", tag:"Ch17 · 相依结构", color:"var(--ch17)", lib:"Tailwind",
+   desc:"Gumbel、Hüsler-Reiss 等极值 Copula：刻画极端事件之间的相依，是巨灾与尾部风险建模的核心工具。"},
+  {src:"demos/policy-limit.html", icon:"🚧", title:"赔偿限额 Policy Limit", tag:"Ch18 · 保单条款", color:"var(--ch18)", lib:"Chart.js",
+   desc:"限额 u 下的期望赔付 E[X∧u] 与有限期望函数。支持上传自己的损失数据，看限额如何削去大额赔款的尾部。"},
+  {src:"demos/deductible-frequency.html", icon:"📉", title:"免赔额对赔付次数的影响", tag:"Ch18 · 保单条款", color:"var(--ch18)", lib:"Chart.js",
+   desc:"免赔额不只削减赔款金额，还会改变「赔付次数」的分布。可视化免赔额抬升后索赔频率的衰减。"},
+  {src:"demos/profit-distribution.html", icon:"💰", title:"利润分布与再保险决策", tag:"Ch20 · 再保险", color:"var(--ch20)", lib:"Tailwind",
+   desc:"承保利润 = 保费 − 赔款 − 再保险成本。模拟不同再保险安排下的利润分布，权衡风险与收益。"},
+  {src:"demos/counting-processes.html", icon:"⏱️", title:"计数过程 Counting Processes", tag:"Ch19 · 风险模型", color:"var(--ch19)", lib:"Chart.js",
+   desc:"泊松过程的间隔时间分布、非齐次泊松过程的强度函数、事件发生的动态模拟——聚合赔款模型的频度引擎。"},
+  {src:"demos/train-val-test.html", icon:"✂️", title:"训练/验证/测试集划分", tag:"Ch21 · 机器学习", color:"var(--ch21)", lib:"Tailwind",
+   desc:"为什么要切分数据？可视化训练误差与验证误差随模型复杂度的分化，理解泛化与过拟合的由来。"},
+  {src:"demos/loss-function.html", icon:"🎯", title:"损失函数与阈值", tag:"Ch21 · 机器学习", color:"var(--ch21)", lib:"Tailwind",
+   desc:"阈值损失、分类决策边界与误分代价。拖动阈值，看两类错误（漏报/误报）如何此消彼长。"},
+  {src:"demos/naive-bayes.html", icon:"🧠", title:"朴素贝叶斯 Naïve Bayes", tag:"Ch21 · 机器学习", color:"var(--ch21)", lib:"Chart.js",
+   desc:"条件独立假设下的贝叶斯分类器。直观展示后验概率如何由先验与似然相乘得到，以及「朴素」假设的含义。"}
+];
+
+const grid=document.getElementById('grid');
+grid.innerHTML=LIB.map((d,i)=>
+  '<div class="lib-card" style="--tag:'+d.color+'" onclick="openOv('+i+')">'+
+    '<div class="lc-top"><span class="lc-ic">'+d.icon+'</span><span class="lc-title">'+d.title+'</span></div>'+
+    '<span class="lc-tag">'+d.tag+'</span>'+
+    '<div class="lc-desc">'+d.desc+'</div>'+
+    '<div class="lc-foot"><span class="lc-lib">'+d.lib+'</span><span class="lc-open">打开演示 →</span></div>'+
+  '</div>'
+).join('');
+
+const ov=document.getElementById('ov'), ovFrame=document.getElementById('ovFrame');
+function openOv(i){
+  const d=LIB[i];
+  document.getElementById('ovTitle').textContent=d.icon+' '+d.title+' · '+d.tag;
+  document.getElementById('ovPop').href=d.src;
+  ovFrame.src=d.src;
+  ov.classList.add('on');
+}
+function closeOv(){ ov.classList.remove('on'); ovFrame.src='about:blank'; }
+document.addEventListener('keydown',e=>{ if(e.key==='Escape')closeOv(); });
+</script>
+</body>
+</html>

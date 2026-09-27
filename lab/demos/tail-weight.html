@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tail weight 指标对比 (把"尾更重"量化)</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #8e44ad;
+            --highlight-color: #e74c3c;
+            --bg-color: #f5f7fa;
+            --panel-bg: #ffffff;
+            --text-color: #333;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 { margin-top: 0; color: var(--primary-color); }
+        
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            max-width: 1400px;
+            width: 100%;
+        }
+
+        .control-panel {
+            flex: 1;
+            min-width: 320px;
+            background: var(--panel-bg);
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .charts-panel {
+            flex: 3;
+            min-width: 600px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .chart-card {
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .chart-row {
+            display: flex;
+            gap: 20px;
+        }
+
+        .chart-half {
+            flex: 1;
+        }
+
+        .control-group {
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        input[type="range"] {
+            flex-grow: 1;
+            cursor: pointer;
+        }
+
+        select {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            font-size: 1em;
+        }
+
+        .value-display {
+            font-family: monospace;
+            font-weight: bold;
+            color: var(--accent-color);
+        }
+        
+        .color-box {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            margin-right: 5px;
+            border-radius: 2px;
+        }
+
+        .metrics-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+        
+        .metrics-table th, .metrics-table td {
+            padding: 8px;
+            text-align: right;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .metrics-table th {
+            text-align: left;
+            color: #666;
+        }
+
+        .info-box {
+            background-color: #f4ecf7;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid var(--accent-color);
+            margin-top: 20px;
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+
+        canvas {
+            width: 100%;
+            height: 300px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>Tail weight 指标对比 (把"尾更重"量化)</h1>
+
+    <div class="container">
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <div class="control-group">
+                <label>对比场景 (Mean 固定为 10)</label>
+                <div style="font-size:0.9em; color:#666; margin-bottom:10px;">
+                    我们将比较三种分布，它们的均值都相同，但尾部轻重不同。
+                </div>
+                
+                <label>1. Pareto 形状参数 &alpha; (最重尾)</label>
+                <div class="slider-container">
+                    <span>2.1</span>
+                    <input type="range" id="pareto-alpha" min="2.1" max="5.0" step="0.1" value="3.0" oninput="updateSimulation()">
+                    <span>5.0</span>
+                </div>
+                <div style="text-align: right;">&alpha; = <span id="alpha-val" class="value-display">3.0</span></div>
+                
+                <label style="margin-top:15px;">2. Gamma 形状参数 k (中等)</label>
+                <div class="slider-container">
+                    <span>0.5</span>
+                    <input type="range" id="gamma-k" min="0.5" max="5.0" step="0.1" value="2.0" oninput="updateSimulation()">
+                    <span>5.0</span>
+                </div>
+                <div style="text-align: right;">k = <span id="k-val" class="value-display">2.0</span></div>
+                
+                <label style="margin-top:15px;">3. Exponential (基准)</label>
+                <div style="font-size:0.9em; color:#666;">参数 &lambda; 自动调整以保持均值=10</div>
+            </div>
+
+            <div class="control-group">
+                <label>风险度量指标 (Risk Metrics)</label>
+                <table class="metrics-table">
+                    <tr>
+                        <th>分布</th>
+                        <th>VaR (99%)</th>
+                        <th>TVaR (99%)</th>
+                    </tr>
+                    <tr style="color: #e74c3c;">
+                        <td><span class="color-box" style="background:#e74c3c;"></span>Pareto</td>
+                        <td id="pareto-var">--</td>
+                        <td id="pareto-tvar">--</td>
+                    </tr>
+                    <tr style="color: #f39c12;">
+                        <td><span class="color-box" style="background:#f39c12;"></span>Gamma</td>
+                        <td id="gamma-var">--</td>
+                        <td id="gamma-tvar">--</td>
+                    </tr>
+                    <tr style="color: #3498db;">
+                        <td><span class="color-box" style="background:#3498db;"></span>Exponential</td>
+                        <td id="exp-var">--</td>
+                        <td id="exp-tvar">--</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="info-box">
+                <strong>观察要点:</strong>
+                <ul style="padding-left: 20px; margin: 5px 0;">
+                    <li>尽管三者均值相同 (Mean=10)，但 99% 处的极端风险差异巨大。</li>
+                    <li><strong>Pareto (Power Tail):</strong> 在高分位处，生存函数 $\bar{F}(x)$ 呈直线下降 (对数坐标下)，衰减最慢，TVaR 极其惊人。</li>
+                    <li><strong>Exponential (Light Tail):</strong> 衰减最快，风险相对“温和”。</li>
+                    <li>调节 Pareto $\alpha$ 越接近 2，尾部越重，VaR/TVaR 甚至会成倍增加。</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Charts Panel -->
+        <div class="charts-panel">
+            <div class="chart-card">
+                <h2>1. 对数生存函数图 (Log-Survival Plot)</h2>
+                <div style="font-size:0.9em; color:#666; margin-bottom:5px;">横轴: x, 纵轴: log S(x) = log(1-F(x)). 斜率越平缓代表尾越重。</div>
+                <canvas id="chart-survival"></canvas>
+            </div>
+
+            <div class="chart-card">
+                <h2>2. 极端风险度量对比 (VaR & TVaR at 99%)</h2>
+                <canvas id="chart-bar"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Math Functions ---
+        // We fix Mean = 10 for all distributions
+        const MEAN = 10;
+
+        // 1. Exponential
+        // Mean = 1/lambda => lambda = 1/Mean
+        // S(x) = exp(-lambda * x)
+        // VaR(p) = -ln(1-p)/lambda
+        // TVaR(p) = VaR(p) + 1/lambda
+        const distExp = {
+            lambda: 1/MEAN,
+            S: function(x) { return Math.exp(-this.lambda * x); },
+            VaR: function(p) { return -Math.log(1-p)/this.lambda; },
+            TVaR: function(p) { return this.VaR(p) + 1/this.lambda; }
+        };
+
+        // 2. Pareto (Type II / Lomax for simplicity or standard Pareto)
+        // Let's use Pareto II (Lomax): S(x) = (1 + x/theta)^(-alpha)
+        // Mean = theta / (alpha - 1)  (for alpha > 1)
+        // Given alpha, theta = Mean * (alpha - 1)
+        // VaR(p) = theta * ((1-p)^(-1/alpha) - 1)
+        // TVaR(p) = VaR(p) + theta*(1-p)^(-1/alpha) / (alpha-1) = VaR(p) + (VaR(p)+theta)/(alpha-1)
+        const distPareto = {
+            alpha: 3,
+            theta: 20,
+            update: function(a) {
+                this.alpha = a;
+                this.theta = MEAN * (a - 1);
+            },
+            S: function(x) { return Math.pow(1 + x/this.theta, -this.alpha); },
+            VaR: function(p) { return this.theta * (Math.pow(1-p, -1/this.alpha) - 1); },
+            TVaR: function(p) { 
+                let var_p = this.VaR(p);
+                return var_p + (var_p + this.theta) / (this.alpha - 1);
+            }
+        };
+
+        // 3. Gamma
+        // Mean = k * theta. Given k, theta = Mean / k.
+        // S(x) = 1 - GammaCDF(x). No closed form, use approximation.
+        // VaR(p) = InverseGammaCDF(p).
+        // TVaR(p) = 1/(1-p) * integral_VaR^inf x f(x) dx
+        // Approximation helper
+        function gamma_cdf(x, k, theta) {
+            // Lower incomplete gamma P(k, x/theta)
+            // Using series for small x, continued fraction for large x is complex.
+            // Let's use a JS implementation of incomplete gamma
+            return lowRegGamma(k, x/theta);
+        }
+        
+        // Regularized Lower Gamma P(s,x)
+        function lowRegGamma(s, x) {
+            if (x < 0) return 0;
+            if (x === 0) return 0;
+            if (x > s + 20) return 1.0; // approximation
+            
+            // Series representation for small x? Or just numerical integration for simplicity here since precision isn't critical
+            // Let's use numerical integration of t^(s-1) e^-t
+            let n = 100;
+            let sum = 0;
+            let dt = x/n;
+            for(let i=0; i<n; i++) {
+                let t = (i+0.5)*dt;
+                sum += Math.pow(t, s-1) * Math.exp(-t);
+            }
+            let lowerGamma = sum * dt;
+            // Gamma(s)
+            let gammaS = Math.exp(logGamma(s));
+            return lowerGamma / gammaS;
+        }
+
+        // Lanczos approximation for log(Gamma(z))
+        function logGamma(z) {
+            var c = [76.18009172947146, -86.50532032941677, 24.01409824083091,
+                -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5];
+            var x = z;
+            var y = z;
+            var tmp = x + 5.5;
+            tmp -= (x + 0.5) * Math.log(tmp);
+            var ser = 1.000000000190015;
+            for (var j = 0; j < 6; j++) ser += c[j] / ++y;
+            return -tmp + Math.log(2.5066282746310005 * ser / x);
+        }
+        
+        // Better Gamma CDF approximation (Wilson-Hilferty for initial guess?)
+        // Actually, for visualization, let's just precompute S(x) array or use simple numerical search for VaR
+        const distGamma = {
+            k: 2,
+            theta: 5,
+            update: function(k) {
+                this.k = k;
+                this.theta = MEAN / k;
+            },
+            S: function(x) {
+                // Numerical integration
+                // S(x) = 1 - integral_0^x ...
+                // Actually integral_x^inf is S(x)
+                // Let's use a simple summation for upper tail, up to x=500
+                // f(t) = t^(k-1) e^(-t/theta) / (theta^k Gamma(k))
+                let dx = 0.5;
+                let sum = 0;
+                let maxT = Math.max(x+200, 500);
+                let gammaK = Math.exp(logGamma(this.k));
+                let factor = 1 / (Math.pow(this.theta, this.k) * gammaK);
+                
+                // Simpson's rule or trapezoidal
+                for(let t=x; t<maxT; t+=dx) {
+                    let val = Math.pow(t, this.k-1) * Math.exp(-t/this.theta);
+                    sum += val;
+                }
+                return sum * dx * factor;
+            },
+            VaR: function(p) {
+                // Binary search for x where CDF(x) = p
+                let low = 0, high = 500;
+                for(let i=0; i<20; i++) {
+                    let mid = (low+high)/2;
+                    let s = this.S(mid);
+                    if ((1-s) < p) low = mid;
+                    else high = mid;
+                }
+                return (low+high)/2;
+            },
+            TVaR: function(p) {
+                let var_p = this.VaR(p);
+                // E[X | X > var] = 1/(1-p) * integral_var^inf x f(x) dx
+                let dx = 0.5;
+                let sum = 0;
+                let maxT = 1000;
+                let gammaK = Math.exp(logGamma(this.k));
+                let factor = 1 / (Math.pow(this.theta, this.k) * gammaK);
+                
+                for(let t=var_p; t<maxT; t+=dx) {
+                    let val = t * Math.pow(t, this.k-1) * Math.exp(-t/this.theta);
+                    sum += val;
+                }
+                return (sum * dx * factor) / (1-p);
+            }
+        };
+
+        // --- Main Logic ---
+        function updateSimulation() {
+            const alpha = parseFloat(document.getElementById('pareto-alpha').value);
+            const k = parseFloat(document.getElementById('gamma-k').value);
+
+            document.getElementById('alpha-val').textContent = alpha.toFixed(1);
+            document.getElementById('k-val').textContent = k.toFixed(1);
+
+            distPareto.update(alpha);
+            distGamma.update(k);
+
+            // Metrics
+            const p = 0.99;
+            
+            const expVaR = distExp.VaR(p);
+            const expTVaR = distExp.TVaR(p);
+            
+            const parVaR = distPareto.VaR(p);
+            const parTVaR = distPareto.TVaR(p);
+            
+            const gamVaR = distGamma.VaR(p);
+            const gamTVaR = distGamma.TVaR(p);
+
+            document.getElementById('exp-var').textContent = expVaR.toFixed(2);
+            document.getElementById('exp-tvar').textContent = expTVaR.toFixed(2);
+            
+            document.getElementById('pareto-var').textContent = parVaR.toFixed(2);
+            document.getElementById('pareto-tvar').textContent = parTVaR.toFixed(2);
+            
+            document.getElementById('gamma-var').textContent = gamVaR.toFixed(2);
+            document.getElementById('gamma-tvar').textContent = gamTVaR.toFixed(2);
+
+            drawSurvival();
+            drawBarChart(
+                [expVaR, gamVaR, parVaR],
+                [expTVaR, gamTVaR, parTVaR]
+            );
+        }
+
+        function drawSurvival() {
+            const canvas = document.getElementById('chart-survival');
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width = canvas.offsetWidth;
+            const h = canvas.height = 300;
+            ctx.clearRect(0, 0, w, h);
+
+            const pad = {l: 50, r: 20, t: 20, b: 30};
+            const pw = w - pad.l - pad.r;
+            const ph = h - pad.t - pad.b;
+
+            // X range: 0 to 100 (Mean is 10)
+            const maxX = 150;
+            // Y range: Log scale. S(0)=1 (log=0). S(100) can be small.
+            // Let's go down to 1e-4 (-4 in log10)
+            const minLogY = -4; 
+            const maxLogY = 0;
+            const logRange = maxLogY - minLogY;
+
+            function mapX(x) { return pad.l + (x/maxX) * pw; }
+            function mapY(logY) { return pad.t + ph - ((logY - minLogY)/logRange) * ph; }
+
+            // Axes
+            ctx.beginPath();
+            ctx.strokeStyle = '#ddd';
+            // Grid
+            for(let i=minLogY; i<=maxLogY; i++) {
+                let y = mapY(i);
+                ctx.moveTo(pad.l, y);
+                ctx.lineTo(w-pad.r, y);
+                ctx.fillStyle = '#666';
+                ctx.fillText(`10^${i}`, 5, y+4);
+            }
+            ctx.stroke();
+
+            // Draw Lines
+            // 1. Exponential (Blue)
+            ctx.beginPath();
+            ctx.strokeStyle = '#3498db';
+            ctx.lineWidth = 2;
+            for(let x=0; x<=maxX; x+=1) {
+                let s = distExp.S(x);
+                let logS = Math.log10(s);
+                if(logS < minLogY) break;
+                let px = mapX(x);
+                let py = mapY(logS);
+                if(x===0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+
+            // 2. Gamma (Orange)
+            ctx.beginPath();
+            ctx.strokeStyle = '#f39c12';
+            ctx.lineWidth = 2;
+            for(let x=0; x<=maxX; x+=1) {
+                let s = distGamma.S(x);
+                if(s <= 0) break;
+                let logS = Math.log10(s);
+                if(logS < minLogY) break;
+                let px = mapX(x);
+                let py = mapY(logS);
+                if(x===0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+
+            // 3. Pareto (Red)
+            ctx.beginPath();
+            ctx.strokeStyle = '#e74c3c';
+            ctx.lineWidth = 3;
+            for(let x=0; x<=maxX; x+=1) {
+                let s = distPareto.S(x);
+                let logS = Math.log10(s);
+                if(logS < minLogY) break;
+                let px = mapX(x);
+                let py = mapY(logS);
+                if(x===0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+            
+            // Labels
+            ctx.fillStyle = '#333';
+            ctx.fillText("x", w-15, h-15);
+            
+            // Legend
+            ctx.fillStyle = '#3498db'; ctx.fillText("Exponential", w-100, 40);
+            ctx.fillStyle = '#f39c12'; ctx.fillText("Gamma", w-100, 60);
+            ctx.fillStyle = '#e74c3c'; ctx.fillText("Pareto", w-100, 80);
+        }
+
+        function drawBarChart(vars, tvars) {
+            const canvas = document.getElementById('chart-bar');
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width = canvas.offsetWidth;
+            const h = canvas.height = 300;
+            ctx.clearRect(0, 0, w, h);
+
+            const pad = {l: 50, r: 20, t: 30, b: 30};
+            const pw = w - pad.l - pad.r;
+            const ph = h - pad.t - pad.b;
+
+            // Find max value to scale
+            const maxVal = Math.max(...vars, ...tvars) * 1.1;
+
+            const labels = ["Exponential", "Gamma", "Pareto"];
+            const colors = ["#3498db", "#f39c12", "#e74c3c"];
+
+            const barW = pw / 3 / 3; // 3 groups, 2 bars each + space
+            
+            for(let i=0; i<3; i++) {
+                let groupX = pad.l + (i/3)*pw + pw/6;
+                
+                // VaR Bar
+                let varH = (vars[i] / maxVal) * ph;
+                ctx.fillStyle = colors[i];
+                ctx.globalAlpha = 0.6;
+                ctx.fillRect(groupX - barW, pad.t + ph - varH, barW, varH);
+                ctx.globalAlpha = 1.0;
+                
+                // TVaR Bar
+                let tvarH = (tvars[i] / maxVal) * ph;
+                ctx.fillStyle = colors[i];
+                ctx.fillRect(groupX, pad.t + ph - tvarH, barW, tvarH);
+
+                // Text
+                ctx.fillStyle = '#333';
+                ctx.textAlign = 'center';
+                ctx.fillText(labels[i], groupX, h - 10);
+            }
+
+            // Axis
+            ctx.beginPath();
+            ctx.strokeStyle = '#333';
+            ctx.moveTo(pad.l, pad.t);
+            ctx.lineTo(pad.l, h - pad.b);
+            ctx.lineTo(w - pad.r, h - pad.b);
+            ctx.stroke();
+            
+            // Y Ticks
+            ctx.textAlign = 'right';
+            for(let i=0; i<=5; i++) {
+                let val = (i/5)*maxVal;
+                let y = pad.t + ph - (i/5)*ph;
+                ctx.fillText(val.toFixed(0), pad.l - 5, y+4);
+            }
+            
+            // Legend
+            ctx.fillStyle = '#666';
+            ctx.globalAlpha = 0.6;
+            ctx.fillRect(pad.l + 10, pad.t, 15, 15);
+            ctx.globalAlpha = 1.0;
+            ctx.textAlign = 'left';
+            ctx.fillText("VaR 99%", pad.l + 30, pad.t + 12);
+            
+            ctx.fillStyle = '#666';
+            ctx.fillRect(pad.l + 100, pad.t, 15, 15);
+            ctx.fillText("TVaR 99%", pad.l + 120, pad.t + 12);
+        }
+
+        // Init
+        updateSimulation();
+        window.addEventListener('resize', updateSimulation);
+
+    </script>
+</body>
+</html>

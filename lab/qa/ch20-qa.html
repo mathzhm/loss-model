@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CS2-20 风险模型2 练习题库</title>
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},svg:{fontCache:'global'}};</script>
+<script id="MathJax-script" async src="../demos/vendor/mathjax-tex-svg.js"></script>
+<style>
+*{box-sizing:border-box}body{font-family:-apple-system,"Segoe UI","Microsoft YaHei",Arial,sans-serif;margin:0;background:#ecf3f1;color:#1c2f2a;line-height:1.6}
+header{background:linear-gradient(135deg,#1f7a6b,#0d4a40);color:#fff;padding:24px 20px;text-align:center}
+header h1{margin:0 0 6px;font-size:22px}header p{margin:0;opacity:.85;font-size:14px}
+.container{max-width:900px;margin:0 auto;padding:20px}
+.toolbar,.picker,.card{background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.toolbar{padding:16px 18px;margin-bottom:18px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.toolbar .label{font-weight:600;margin-right:4px}
+button{cursor:pointer;border:none;border-radius:8px;padding:8px 14px;font-size:14px;background:#0d4a40;color:#fff}
+button:hover{opacity:.88}button.ghost{background:#e2efec;color:#155b4e}
+select{padding:8px 10px;border-radius:8px;border:1px solid #bfdad4;font-size:14px}
+.picker{padding:16px 18px;margin-bottom:18px}.picker h3{margin:0 0 12px;font-size:15px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1.5px solid #b6d5cd;background:#fff;color:#155b4e;border-radius:20px;padding:6px 14px;cursor:pointer;font-size:14px;user-select:none}
+.chip.active{background:#1f7a6b;color:#fff;border-color:#1f7a6b}
+.chip.exam::after{content:" ★";color:#f0a500}.chip.active.exam::after{color:#ffe08a}
+.count{margin:12px 0 0;font-size:13px;color:#667}
+.card{padding:18px 20px;margin-bottom:16px}
+.qhead{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.qnum{background:#1f7a6b;color:#fff;border-radius:8px;padding:3px 10px;font-weight:700;font-size:14px}
+.badge{background:#d3ece6;color:#0f6152;border-radius:6px;padding:2px 8px;font-size:12px}
+.qbody{font-size:15px}
+.answer{margin-top:14px;padding:14px 16px;background:#eef6f4;border-left:4px solid #2f9483;border-radius:6px;display:none}
+.answer.show{display:block}.answer .atitle{font-weight:700;color:#1f7a6b;margin-bottom:6px}
+.toggle-ans{margin-top:12px;background:#2f9483;font-size:13px;padding:6px 12px}
+.empty{text-align:center;color:#889;padding:40px 0}footer{text-align:center;color:#99a;font-size:12px;padding:20px}
+table.tbl{border-collapse:collapse;margin:8px 0;font-size:13px}
+table.tbl th,table.tbl td{border:1px solid #c9e0da;padding:4px 10px;text-align:center}table.tbl th{background:#e8f2ef}
+</style></head>
+<body>
+<header><h1>CS2-20 风险模型2 · 练习题库</h1><p>Risk Models 2 — Practice Questions（★ 为考试风格题 Exam style）</p></header>
+<div class="container">
+<div class="toolbar"><span class="label">操作：</span>
+<button onclick="selectAll(true)" class="ghost">全选</button>
+<button onclick="selectAll(false)" class="ghost">清空</button>
+<button onclick="randomPick()" class="ghost">随机抽题</button>
+<select id="randCount"><option value="3">随机 3 题</option><option value="4">随机 4 题</option><option value="5">随机 5 题</option></select>
+<span style="flex:1"></span>
+<button onclick="toggleAllAns(true)" class="ghost">展开全部答案</button>
+<button onclick="toggleAllAns(false)" class="ghost">收起全部答案</button></div>
+<div class="picker"><h3>选择题目（点击标签选/取消）</h3><div class="chips" id="chips"></div><p class="count" id="count"></p></div>
+<div id="quiz"></div></div>
+<footer>题目内容摘自 IFE/ActEd CS2-20 (2019) 教材，仅供个人学习使用。</footer>
+<script>
+const questions=[
+{id:"20.1",exam:false,q:`某风险年总索赔服从复合泊松，参数 250。个别索赔额 $Pa(4,900)$。保险人安排比例再保险，自留比例 75%。计算保险人和再保险人所付总额的方差。`,
+a:`毛索赔额：$E(X)=\\tfrac{900}{3}=300$，$\\mathrm{var}(X)=\\tfrac{2\\cdot900^2}{3^2\\cdot2}=180000$。<br>
+$Y=0.75X,Z=0.25X$：$E(Y)=225,\\mathrm{var}(Y)=101250$；$E(Z)=75,\\mathrm{var}(Z)=11250$。<br>
+复合泊松 $\\mathrm{var}=\\lambda E(Y^2)=\\lambda[\\mathrm{var}(Y)+E(Y)^2]$：
+
+
+$$\\mathrm{var}(S_I)=250(101250+225^2)=37{,}968{,}750$$
+
+$$\\mathrm{var}(S_R)=250(11250+75^2)=4{,}218{,}750$$`},
+{id:"20.2",exam:false,q:`风险总索赔服从复合泊松参数 $\\lambda$，个别索赔额 $Pa(3,1000)$（£）。保险人保费加成 0.2。拟安排自留 £1000 的个别超额损失再保险，再保费加成 0.3。保险人利润 = 收取保费 − 再保费 − 净索赔。<br>(i) 证明再保险前预期利润为 $100\\lambda$。<br>(ii) 计算再保险后预期利润，及预期利润下降百分比。<br>(iii) 计算利润标准差的下降百分比。`,
+a:`<b>(i)</b> $E(X)=\\tfrac{1000}{2}=500$，$E(S)=500\\lambda$，保费 $=1.2\\times500\\lambda=600\\lambda$，利润 $=600\\lambda-500\\lambda=100\\lambda$。<br>
+<b>(ii)</b> $E(Z)=(\\tfrac12)^3\\cdot\\tfrac{2000}{2}=125$，$E(S_R)=125\\lambda$，再保费 $=1.3\\times125\\lambda=162.5\\lambda$；$E(S_I)=375\\lambda$。利润 $=600\\lambda-162.5\\lambda-375\\lambda=62.5\\lambda$。较 $100\\lambda$ 下降 <b>37.5%</b>。<br>
+<b>(iii)</b> 无再保：$\\mathrm{var}=\\lambda E(X^2)$，$\\mathrm{var}(X)=750000$，$E(X^2)=1{,}000{,}000$，标准差 $=1000\\sqrt\\lambda$。<br>
+有再保：$E(Y^2)=250000$，$\\mathrm{var}(S_I)=250000\\lambda$，标准差 $=500\\sqrt\\lambda$。下降 <b>50%</b>。`},
+{id:"20.3",exam:false,q:`某组合年总索赔服从复合泊松参数 20，个别索赔额 $U(0,200)$。安排超额损失再保险使保险人对任一索赔的预期赔付为 50。计算保险人年总索赔的方差。`,
+a:`$Y=\\min(X,M)$，由 $E(Y)=M-\\tfrac{M^2}{400}=50$ 得 $M^2-400M+20000=0\\Rightarrow M=58.579$（取小根）。
+
+
+$$E(Y^2)=\\tfrac{M^3}{600}+M^2-\\tfrac{M^3}{200}=2761.42$$
+
+$$\\mathrm{var}(S_I)=\\lambda E(Y^2)=20\\times2761.42=55{,}228$$`},
+{id:"20.4",exam:false,q:`组合含 100 张 30 岁一年定期寿险、200 张 40 岁保单。索赔概率：30 岁 0.0004、40 岁 0.001。年龄 $x$ 保额服从 $U(1000(x-10),1000(x+10))$。计算年总索赔的方差（保单独立）。`,
+a:`均匀分布：$E(X)=1000x$，$\\mathrm{var}(X)=\\tfrac{20000^2}{12}$。年龄 30 均值 30000，年龄 40 均值 40000。个体风险模型：
+
+
+$$\\mathrm{var}(S)=\\sum q_i\\sigma_i^2+q_i(1-q_i)\\mu_i^2$$
+
+$$=100[0.0004\\cdot\\tfrac{20000^2}{12}+0.0004(0.9996)30000^2]+200[0.001\\cdot\\tfrac{20000^2}{12}+0.001(0.999)40000^2]$$
+
+$$\\approx37.32\\text{m}+326.35\\text{m}=363.67\\text{m}$$`},
+{id:"20.5",exam:false,q:`某组合索赔次数服从泊松，均值 1.5/月。个别索赔额：200（概率 0.65）、300（概率 0.35）。安排总额再保险，使保险人每月至多付 400。计算保险人和再保险人的预期月总索赔额。`,
+a:`$S_I$ 取值 0,200,300,400：
+
+
+$$P(S_I=0)=e^{-1.5},\\ P(S_I=200)=0.975e^{-1.5},\\ P(S_I=300)=0.525e^{-1.5}$$
+
+$$P(S_I=400)=1-2.5e^{-1.5}$$
+
+$$E(S_I)=200(0.975e^{-1.5})+300(0.525e^{-1.5})+400(1-2.5e^{-1.5})=255.52$$
+
+$E(S)=1.5\\times235=352.50$，故 $E(S_R)=352.50-255.52=96.98$。`},
+{id:"20.6",exam:true,q:`组合含 500 个独立风险。第 $i$ 个风险以概率 $1-q_i$ 无索赔、以概率 $q_i$ 恰有一笔索赔。若有索赔，其均值 $\\mu$、方差 $\\sigma^2$、MGF $M(t)$。$T$ 为组合年总索赔。<br>(i) 求 $T$ 的均值和方差。 [4]<br>用参数 $q_i$ 的复合泊松近似第 $i$ 风险的年索赔（同 $\\mu,\\sigma^2,M(t)$），$\\tilde T$ 为近似模型总额。<br>(ii) 求 $\\tilde T$ 的均值方差并与 (i) 比较。 [4]<br>设 $q_i=0.02$，若发生索赔其额为 $\\mu$（概率 1）。<br>(iii) 推导 $T$ 的 MGF 并证明其为复合二项。 [2]<br>(iv) 推导 $\\tilde T$ 的 MGF 并证明其为复合泊松。 [2] [共 12]`,
+a:`<b>(i)</b> $E(Y_i)=q_i\\mu$，$\\mathrm{var}(Y_i)=q_i\\sigma^2+q_i(1-q_i)\\mu^2$：
+
+
+$$E(T)=\\mu\\sum q_i,\\quad \\mathrm{var}(T)=\\sigma^2\\sum q_i+\\mu^2\\sum q_i(1-q_i)$$
+
+<b>(ii)</b> 复合泊松 $C_i$：$E(C_i)=q_i\\mu,\\mathrm{var}(C_i)=q_i(\\sigma^2+\\mu^2)$：
+
+
+$$E(\\tilde T)=\\mu\\sum q_i,\\quad \\mathrm{var}(\\tilde T)=(\\sigma^2+\\mu^2)\\sum q_i$$
+
+均值相同，$\\tilde T$ 方差更大（少了 $-\\mu^2\\sum q_i^2$）。<br>
+<b>(iii)</b> $M_{Y_i}(t)=0.98+0.02e^{\\mu t}$：$M_T(t)=(0.98+0.02e^{\\mu t})^{500}$，为复合二项（500，0.02，常数赔额 $\\mu$）。<br>
+<b>(iv)</b> $M_{C_i}(t)=\\exp\\{0.02(e^{\\mu t}-1)\\}$：$M_{\\tilde T}(t)=\\exp\\{10(e^{\\mu t}-1)\\}$，为复合泊松（参数 10，常数赔额 $\\mu$）。`},
+{id:"20.7",exam:true,q:`工厂每年事故数 $N$ 服从几何分布：$P(N=n)=0.8\\cdot0.2^n$，$n=0,1,2,\\ldots$。每次事故受伤人数 $Y=X+1$，$X\\sim\\text{Poisson}(2.2)$。保单对每名受伤员工赔 £1000，每次事故至多 3 人，年内事故数无限。<br>(i) 证明 $E(S)=0.634$、$\\mathrm{var}(S)=2.125$，$S$ 为年内领取给付的员工总数。 [7]<br>(ii) 据此求年给付总额的均值和方差。 [1] [共 8]`,
+a:`<b>(i)</b> 每次事故理赔人数 $Z=\\min(Y,3)$：
+
+
+$$P(Y=1)=e^{-2.2},\\ P(Y=2)=2.2e^{-2.2},\\ P(Y\\ge3)=1-3.2e^{-2.2}$$
+
+$$E(Z)=3-4.2e^{-2.2}=2.53463,\\quad E(Z^2)=9-19e^{-2.2}=6.89474$$
+
+$$\\mathrm{var}(Z)=6.89474-2.53463^2=0.47041$$
+
+$N\\sim$ Type 2 负二项（$k=1,p=0.8$）：$E(N)=0.25,\\mathrm{var}(N)=0.3125$。
+
+
+$$E(S)=2.53463\\times0.25=0.63366$$
+
+$$\\mathrm{var}(S)=2.53463^2(0.3125)+0.47041(0.25)=2.12521$$
+
+<b>(ii)</b> 给付 $=1000S$：$E=634$，$\\mathrm{var}=1000^2\\times2.12521=2{,}125{,}000$。`},
+{id:"20.8",exam:true,q:`公司发行 650 张员工意外险，分两类。类 1：400 张，索赔率 1/20 年，赔额均 £3000。类 2：250 张，索赔率 1/10 年，赔额 £2000 或 £3000（概率 0.4、0.6）。保单独立。$S$ 为年总索赔。<br>(i) 计算 $S$ 的均值、方差、偏度系数。 [4]<br>(ii) 用正态近似计算 $Y$ 使 $P(S>Y)=10\\%$。 [3]<br>(iii) 公司安排总额自留 £100000 的再保险。次年保单数不变，但类 2 索赔概率降为 0（公司不知）。用正态近似计算再保险treaty被索赔的概率。 [3] [共 10]`,
+a:`<b>(i)</b> $N_1\\sim\\text{Poisson}(20),X_1=3$；$N_2\\sim\\text{Poisson}(25),X_2\\in\\{2,3\\}$。$E(X_2)=2.6,E(X_2^2)=7,E(X_2^3)=19.4$。
+
+
+$$E(S)=20\\cdot3+25\\cdot2.6=125\\ (\\text{£125,000})$$
+
+$$\\mathrm{var}(S)=20\\cdot9+25\\cdot7=355\\ (\\times10^6)$$
+
+$$\\text{skew}(S)=20\\cdot27+25\\cdot19.4=1025\\ (\\times10^9)$$
+
+$$\\text{coeff}=\\tfrac{1025}{355^{3/2}}=0.15324$$
+
+<b>(ii)</b> $S\\approx N(125,355)$：$\\tfrac{Y-125}{\\sqrt{355}}=1.2816\\Rightarrow Y=149.147$（£149,000）。<br>
+<b>(iii)</b> 类 2 降为 0，$S\\approx N(60,180)$：
+
+
+$$P(S>100)=1-\\Phi(\\tfrac{100-60}{\\sqrt{180}})=1-\\Phi(2.98)=0.0014$$`}
+];
+let selected=new Set();
+function renderChips(){const b=document.getElementById('chips');b.innerHTML='';questions.forEach(q=>{const c=document.createElement('span');c.className='chip'+(q.exam?' exam':'')+(selected.has(q.id)?' active':'');c.textContent='Q '+q.id;c.onclick=()=>{selected.has(q.id)?selected.delete(q.id):selected.add(q.id);renderChips();renderQuiz();};b.appendChild(c);});document.getElementById('count').textContent=`已选 ${selected.size} / ${questions.length} 题（★ 表示 Exam style 考试风格题）`;}
+function renderQuiz(){const z=document.getElementById('quiz');z.innerHTML='';const l=questions.filter(q=>selected.has(q.id));if(!l.length){z.innerHTML='<div class="card empty">还没有选择题目，请在上方点击标签选择。</div>';return;}l.forEach(q=>{const c=document.createElement('div');c.className='card';c.innerHTML=`<div class="qhead"><span class="qnum">Q ${q.id}</span>${q.exam?'<span class="badge">★ Exam style</span>':''}</div><div class="qbody">${q.q}</div><button class="toggle-ans">显示答案</button><div class="answer"><div class="atitle">解答 Solution</div>${q.a}</div>`;const b=c.querySelector('.toggle-ans'),a=c.querySelector('.answer');b.onclick=()=>{a.classList.toggle('show');b.textContent=a.classList.contains('show')?'隐藏答案':'显示答案';};z.appendChild(c);});if(window.MathJax&&MathJax.typesetPromise)MathJax.typesetPromise([z]);}
+function selectAll(v){selected=v?new Set(questions.map(q=>q.id)):new Set();renderChips();renderQuiz();}
+function randomPick(){const n=parseInt(document.getElementById('randCount').value);const p=[...questions.map(q=>q.id)];for(let i=p.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[p[i],p[j]]=[p[j],p[i]];}selected=new Set(p.slice(0,n));renderChips();renderQuiz();}
+function toggleAllAns(s){document.querySelectorAll('.card').forEach(c=>{const a=c.querySelector('.answer'),b=c.querySelector('.toggle-ans');if(!a)return;if(s){a.classList.add('show');if(b)b.textContent='隐藏答案';}else{a.classList.remove('show');if(b)b.textContent='显示答案';}});}
+renderChips();renderQuiz();
+</script></body></html>

@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CS2-16 极值理论 练习题库</title>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$','$$'],['\\[','\\]']] },
+  svg: { fontCache: 'global' }
+};
+</script>
+<script id="MathJax-script" async src="../demos/vendor/mathjax-tex-svg.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+    margin: 0; background: #f6f3f0; color: #33291f; line-height: 1.6;
+  }
+  header {
+    background: linear-gradient(135deg, #a5541f, #6e3410);
+    color: #fff; padding: 24px 20px; text-align: center;
+  }
+  header h1 { margin: 0 0 6px; font-size: 22px; }
+  header p { margin: 0; opacity: .85; font-size: 14px; }
+  .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+
+  .toolbar {
+    background: #fff; border-radius: 12px; padding: 16px 18px; margin-bottom: 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06); display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+  }
+  .toolbar .label { font-weight: 600; margin-right: 4px; }
+  button {
+    cursor: pointer; border: none; border-radius: 8px; padding: 8px 14px;
+    font-size: 14px; background: #6e3410; color: #fff; transition: .15s;
+  }
+  button:hover { opacity: .88; }
+  button.ghost { background: #efe8e2; color: #5a3a25; }
+  select {
+    padding: 8px 10px; border-radius: 8px; border: 1px solid #dbccc0; font-size: 14px;
+  }
+
+  .picker {
+    background: #fff; border-radius: 12px; padding: 16px 18px; margin-bottom: 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  }
+  .picker h3 { margin: 0 0 12px; font-size: 15px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    border: 1.5px solid #d6c2b2; background: #fff; color: #5a3a25;
+    border-radius: 20px; padding: 6px 14px; cursor: pointer; font-size: 14px; user-select: none;
+  }
+  .chip.active { background: #a5541f; color: #fff; border-color: #a5541f; }
+  .chip.exam::after { content: " ★"; color: #f0a500; }
+  .chip.active.exam::after { color: #ffe08a; }
+
+  .count { margin: 12px 0 0; font-size: 13px; color: #776; }
+
+  .card {
+    background: #fff; border-radius: 12px; padding: 18px 20px; margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  }
+  .card .qhead {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+  }
+  .qnum {
+    background: #a5541f; color: #fff; border-radius: 8px; padding: 3px 10px;
+    font-weight: 700; font-size: 14px;
+  }
+  .badge {
+    background: #fdecc8; color: #8a5a00; border-radius: 6px; padding: 2px 8px; font-size: 12px;
+  }
+  .qbody { font-size: 15px; }
+  .answer {
+    margin-top: 14px; padding: 14px 16px; background: #f7f1ec;
+    border-left: 4px solid #b5713e; border-radius: 6px; display: none;
+  }
+  .answer.show { display: block; }
+  .answer .atitle { font-weight: 700; color: #a5541f; margin-bottom: 6px; }
+  .toggle-ans {
+    margin-top: 12px; background: #b5713e; font-size: 13px; padding: 6px 12px;
+  }
+  .empty { text-align: center; color: #889; padding: 40px 0; }
+  footer { text-align: center; color: #99a; font-size: 12px; padding: 20px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>CS2-16 极值理论 · 练习题库</h1>
+  <p>Extreme Value Theory — Practice Questions（★ 为考试风格题 Exam style）</p>
+</header>
+
+<div class="container">
+  <div class="toolbar">
+    <span class="label">操作：</span>
+    <button onclick="selectAll(true)" class="ghost">全选</button>
+    <button onclick="selectAll(false)" class="ghost">清空</button>
+    <button onclick="randomPick()" class="ghost">随机抽题</button>
+    <select id="randCount">
+      <option value="2">随机 2 题</option>
+      <option value="3">随机 3 题</option>
+      <option value="4">随机 4 题</option>
+    </select>
+    <span style="flex:1"></span>
+    <button onclick="toggleAllAns(true)" class="ghost">展开全部答案</button>
+    <button onclick="toggleAllAns(false)" class="ghost">收起全部答案</button>
+  </div>
+
+  <div class="picker">
+    <h3>选择题目（点击标签选/取消）</h3>
+    <div class="chips" id="chips"></div>
+    <p class="count" id="count"></p>
+  </div>
+
+  <div id="quiz"></div>
+</div>
+
+<footer>题目内容摘自 IFE/ActEd CS2-16 (2019) 教材，仅供个人学习使用。</footer>
+
+<script>
+/* ===== 题库数据 ===== */
+const questions = [
+  {
+    id: "16.1", exam: false,
+    q: `(i) 解释什么是极端事件（extreme event），并在保险背景下给出两个例子。<br>
+    (ii) 解释为何要将极端事件与其他事件分开建模。`,
+    a: `<b>(i)</b> 极端事件是发生概率非常低、但涉及金额非常大的结果。在保险背景下，可能源于单一高成本原因（如人身伤害索赔或建筑物完全损毁），也可能源于相关原因的累积（如一个城镇大量房屋的洪水损失）。<br>
+    <b>(ii)</b> 大多数风险事件落在拟合分布的主体部分，通常可用标准统计分布较准确地建模。但极端事件往往缺乏历史数据；若对整个数据集拟合分布，参数估计会反映数据主体所在位置而非极端事件，导致拟合分布<b>低估</b>未来极端事件的概率。因此对极端事件采用不同方法，例如考虑分块极大值（block maxima）分布或阈值超出量（threshold exceedances）分布。`
+  },
+  {
+    id: "16.2", exam: true,
+    q: `(i) 描述广义极值（GEV）分布。 [7]<br>
+    (ii) 概述一种可替代 GEV 分布来建模极端事件的方法。 [3]<br>
+    (iii) 陈述 (ii) 中方法相对于 (i) 的关键优势。 [1]`,
+    a: `<b>(i)</b> 由 $n$ 个 IID 随机变量 $X_1,\\dots,X_n$ 组成的样本，其最大值 $X_M$ 随样本量增大趋于一个特定分布，即广义极值（GEV）分布，其 CDF 为：
+
+    $$H(x)=\\begin{cases}\\exp\\!\\Big[-\\Big(1+\\gamma\\frac{x-\\alpha}{\\beta}\\Big)^{-1/\\gamma}\\Big],&\\gamma\\neq0\\\\[4pt]\\exp\\!\\Big[-\\exp\\!\\Big(-\\frac{x-\\alpha}{\\beta}\\Big)\\Big],&\\gamma=0\\end{cases}$$
+    关键参数是形状参数 $\\gamma$。当 $\\gamma>0$ 为 Fréchet 型，是"重尾"且有有限下界的底层分布（如 Pareto）的极限形式；当 $\\gamma<0$ 为 Weibull 型，是有有限上界的底层分布（如均匀分布）的极限形式；当 $\\gamma=0$ 为 Gumbel 型，是大多数其他具有有限矩的底层分布（如正态、对数正态）的极限形式。$\\alpha$、$\\beta$ 分别为位置与尺度参数，随底层分布不同而不同。<br>
+    <b>(ii)</b> 替代方法：不聚焦单一最大值，而考虑所有超过某阈值 $u$ 的索赔值的分布，即 $X-u\\mid X>u$ 的阈值超出量分布。类似理论预测其在 $u\\to\\infty$ 时的极限分布为广义 Pareto 分布（GPD），CDF：
+
+    $$G(x)=\\begin{cases}1-\\Big(1+\\gamma\\frac{x}{\\beta}\\Big)^{-1/\\gamma},&\\gamma\\neq0\\\\[4pt]1-\\exp\\!\\Big(-\\frac{x}{\\beta}\\Big),&\\gamma=0\\end{cases}$$
+    $\\beta$、$\\gamma$ 分别为尺度与形状参数。拟合时需选取足够高的阈值，再对超出该阈值的值拟合 GPD。<br>
+    <b>(iii)</b> GPD 方法的优势在于它利用了更大一部分数据，对阈值以上的所有大额索赔建模，而不仅仅是单一最高值。`
+  },
+  {
+    id: "16.3", exam: true,
+    q: `某普通保险组合的索赔额独立且服从均值 £2,500 的指数分布。<br>
+    (i) 计算单笔索赔超过 £10,000 的概率。 [1]<br>
+    (ii) 计算在 100 笔索赔样本中最大索赔超过 £10,000 的概率，用：(a) 精确方法；(b) 基于 Gumbel 型 GEV 分布的近似方法。 [5]<br>
+    已知对参数 $\\lambda$ 的指数分布，$\\max\\{X_1,\\dots,X_n\\}$ 在大 $n$ 时近似为 Gumbel 型 GEV 分布，CDF $H(x)=\\exp\\!\\big[-\\exp\\!\\big(-\\frac{x-\\alpha_n}{\\beta_n}\\big)\\big]$，其中 $\\alpha_n=\\frac{1}{\\lambda}\\ln n$、$\\beta_n=\\frac1\\lambda$。<br>
+    (iii) 陈述 (ii)(a) 中所做的两个关键假设。 [1]`,
+    a: `<b>(i)</b> $X\\sim Exp(1/2500)$，
+
+    $$P(X>10000)=e^{-10000/2500}=e^{-4}=0.0183$$
+    <b>(ii)(a) 精确方法：</b>
+
+    $$P(\\max>10000)=1-\\big[P(X\\leq10000)\\big]^{100}=1-(1-e^{-4})^{100}=0.8425$$
+    <b>(ii)(b) 近似方法：</b>$\\alpha_{100}=2500\\ln100=11512.93$，$\\beta_{100}=2500$。
+
+    $$P(\\max>10000)=1-\\exp\\!\\Big[-\\exp\\!\\Big(-\\tfrac{10000-11512.93}{2500}\\Big)\\Big]=1-0.1602=0.8398$$
+    <b>(iii)</b> 两个关键假设：所有索赔来自均值 £2,500 的指数分布，且它们统计独立。`
+  },
+  {
+    id: "16.4", exam: false,
+    q: `若个别损失 $X$ 服从 $Pa(\\alpha,\\lambda)$ 分布，确定阈值超出量 $W=X-u\\mid X>u$ 的分布。`,
+    a: `阈值超出量的 CDF：$F_u(x)=\\dfrac{F(x+u)-F(u)}{1-F(u)}$。<br>
+    对 $Pa(\\alpha,\\lambda)$：
+
+    $$F_u(x)=\\frac{\\big[1-(\\frac{\\lambda}{\\lambda+x+u})^\\alpha\\big]-\\big[1-(\\frac{\\lambda}{\\lambda+u})^\\alpha\\big]}{(\\frac{\\lambda}{\\lambda+u})^\\alpha}=1-\\Big(\\frac{\\lambda+u}{\\lambda+u+x}\\Big)^\\alpha$$
+    这是 $Pa(\\alpha,\\lambda+u)$ 分布的 CDF。故阈值超出量服从 <b>$Pa(\\alpha,\\lambda+u)$</b> 分布。`
+  },
+  {
+    id: "16.5", exam: false,
+    q: `比较 $Gamma(\\alpha,\\lambda)$ 与 $Exp(\\lambda)$ 分布在 $\\alpha>1$ 时密度函数的极限值，据此判断哪个尾部更重。`,
+    a: `比较两密度函数并取 $x\\to\\infty$ 极限：
+
+    $$\\lim_{x\\to\\infty}\\frac{f_{gamma}(x)}{f_{exp}(x)}=\\lim_{x\\to\\infty}\\frac{\\frac{\\lambda^\\alpha}{\\Gamma(\\alpha)}x^{\\alpha-1}e^{-\\lambda x}}{\\lambda e^{-\\lambda x}}=\\lim_{x\\to\\infty}C\\,x^{\\alpha-1}$$
+    其中 $C$ 为常数。当 $\\alpha>1$ 时该极限 $\\to\\infty$，故 <b>$Gamma(\\alpha,\\lambda)$ 分布尾部更重</b>。`
+  },
+  {
+    id: "16.6", exam: false,
+    q: `(i) 确定参数 $c>0$、$\\gamma>0$ 的 Weibull 分布的风险率（hazard rate）。<br>
+    (ii) 评论该风险率的行为。`,
+    a: `<b>(i)</b> $W(c,\\gamma)$ 分布的风险率：
+
+    $$h(x)=\\frac{f(x)}{1-F(x)}=\\frac{c\\gamma x^{\\gamma-1}e^{-cx^\\gamma}}{e^{-cx^\\gamma}}=c\\gamma x^{\\gamma-1}$$
+    <b>(ii)</b> 若 $\\gamma>1$，风险率为 $x$ 的增函数，对应轻尾；若 $0<\\gamma<1$，风险率为 $x$ 的减函数，对应重尾。`
+  },
+  {
+    id: "16.7", exam: true,
+    q: `(i) 证明 $\\displaystyle\\int_x^\\infty e^{-3y^{1/2}}\\,dy=\\frac{2}{9}P\\!\\Big(\\chi^2_4>6x^{1/2}\\Big)$。（提示：用代换 $u=3y^{1/2}$，把被积函数变成 $Gamma(2,1)$ 的 PDF。） [5]<br>
+    (ii) 据此推导 $W\\!\\big(3,\\tfrac12\\big)$ 分布的平均剩余寿命的含卡方概率表达式。 [2]<br>
+    (iii) 通过计算 $x=1,4,9$ 时的平均剩余寿命，判断 $W\\!\\big(3,\\tfrac12\\big)$ 的平均剩余寿命是 $x$ 的增函数还是减函数。 [2]`,
+    a: `<b>(i)</b> 用代换 $u=3y^{1/2}$，则 $y=(u/3)^2$，$dy=\\tfrac{2}{9}u\\,du$：
+
+    $$\\int_x^\\infty e^{-3y^{1/2}}dy=\\int_{3x^{1/2}}^\\infty \\tfrac29 u\\,e^{-u}\\,du=\\tfrac29\\cdot\\Gamma(2)\\!\\int_{3x^{1/2}}^\\infty\\frac{u^{2-1}e^{-u}}{\\Gamma(2)}du$$
+    因 $\\Gamma(2)=1$，积分为 $Gamma(2,1)$ 随机变量 $U$ 超过 $3x^{1/2}$ 的概率：
+
+    $$=\\tfrac29 P\\!\\big(U>3x^{1/2}\\big),\\quad U\\sim Gamma(2,1)$$
+    由 gamma 与卡方关系 $2U\\sim\\chi^2_4$：
+
+    $$=\\tfrac29 P\\!\\big(2U>6x^{1/2}\\big)=\\tfrac29 P\\!\\Big(\\chi^2_4>6x^{1/2}\\Big)$$
+    <b>(ii)</b> $W(3,\\tfrac12)$ 的平均剩余寿命：
+
+    $$e(x)=\\frac{\\int_x^\\infty e^{-3y^{1/2}}dy}{e^{-3x^{1/2}}}=\\frac{\\tfrac29 P\\big(\\chi^2_4>6x^{1/2}\\big)}{e^{-3x^{1/2}}}$$
+    <b>(iii)</b> $x=1$：$e(1)=\\tfrac29\\cdot\\dfrac{1-0.8009}{e^{-3}}=0.8887$；$x=4$：$e(4)=\\tfrac29\\cdot\\dfrac{1-0.9826}{e^{-6}}=1.5599$；$x=9$：$e(9)=\\tfrac29\\cdot\\dfrac{1-0.9988}{e^{-9}}=2.1608$。<br>
+    平均剩余寿命是 $x$ 的<b>增函数</b>，说明该分布具有重尾。`
+  }
+];
+
+/* ===== 状态 ===== */
+let selected = new Set(); // 默认全不选
+
+/* ===== 渲染标签 ===== */
+function renderChips(){
+  const box = document.getElementById('chips');
+  box.innerHTML = '';
+  questions.forEach(q => {
+    const c = document.createElement('span');
+    c.className = 'chip' + (q.exam ? ' exam' : '') + (selected.has(q.id) ? ' active' : '');
+    c.textContent = 'Q ' + q.id;
+    c.onclick = () => {
+      if(selected.has(q.id)) selected.delete(q.id); else selected.add(q.id);
+      renderChips(); renderQuiz();
+    };
+    box.appendChild(c);
+  });
+  document.getElementById('count').textContent =
+    `已选 ${selected.size} / ${questions.length} 题（★ 表示 Exam style 考试风格题）`;
+}
+
+/* ===== 渲染题目 ===== */
+function renderQuiz(){
+  const quiz = document.getElementById('quiz');
+  quiz.innerHTML = '';
+  const list = questions.filter(q => selected.has(q.id));
+  if(list.length === 0){
+    quiz.innerHTML = '<div class="card empty">还没有选择题目，请在上方点击标签选择。</div>';
+    return;
+  }
+  list.forEach(q => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="qhead">
+        <span class="qnum">Q ${q.id}</span>
+        ${q.exam ? '<span class="badge">★ Exam style</span>' : ''}
+      </div>
+      <div class="qbody">${q.q}</div>
+      <button class="toggle-ans">显示答案</button>
+      <div class="answer"><div class="atitle">解答 Solution</div>${q.a}</div>
+    `;
+    const btn = card.querySelector('.toggle-ans');
+    const ans = card.querySelector('.answer');
+    btn.onclick = () => {
+      ans.classList.toggle('show');
+      btn.textContent = ans.classList.contains('show') ? '隐藏答案' : '显示答案';
+    };
+    quiz.appendChild(card);
+  });
+  if(window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([quiz]);
+}
+
+/* ===== 工具函数 ===== */
+function selectAll(v){
+  selected = v ? new Set(questions.map(q=>q.id)) : new Set();
+  renderChips(); renderQuiz();
+}
+function randomPick(){
+  const n = parseInt(document.getElementById('randCount').value);
+  const pool = [...questions.map(q=>q.id)];
+  for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
+  selected = new Set(pool.slice(0, n));
+  renderChips(); renderQuiz();
+}
+function toggleAllAns(show){
+  document.querySelectorAll('.card').forEach(card=>{
+    const ans = card.querySelector('.answer');
+    const btn = card.querySelector('.toggle-ans');
+    if(!ans) return;
+    if(show){ ans.classList.add('show'); if(btn) btn.textContent='隐藏答案'; }
+    else { ans.classList.remove('show'); if(btn) btn.textContent='显示答案'; }
+  });
+}
+
+/* ===== 初始化 ===== */
+renderChips();
+renderQuiz();
+</script>
+</body>
+</html>

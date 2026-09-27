@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>共保比例与免赔额、限额组合对赔付的影响</title>
+    <script src="vendor/chart.umd.min.js"></script>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+        .formula {
+            background: #ecf0f1;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 30px;
+            color: #34495e;
+        }
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .control-group {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        .control-group h3 {
+            margin-top: 0;
+            color: #495057;
+            font-size: 16px;
+        }
+        .input-container {
+            margin: 15px 0;
+        }
+        .input-container label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #495057;
+            font-size: 14px;
+        }
+        .input-hint {
+            display: block;
+            font-size: 11px;
+            color: #6c757d;
+            margin-top: 4px;
+            font-style: italic;
+        }
+        .param-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.3s;
+            box-sizing: border-box;
+            background: #fff;
+        }
+        .param-input:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+            background: #f8f9ff;
+        }
+        .param-input:invalid {
+            border-color: #dc3545;
+            box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+        }
+        .param-input:hover {
+            border-color: #007bff;
+        }
+        .param-input:read-only {
+            background-color: #f8f9fa;
+            border-color: #dee2e6;
+            color: #6c757d;
+            cursor: not-allowed;
+        }
+        .param-input:read-only:hover {
+            border-color: #dee2e6;
+        }
+        .param-input:read-only:focus {
+            border-color: #dee2e6;
+            box-shadow: none;
+            background-color: #f8f9fa;
+        }
+        .value-display {
+            font-weight: bold;
+            color: #007bff;
+            font-size: 14px;
+        }
+        .chart-container {
+            margin: 30px 0;
+            height: 500px;
+            position: relative;
+        }
+        .scenario-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .scenario-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            background: #6c757d;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        .scenario-btn:hover {
+            background: #5a6268;
+        }
+        .scenario-btn.active {
+            background: #007bff;
+        }
+        .info-panel {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 0 5px 5px 0;
+        }
+        .calculation-example {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        .comparison-table th,
+        .comparison-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        .comparison-table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        .loss-result {
+            background: #e8f5e8;
+            border: 1px solid #4caf50;
+            border-radius: 5px;
+            padding: 10px;
+            margin-top: 10px;
+            text-align: center;
+        }
+        .loss-result .value-display {
+            font-size: 16px;
+            color: #2e7d32;
+            margin-left: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>共保比例与免赔额、限额组合对赔付的影响</h1>
+        
+        <div class="formula">
+            赔付函数：Y = a · min(max(0, X - d), u)
+        </div>
+        
+        <div class="info-panel">
+            <strong>参数说明：</strong><br>
+            • a：共保比例（保险公司承担的比例）<br>
+            • X：损失金额<br>
+            • d：免赔额（低于此金额不予赔付）<br>
+            • u：限额（最高赔付金额）<br>
+            • Y：实际赔付金额<br><br>
+            <strong>使用说明：</strong><br>
+            • 选择预设场景查看固定参数下的赔付效果<br>
+            • 点击"用户输入"可自由修改所有参数进行计算
+        </div>
+
+        <div class="scenario-buttons">
+            <button class="scenario-btn" onclick="loadScenario('standard')">标准情况</button>
+            <button class="scenario-btn" onclick="loadScenario('high_deductible')">高免赔额</button>
+            <button class="scenario-btn" onclick="loadScenario('low_limit')">低限额</button>
+            <button class="scenario-btn" onclick="loadScenario('low_coinsurance')">低共保比例</button>
+            <button class="scenario-btn" onclick="loadScenario('comprehensive')">综合影响</button>
+            <button class="scenario-btn active" onclick="loadScenario('user_input')" style="background: #28a745;">用户输入</button>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <h3>共保比例 (a)</h3>
+                <div class="input-container">
+                    <label for="coinsurance-input">共保比例：</label>
+                    <input type="number" id="coinsurance-input" class="param-input" min="0.01" max="1" step="0.01" value="0.80" placeholder="0.01-1.00">
+                    <span class="input-hint">范围：0.01-1.00</span>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <h3>免赔额 (d)</h3>
+                <div class="input-container">
+                    <label for="deductible-input">免赔额：</label>
+                    <input type="number" id="deductible-input" class="param-input" min="0" max="100000" step="100" value="1000" placeholder="免赔额(元)">
+                    <span class="input-hint">范围：0-100,000元</span>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <h3>限额 (u)</h3>
+                <div class="input-container">
+                    <label for="limit-input">限额：</label>
+                    <input type="number" id="limit-input" class="param-input" min="1000" max="2000000" step="1000" value="50000" placeholder="限额(元)">
+                    <span class="input-hint">范围：1,000-2,000,000元</span>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <h3>损失金额输入 (X)</h3>
+                <div class="input-container">
+                    <label for="loss-input">损失金额：</label>
+                    <input type="number" id="loss-input" class="param-input" min="0" max="5000000" step="100" value="15000" placeholder="损失金额(元)">
+                    <span class="input-hint">范围：0-5,000,000元</span>
+                    <div class="loss-result" id="loss-result">
+                        <strong>赔付结果：</strong><span id="loss-payoff" class="value-display">12000 元 (赔付率: 80.0%)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="payoffChart"></canvas>
+        </div>
+
+        <div class="calculation-example" id="calculation-example">
+            <h4>计算示例</h4>
+            <div id="example-content"></div>
+        </div>
+
+        <div class="comparison-table-container">
+            <h3>不同损失金额下的赔付对比</h3>
+            <table class="comparison-table" id="comparison-table">
+                <thead>
+                    <tr>
+                        <th>损失金额 (X)</th>
+                        <th>超过免赔额部分</th>
+                        <th>限额约束后</th>
+                        <th>最终赔付 (Y)</th>
+                        <th>赔付率</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let chart;
+        
+        // 初始化图表
+        function initChart() {
+            const ctx = document.getElementById('payoffChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '实际赔付金额 (Y)',
+                        data: [],
+                        borderColor: '#007bff',
+                        backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: '赔付金额随损失金额变化图',
+                            font: {
+                                size: 16
+                            }
+                        },
+                        legend: {
+                            display: true
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: '损失金额 (X)'
+                            },
+                            grid: {
+                                display: true,
+                                color: 'rgba(0,0,0,0.1)'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: '赔付金额 (Y)'
+                            },
+                            beginAtZero: true,
+                            grid: {
+                                display: true,
+                                color: 'rgba(0,0,0,0.1)'
+                            }
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    }
+                }
+            });
+        }
+
+        // 计算赔付金额
+        function calculatePayoff(loss, coinsurance, deductible, limit) {
+            const afterDeductible = Math.max(0, loss - deductible);
+            const beforeCoinsurance = Math.min(afterDeductible, limit);
+            return coinsurance * beforeCoinsurance;
+        }
+
+        // 更新图表
+        function updateChart() {
+            const coinsurance = parseFloat(document.getElementById('coinsurance-input').value) || 0;
+            const deductible = parseFloat(document.getElementById('deductible-input').value) || 0;
+            const limit = parseFloat(document.getElementById('limit-input').value) || 0;
+
+            const maxLoss = Math.max(100000, limit + deductible + 10000);
+            const step = maxLoss / 200;
+            
+            const labels = [];
+            const data = [];
+
+            for (let loss = 0; loss <= maxLoss; loss += step) {
+                labels.push(Math.round(loss));
+                data.push(calculatePayoff(loss, coinsurance, deductible, limit));
+            }
+
+            chart.data.labels = labels;
+            chart.data.datasets[0].data = data;
+            chart.update();
+
+            updateExample();
+            updateComparisonTable();
+        }
+
+        // 更新计算示例
+        function updateExample() {
+            const coinsurance = parseFloat(document.getElementById('coinsurance-input').value) || 0;
+            const deductible = parseFloat(document.getElementById('deductible-input').value) || 0;
+            const limit = parseFloat(document.getElementById('limit-input').value) || 0;
+            const lossInput = document.getElementById('loss-input');
+            
+            // 检查损失金额输入框是否为只读模式（预设场景）
+            const isPresetScenario = lossInput.readOnly;
+            
+            // 如果是在预设场景模式下，使用预设的损失金额
+            // 否则使用用户输入的损失金额
+            const exampleLoss = isPresetScenario ? 
+                parseFloat(lossInput.value) : 
+                (parseFloat(lossInput.value) > 0 ? parseFloat(lossInput.value) : Math.max(15000, deductible + 10000));
+            
+            const afterDeductible = Math.max(0, exampleLoss - deductible);
+            const beforeCoinsurance = Math.min(afterDeductible, limit);
+            const finalPayoff = coinsurance * beforeCoinsurance;
+
+            const sourceText = isPresetScenario ? "预设场景损失金额" : 
+                             (parseFloat(lossInput.value) > 0 ? "用户输入损失金额" : "示例损失金额");
+
+            document.getElementById('example-content').innerHTML = `
+                <strong>${sourceText} X = ${exampleLoss.toLocaleString()} 元</strong><br><br>
+                <strong>计算步骤：</strong><br>
+                1. 扣除免赔额：max(0, ${exampleLoss.toLocaleString()} - ${deductible.toLocaleString()}) = ${afterDeductible.toLocaleString()} 元<br>
+                2. 应用限额约束：min(${afterDeductible.toLocaleString()}, ${limit.toLocaleString()}) = ${beforeCoinsurance.toLocaleString()} 元<br>
+                3. 应用共保比例：${coinsurance} × ${beforeCoinsurance.toLocaleString()} = <strong>${finalPayoff.toLocaleString()} 元</strong><br><br>
+                <strong>赔付率：${(finalPayoff/exampleLoss*100).toFixed(1)}%</strong>
+            `;
+        }
+
+        // 更新对比表格
+        function updateComparisonTable() {
+            const coinsurance = parseFloat(document.getElementById('coinsurance-input').value) || 0;
+            const deductible = parseFloat(document.getElementById('deductible-input').value) || 0;
+            const limit = parseFloat(document.getElementById('limit-input').value) || 0;
+
+            const lossAmounts = [
+                deductible * 0.5,
+                deductible,
+                deductible * 1.5,
+                deductible * 3,
+                limit + deductible,
+                (limit + deductible) * 1.5
+            ];
+
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+
+            lossAmounts.forEach(loss => {
+                const afterDeductible = Math.max(0, loss - deductible);
+                const beforeCoinsurance = Math.min(afterDeductible, limit);
+                const finalPayoff = coinsurance * beforeCoinsurance;
+                const payoffRate = loss > 0 ? (finalPayoff / loss * 100) : 0;
+
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${loss.toLocaleString()}</td>
+                    <td>${afterDeductible.toLocaleString()}</td>
+                    <td>${beforeCoinsurance.toLocaleString()}</td>
+                    <td style="font-weight: bold; color: #007bff;">${finalPayoff.toLocaleString()}</td>
+                    <td>${payoffRate.toFixed(1)}%</td>
+                `;
+            });
+        }
+
+        // 更新损失金额计算结果
+        function updateLossCalculation() {
+            const coinsurance = parseFloat(document.getElementById('coinsurance-input').value) || 0;
+            const deductible = parseFloat(document.getElementById('deductible-input').value) || 0;
+            const limit = parseFloat(document.getElementById('limit-input').value) || 0;
+            const lossAmount = parseFloat(document.getElementById('loss-input').value) || 0;
+            
+            const payoff = calculatePayoff(lossAmount, coinsurance, deductible, limit);
+            const payoffRate = lossAmount > 0 ? (payoff / lossAmount * 100) : 0;
+            
+            document.getElementById('loss-payoff').textContent = 
+                `${payoff.toLocaleString()} 元 (赔付率: ${payoffRate.toFixed(1)}%)`;
+        }
+
+        // 预设情景
+        function loadScenario(scenario) {
+            // 移除所有按钮的active类
+            document.querySelectorAll('.scenario-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // 添加active类到当前按钮
+            event.target.classList.add('active');
+
+            const coinsuranceInput = document.getElementById('coinsurance-input');
+            const deductibleInput = document.getElementById('deductible-input');
+            const limitInput = document.getElementById('limit-input');
+            const lossInput = document.getElementById('loss-input');
+
+            if (scenario === 'user_input') {
+                // 用户输入模式：启用所有输入框
+                coinsuranceInput.readOnly = false;
+                deductibleInput.readOnly = false;
+                limitInput.readOnly = false;
+                lossInput.readOnly = false;
+                
+                // 设置默认值
+                coinsuranceInput.value = 0.8;
+                deductibleInput.value = 1000;
+                limitInput.value = 50000;
+                lossInput.value = 15000;
+            } else {
+                // 预设场景模式：禁用所有输入框
+                coinsuranceInput.readOnly = true;
+                deductibleInput.readOnly = true;
+                limitInput.readOnly = true;
+                lossInput.readOnly = true;
+
+                let params;
+                switch(scenario) {
+                    case 'standard':
+                        params = { coinsurance: 0.8, deductible: 1000, limit: 50000, loss: 15000 };
+                        break;
+                    case 'high_deductible':
+                        params = { coinsurance: 0.8, deductible: 5000, limit: 50000, loss: 20000 };
+                        break;
+                    case 'low_limit':
+                        params = { coinsurance: 0.8, deductible: 1000, limit: 20000, loss: 30000 };
+                        break;
+                    case 'low_coinsurance':
+                        params = { coinsurance: 0.5, deductible: 1000, limit: 50000, loss: 25000 };
+                        break;
+                    case 'comprehensive':
+                        params = { coinsurance: 0.6, deductible: 3000, limit: 30000, loss: 35000 };
+                        break;
+                }
+
+                // 设置输入框值
+                coinsuranceInput.value = params.coinsurance;
+                deductibleInput.value = params.deductible;
+                limitInput.value = params.limit;
+                lossInput.value = params.loss;
+            }
+
+            updateLossCalculation();
+            updateChart();
+        }
+
+
+
+        // 事件监听器
+        document.addEventListener('DOMContentLoaded', function() {
+            // 参数输入框事件监听
+            document.getElementById('coinsurance-input').addEventListener('input', function() {
+                if (!this.readOnly) {
+                    updateLossCalculation();
+                    updateChart();
+                }
+            });
+
+            document.getElementById('deductible-input').addEventListener('input', function() {
+                if (!this.readOnly) {
+                    updateLossCalculation();
+                    updateChart();
+                }
+            });
+
+            document.getElementById('limit-input').addEventListener('input', function() {
+                if (!this.readOnly) {
+                    updateLossCalculation();
+                    updateChart();
+                }
+            });
+
+            document.getElementById('loss-input').addEventListener('input', function() {
+                if (!this.readOnly) {
+                    updateLossCalculation();
+                    updateChart();  // 在用户输入模式下，更新图表和示例
+                } else {
+                    // 在预设场景模式下，只更新损失计算结果，不更新图表
+                    updateLossCalculation();
+                }
+            });
+
+            // 初始化
+            initChart();
+            // 默认加载用户输入模式
+            loadScenario('user_input');
+        });
+    </script>
+</body>
+</html>

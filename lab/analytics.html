@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>题目分析 · LOSS LAB 损失模型实验舱（教师端）</title>
+<link rel="stylesheet" href="style.css">
+<script>try{if(localStorage.getItem('losslab_theme')==='light')document.documentElement.dataset.theme='light';}catch(e){}</script>
+<style>
+  .an-head{padding:30px 0 6px}
+  .an-head h1{font-size:32px}
+  .an-head p{color:var(--muted);max-width:820px;margin:10px 0 0;line-height:1.75;font-size:14.5px}
+  .drop{margin:22px 0 14px;padding:34px 20px;text-align:center;border:2px dashed var(--line2);
+    border-radius:var(--r);cursor:pointer;transition:.18s;background:var(--panel)}
+  .drop:hover,.drop.over{border-color:var(--ch17);background:color-mix(in srgb,var(--ch17) 7%,var(--panel))}
+  .drop-ic{font-size:38px}
+  .drop-t{font-size:15.5px;font-weight:600;margin-top:8px}
+  .drop-s{font-size:12.5px;color:var(--muted);margin-top:6px}
+  .sum-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin:20px 0}
+  .sum-card{background:linear-gradient(160deg,var(--panel2),var(--panel));border:1px solid var(--line);
+    border-radius:var(--r2);padding:18px;text-align:center}
+  .sum-v{font-family:var(--mono);font-size:30px;font-weight:700;color:var(--ch17)}
+  .sum-l{font-size:12.5px;color:var(--muted);margin-top:4px}
+  .ctrl{padding:16px 18px;margin-bottom:20px}
+  .ctrl-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .ctrl-row:last-child{margin-bottom:0}
+  .ctrl-lab{font-size:12.5px;font-weight:700;color:var(--muted);min-width:44px;letter-spacing:.5px}
+  .chip{font-size:12.5px;font-weight:600;padding:5px 13px;border-radius:20px;border:1px solid var(--line);
+    background:var(--panel2);color:var(--ink2);cursor:pointer;transition:.14s}
+  .chip:hover{border-color:var(--line2)}
+  .chip.on{border-color:var(--ch17);background:color-mix(in srgb,var(--ch17) 14%,var(--panel2));color:var(--ch17)}
+  .q-card{padding:18px 20px;margin-bottom:14px}
+  .q-top{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:11px}
+  .q-ch{font-size:11.5px;font-weight:700;padding:3px 11px;border-radius:20px;color:#fff;background:var(--c,var(--muted))}
+  .q-kp{font-size:13px;font-weight:600;color:var(--ink2)}
+  .q-lv{font-size:11.5px;font-weight:700;padding:3px 10px;border-radius:20px;border:1px solid var(--line)}
+  .q-lv.lv1{color:#059669;border-color:rgba(5,150,105,.4)}
+  .q-lv.lv2{color:#d97706;border-color:rgba(217,119,6,.4)}
+  .q-lv.lv3{color:#e11d48;border-color:rgba(225,29,72,.4)}
+  .q-rate{margin-left:auto;font-size:13px;color:var(--muted)}
+  .q-rate b{font-family:var(--mono);font-size:17px}
+  .q-rate b.hi{color:#059669}.q-rate b.mid{color:#d97706}.q-rate b.lo{color:#e11d48}
+  .q-n{font-size:12px;color:var(--muted2)}
+  .q-stem{font-size:15.5px;font-weight:600;line-height:1.6;margin-bottom:13px}
+  .q-opt{display:flex;align-items:center;gap:11px;padding:8px 10px;border-radius:9px;margin-bottom:6px;
+    border:1px solid transparent}
+  .q-opt.correct{border-color:rgba(5,150,105,.45);background:rgba(5,150,105,.07)}
+  .q-key{display:grid;place-items:center;width:23px;height:23px;border-radius:6px;flex:none;
+    background:var(--panel3);font-family:var(--mono);font-weight:700;font-size:11.5px;color:var(--muted)}
+  .q-opt.correct .q-key{background:#059669;color:#fff}
+  .q-opt-main{flex:1;min-width:0}
+  .q-opt-text{font-size:13.5px;color:var(--ink2);margin-bottom:4px}
+  .q-bar{height:7px;border-radius:6px;background:var(--panel3);overflow:hidden}
+  .q-bar i{display:block;height:100%;border-radius:6px;background:var(--muted2);transition:width .4s}
+  .q-opt.correct .q-bar i{background:#059669}
+  .q-opt-stat{font-family:var(--mono);font-size:12px;color:var(--muted);min-width:74px;text-align:right;flex:none}
+  .q-opt.correct .q-opt-stat{color:#059669;font-weight:700}
+  .theme-toggle{border:0;background:none;font:inherit}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="wrap">
+  <a class="brand" href="index.html"><span class="logo">∑</span>LOSS LAB<span class="lab">损失模型实验舱</span></a>
+  <div class="stat-pills">
+    <span class="pill" style="color:var(--ch17);border-color:color-mix(in srgb,var(--ch17) 40%,transparent)">📊 题目分析 · 教师端</span>
+    <button class="nav-link theme-toggle" id="themeBtn" onclick="toggleTheme()">☀️ 浅色</button>
+  </div>
+</div></div>
+
+<div class="wrap" style="padding-bottom:70px">
+  <div class="an-head rise">
+    <h1>📊 题目分析</h1>
+    <p>把学生们导出的<b>匿名答题数据</b>（JSON）拖进来，自动汇总出每道题全班的<b>选择分布</b>与<b>正确率</b>——按章节、知识点、难度归类。全程在你浏览器本地计算，<b>数据不上传、不含任何个人信息</b>（无姓名、无学号）。</p>
+  </div>
+
+  <div class="drop rise" id="drop">
+    <div class="drop-ic">📂</div>
+    <div class="drop-t">拖入学生的 JSON 文件到这里，或点击选择（可一次多选）</div>
+    <div class="drop-s">学生在「📕 错题本」页点「导出我的答题数据」即可得到该文件</div>
+    <input type="file" id="fileIn" accept=".json,application/json" multiple style="display:none">
+  </div>
+
+  <div class="row">
+    <button class="btn ghost" onclick="demoData()">✨ 载入示例数据预览</button>
+    <button class="btn ghost" onclick="resetAll()">🗑 清空已载入</button>
+    <span class="muted" id="fileInfo" style="font-size:13px"></span>
+  </div>
+
+  <div id="summary"></div>
+  <div id="controls"></div>
+  <div id="list"></div>
+</div>
+
+<script>
+"use strict";
+const LETTER=['A','B','C','D','E','F'];
+const CHCOL={13:'var(--ch13)',14:'var(--ch14)',15:'var(--ch15)',16:'var(--ch16)',17:'var(--ch17)',18:'var(--ch18)',19:'var(--ch19)',20:'var(--ch20)',21:'var(--ch21)',22:'var(--ch22)'};
+const LV={1:'🟢 简单',2:'🟡 中等',3:'🔴 困难'};
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function escMath(s){return esc(s).replace(/&lt;(\/?)(sub|sup)&gt;/g,'<$1$2>');}
+
+let attempts=[];   // 全部载入的匿名作答
+let fileCount=0;
+let filterCh=null, filterLv=null, sortBy='rate-asc';
+
+/* ---------- 主题切换 ---------- */
+function toggleTheme(){
+  const next=document.documentElement.dataset.theme==='light'?'dark':'light';
+  try{localStorage.setItem('losslab_theme',next);}catch(e){}
+  location.reload();
+}
+(function(){const l=document.documentElement.dataset.theme==='light';
+  document.getElementById('themeBtn').textContent=l?'🌙 深色':'☀️ 浅色';})();
+
+/* ---------- 文件读入 ---------- */
+const drop=document.getElementById('drop'), fileIn=document.getElementById('fileIn');
+drop.onclick=()=>fileIn.click();
+fileIn.onchange=e=>{ handleFiles(e.target.files); fileIn.value=''; };
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
+drop.addEventListener('drop',e=>handleFiles(e.dataTransfer.files));
+
+function handleFiles(files){
+  if(!files||!files.length)return;
+  let pending=files.length, bad=[];
+  [...files].forEach(f=>{
+    const r=new FileReader();
+    r.onload=()=>{
+      try{
+        const data=JSON.parse(r.result);
+        const arr=Array.isArray(data)?data:(data&&data.attempts)||[];
+        let n=0; arr.forEach(a=>{ if(a&&a.q!=null&&a.opts){ attempts.push(a); n++; } });
+        if(n)fileCount++; else bad.push(f.name);
+      }catch(err){ bad.push(f.name); }
+      if(--pending<=0){ afterLoad(bad); }
+    };
+    r.onerror=()=>{ bad.push(f.name); if(--pending<=0)afterLoad(bad); };
+    r.readAsText(f,'utf-8');
+  });
+}
+function afterLoad(bad){
+  const info=document.getElementById('fileInfo');
+  info.textContent='已载入 '+attempts.length+' 次作答 · '+fileCount+' 份数据'+(bad.length?'；'+bad.length+' 个文件无法解析':'');
+  aggregateAndRender();
+}
+
+/* ---------- 汇总 + 渲染 ---------- */
+function aggregate(){
+  const groups={};
+  attempts.forEach(a=>{
+    const key=a.ch+':'+a.kp+':'+a.q;
+    let g=groups[key];
+    if(!g){ g=groups[key]={ch:a.ch,chName:a.chName,kp:a.kp,kpName:a.kpName,lv:a.lv||2,
+      q:a.q,opts:a.opts.slice(),ans:a.ans,counts:new Array(a.opts.length).fill(0),total:0,correct:0}; }
+    g.total++;
+    if(a.chosen!=null&&g.counts[a.chosen]!=null)g.counts[a.chosen]++;
+    if(a.chosen===a.ans)g.correct++;
+  });
+  return Object.values(groups);
+}
+
+function aggregateAndRender(){
+  const groups=aggregate();
+  renderSummary(groups);
+  if(!groups.length){ document.getElementById('controls').innerHTML='';
+    document.getElementById('list').innerHTML='<div class="empty"><div class="big">📭</div>还没有数据——拖入学生文件，或点「载入示例数据预览」。</div>'; return; }
+  renderControls(groups);
+  renderList(groups);
+}
+
+function renderSummary(groups){
+  if(!attempts.length){ document.getElementById('summary').innerHTML=''; return; }
+  const total=attempts.length;
+  const correct=groups.reduce((s,g)=>s+g.correct,0);
+  const rate=total?Math.round(correct/total*100):0;
+  document.getElementById('summary').innerHTML=
+    '<div class="sum-grid">'+
+      '<div class="sum-card"><div class="sum-v">'+total+'</div><div class="sum-l">作答总次数</div></div>'+
+      '<div class="sum-card"><div class="sum-v">'+groups.length+'</div><div class="sum-l">涉及题目</div></div>'+
+      '<div class="sum-card"><div class="sum-v">'+rate+'%</div><div class="sum-l">整体正确率</div></div>'+
+      '<div class="sum-card"><div class="sum-v">'+fileCount+'</div><div class="sum-l">数据文件</div></div>'+
+    '</div>';
+}
+
+function renderControls(groups){
+  const chs=[...new Set(groups.map(g=>g.ch))].sort((a,b)=>a-b);
+  const chNameOf=id=>{const g=groups.find(x=>x.ch===id);return g?g.chName:id;};
+  document.getElementById('controls').innerHTML=
+    '<div class="ctrl card">'+
+      '<div class="ctrl-row"><span class="ctrl-lab">章节</span>'+
+        '<span class="chip'+(filterCh==null?' on':'')+'" onclick="setCh(null)">全部</span>'+
+        chs.map(id=>'<span class="chip'+(filterCh===id?' on':'')+'" onclick="setCh('+id+')">'+esc(chNameOf(id))+'</span>').join('')+'</div>'+
+      '<div class="ctrl-row"><span class="ctrl-lab">难度</span>'+
+        [null,1,2,3].map(lv=>'<span class="chip'+(filterLv===lv?' on':'')+'" onclick="setLv('+(lv==null?'null':lv)+')">'+(lv==null?'全部':LV[lv])+'</span>').join('')+'</div>'+
+      '<div class="ctrl-row"><span class="ctrl-lab">排序</span>'+
+        '<span class="chip'+(sortBy==='rate-asc'?' on':'')+'" onclick="setSort(\'rate-asc\')">正确率↑（最薄弱优先）</span>'+
+        '<span class="chip'+(sortBy==='rate-desc'?' on':'')+'" onclick="setSort(\'rate-desc\')">正确率↓</span>'+
+        '<span class="chip'+(sortBy==='count'?' on':'')+'" onclick="setSort(\'count\')">作答次数</span></div>'+
+    '</div>';
+}
+function setCh(v){filterCh=v;aggregateAndRender();}
+function setLv(v){filterLv=v;aggregateAndRender();}
+function setSort(v){sortBy=v;aggregateAndRender();}
+
+function renderList(groups){
+  let gs=groups.filter(g=>(filterCh==null||g.ch===filterCh)&&(filterLv==null||g.lv===filterLv));
+  const rate=g=>g.total?g.correct/g.total:0;
+  if(sortBy==='rate-asc')gs.sort((a,b)=>rate(a)-rate(b)||b.total-a.total);
+  else if(sortBy==='rate-desc')gs.sort((a,b)=>rate(b)-rate(a)||b.total-a.total);
+  else gs.sort((a,b)=>b.total-a.total);
+
+  const list=document.getElementById('list');
+  if(!gs.length){ list.innerHTML='<div class="empty"><div class="big">🔍</div>当前筛选下没有题目。</div>'; return; }
+  list.innerHTML='<div class="section-title"><h2>逐题分析</h2><span class="hint">'+gs.length+' 题</span></div>';
+  gs.forEach(g=>{
+    const r=g.total?Math.round(g.correct/g.total*100):0;
+    const cls=r>=75?'hi':(r>=50?'mid':'lo');
+    const max=Math.max.apply(null,g.counts.concat([1]));
+    const card=document.createElement('div'); card.className='q-card card rise';
+    card.innerHTML=
+      '<div class="q-top">'+
+        '<span class="q-ch" style="--c:'+(CHCOL[g.ch]||'var(--muted)')+'">'+esc(g.chName)+'</span>'+
+        '<span class="q-kp">'+esc(g.kpName)+'</span>'+
+        '<span class="q-lv lv'+g.lv+'">'+LV[g.lv]+'</span>'+
+        '<span class="q-rate">正确率 <b class="'+cls+'">'+r+'%</b></span>'+
+        '<span class="q-n">'+g.total+' 次作答</span>'+
+      '</div>'+
+      '<div class="q-stem">'+escMath(g.q)+'</div>'+
+      '<div class="q-opts">'+g.opts.map((o,i)=>{
+        const c=g.counts[i]||0; const pct=g.total?Math.round(c/g.total*100):0;
+        const w=Math.round(c/max*100);
+        return '<div class="q-opt'+(i===g.ans?' correct':'')+'">'+
+          '<span class="q-key">'+LETTER[i]+'</span>'+
+          '<div class="q-opt-main"><div class="q-opt-text">'+escMath(o)+(i===g.ans?' ✓':'')+'</div>'+
+          '<div class="q-bar"><i style="width:'+w+'%"></i></div></div>'+
+          '<span class="q-opt-stat">'+c+' 次 · '+pct+'%</span>'+
+        '</div>';
+      }).join('')+'</div>';
+    list.appendChild(card);
+  });
+}
+
+/* ---------- 示例数据（预览用） ---------- */
+function demoData(){
+  const samples=[
+    {ch:15,chName:'Ch15 损失分布',kp:'常用分布',lv:1,q:'指数分布的无记忆性指？',opts:['P(X>s+t | X>s)=P(X>t)','均值恒等于方差','分布必然对称','尾部最厚'],ans:0,rate:0.9},
+    {ch:13,chName:'Ch13 时间序列I',kp:'平稳性',lv:2,q:'弱平稳（二阶平稳）要求？',opts:['均值恒定且自协方差仅依赖时滞','方差随时间增长','序列必须恒为正','ACF 恒为 1'],ans:0,rate:0.66},
+    {ch:17,chName:'Ch17 Copulas',kp:'Sklar 定理',lv:2,q:'Sklar 定理说明任意联合分布可表示为？',opts:['边缘分布与一个 Copula 函数的组合','两个独立分布的简单乘积','正态分布的线性变换','仅由高斯函数决定'],ans:0,rate:0.82},
+    {ch:22,chName:'Ch22 模拟方法',kp:'逆变换抽样',lv:2,q:'逆变换法用 X=F⁻¹(U) 生成样本，其中 U 服从？',opts:['[0,1] 上的均匀分布','标准正态分布','指数分布','泊松分布'],ans:0,rate:0.71},
+    {ch:21,chName:'Ch21 机器学习',kp:'偏差-方差权衡',lv:3,q:'模型复杂度不断增加时，偏差与方差通常？',opts:['偏差下降、方差上升','两者都下降','两者都上升','偏差上升、方差不变'],ans:0,rate:0.55},
+    {ch:16,chName:'Ch16 极值理论',kp:'GEV 分布',lv:3,q:'GEV 形状参数 ξ>0 对应哪种尾型？',opts:['Fréchet 型（厚尾）','Gumbel 型（指数尾）','Weibull 型（有界尾）','正态尾'],ans:0,rate:0.47}
+  ];
+  const gen=[];
+  samples.forEach(s=>{
+    const n=28+Math.floor(Math.random()*40);
+    for(let i=0;i<n;i++){
+      let chosen;
+      if(Math.random()<s.rate)chosen=s.ans;
+      else{ do{chosen=Math.floor(Math.random()*s.opts.length);}while(chosen===s.ans); }
+      gen.push({ch:s.ch,chName:s.chName,kp:s.kp,kpName:s.kp,lv:s.lv,q:s.q,opts:s.opts,ans:s.ans,chosen:chosen,ok:chosen===s.ans,src:'demo',t:Date.now()});
+    }
+  });
+  attempts=attempts.concat(gen); fileCount++;
+  document.getElementById('fileInfo').textContent='已载入 '+attempts.length+' 次作答 · '+fileCount+' 份数据（含示例）';
+  aggregateAndRender();
+}
+function resetAll(){ attempts=[]; fileCount=0; filterCh=filterLv=null;
+  document.getElementById('fileInfo').textContent=''; aggregateAndRender(); }
+
+aggregateAndRender();
+</script>
+</body>
+</html>
