@@ -244,6 +244,8 @@ const V2 = V3;
     wireCreate(mask);
     const out=mask.querySelector('#acctOut');
     if(out)out.onclick=()=>{ try{localStorage.removeItem('v3cur')}catch(e){} V3._cache=null; location.reload(); };
+    const cl=mask.querySelector('#acctClose');
+    if(cl)cl.onclick=()=>mask.remove();
     const inp=mask.querySelector('#acctName');
     if(!V3.accounts().length)setTimeout(()=>inp.focus(),50);
   }
