@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>演示库 · LOSS LAB V2</title>
+<link rel="stylesheet" href="style.css">
+<script>
+try{
+  var t=localStorage.getItem('v2theme');
+  if(t) document.documentElement.dataset.theme=t;
+}catch(e){}
+</script>
+<style>
+  .page-h{margin:30px 0 6px;font-size:24px;font-weight:800}
+  .page-sub{color:var(--ink2);font-size:14px}
+  .toolbar{display:flex;gap:9px;align-items:center;margin:18px 0 16px;flex-wrap:wrap}
+  .toolbar input,.toolbar select{
+    border:1.5px solid var(--line);background:var(--surface);color:var(--ink);
+    border-radius:10px;padding:8px 13px;font-size:13.5px;font-family:inherit;
+  }
+  .toolbar input{width:220px}
+  .toolbar .count{font-size:13px;color:var(--muted);margin-left:auto}
+  .lib-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:11px}
+  .lib-item{display:flex;flex-direction:column;gap:8px;padding:15px 16px}
+  .lib-item .t{font-size:13.5px;font-weight:600;line-height:1.45}
+  .lib-item .m{font-size:11.5px;color:var(--muted)}
+  .lib-item .ops{display:flex;gap:7px;margin-top:auto;padding-top:6px}
+  .lib-item .ops a{flex:1;text-align:center;border:1.5px solid var(--line);border-radius:8px;padding:5.5px 0;font-size:12px;color:var(--ink2)}
+  .lib-item .ops a:hover{border-color:var(--navy2);color:var(--ink)}
+  .lib-item .ops a.go{background:var(--navy2);border-color:var(--navy2);color:#fff;font-weight:600}
+  html[data-theme="dark"] .lib-item .ops a.go{color:#0E1626}
+  .ch-sec{margin:20px 0 10px;font-size:15px;font-weight:700;display:flex;align-items:center;gap:9px}
+  .ch-sec .no{font-family:Consolas,monospace;font-size:11px;color:#fff;border-radius:6px;padding:2px 8px}
+</style>
+</head>
+<body>
+<script src="nav.js"></script>
+
+<main class="wrap">
+  <h1 class="page-h">🧪 演示库</h1>
+  <p class="page-sub">全部 52 个互动演示，按章节浏览或直接搜索；也可从知识点页进入。</p>
+
+  <div class="toolbar">
+    <input id="kw" type="search" placeholder="搜索知识点名称…">
+    <select id="chFilter"><option value="">全部章节</option></select>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div id="list"></div>
+  <div class="foot">LOSS LAB · 英国精算师 IFoA CS2 · Risk Modelling &amp; Survival Analysis</div>
+</main>
+
+<script src="course.js"></script>
+<script>
+const kw=document.getElementById('kw'), chFilter=document.getElementById('chFilter');
+chFilter.innerHTML += COURSE.chapters.map(c=>`<option value="${c.id}">${c.no} ${c.name}</option>`).join('');
+kw.oninput=render; chFilter.onchange=render;
+
+function render(){
+  const k=kw.value.trim().toLowerCase(), f=chFilter.value;
+  let total=0, html='';
+  COURSE.chapters.forEach(c=>{
+    if(f&&String(c.id)!==f)return;
+    const kps=c.kps.filter(kk=>kk.demo && (!k || kk.name.toLowerCase().includes(k)));
+    if(!kps.length)return;
+    total+=kps.length;
+    html+=`<div class="ch-sec"><span class="no" style="background:${c.color}">${c.no}</span>${c.icon} ${c.name}</div>
+    <div class="lib-grid">${kps.map(kk=>{
+      const first=typeof kk.demo==='string'?kk.demo:kk.demo[0].src;
+      const multi=typeof kk.demo!=='string'?`（${kk.demo.length} 个）`:'';
+      return `<div class="card lib-item">
+        <div class="t">${kk.icon||'📘'} ${kk.name}</div>
+        <div class="m">${multi||'互动演示'}</div>
+        <div class="ops">
+          <a class="go" href="${first}" target="_blank">打开演示 ↗</a>
+          <a href="learn.html?ch=${c.id}&kp=${kk.id}">去学习 →</a>
+        </div>
+      </div>`;}).join('')}</div>`;
+  });
+  if(!total)html=`<div class="card empty" style="padding:50px;text-align:center;color:var(--muted)">没有匹配的演示，换个关键词试试。</div>`;
+  document.getElementById('count').textContent=`${total} 个演示`;
+  document.getElementById('list').innerHTML=html;
+}
+render();
+</script>
+</body>
+</html>

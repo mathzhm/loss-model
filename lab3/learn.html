@@ -1,0 +1,275 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>学习 · LOSS LAB V2</title>
+<link rel="stylesheet" href="style.css">
+<script>
+try{
+  var t=localStorage.getItem('v2theme');
+  if(t) document.documentElement.dataset.theme=t;
+}catch(e){}
+</script>
+<style>
+  /* 学习页专有：步骤切换式布局 */
+  .kp-top{margin-top:18px}
+  .learn-grid{display:grid;grid-template-columns:252px 1fr;gap:20px;margin-top:16px;align-items:start}
+  @media(max-width:880px){.learn-grid{grid-template-columns:1fr}}
+
+  /* 左侧选择栏 */
+  .side{position:sticky;top:74px;display:grid;gap:13px}
+  .side .card{padding:14px 15px}
+  .side h4{font-size:11.5px;font-weight:700;letter-spacing:1.5px;color:var(--muted);margin-bottom:9px}
+  .side .klist{display:grid;gap:2px}
+  .side .klist a{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--ink2);padding:6.5px 9px;border-radius:8px;line-height:1.35}
+  .side .klist a:hover{background:var(--surface2);color:var(--ink)}
+  .side .klist a.on{background:var(--navy2);color:#fff;font-weight:600}
+  html[data-theme="dark"] .side .klist a.on{color:#0E1626}
+  .side .klist .k-ic{font-size:13px;flex-shrink:0}
+  .side .res{display:grid;gap:7px}
+  .side .res a{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:8px 11px}
+  .side .res a:hover{border-color:var(--navy2)}
+
+  /* 顶部步骤按钮行 */
+  .step-tabs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px}
+  .step-tabs button{
+    border:1.5px solid var(--line);background:var(--surface);color:var(--ink2);cursor:pointer;
+    border-radius:10px;padding:8px 15px;font-size:13.5px;font-family:inherit;display:flex;gap:7px;align-items:center;
+  }
+  .step-tabs button .no{font-family:Consolas,monospace;font-size:11px;font-weight:700;color:var(--muted)}
+  .step-tabs button:hover{border-color:var(--navy2)}
+  .step-tabs button.on{border-color:var(--navy2);background:var(--navy2);color:#fff;font-weight:600}
+  .step-tabs button.on .no{color:rgba(255,255,255,.75)}
+  html[data-theme="dark"] .step-tabs button.on{color:#0E1626}
+  html[data-theme="dark"] .step-tabs button.on .no{color:#0E1626;opacity:.65}
+
+  /* 主内容面板：一次只显示一个 */
+  .panel{display:none}
+  .panel.show{display:block;animation:fadein .22s}
+  @keyframes fadein{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+  /* 面板底部：上一步/下一步 */
+  .pnav{display:flex;align-items:center;gap:12px;margin-top:16px}
+  .pnav .pos{font-family:Consolas,monospace;font-size:12.5px;color:var(--muted);margin:0 auto}
+</style>
+</head>
+<body>
+
+<script src="nav.js"></script>
+
+<main class="wrap">
+  <div class="crumb" id="crumb"></div>
+  <div class="kp-head kp-top" id="kpHead"></div>
+
+  <div class="learn-grid">
+    <!-- 左侧：本页的选择栏 -->
+    <aside class="side">
+      <div class="card">
+        <h4 id="sideChTitle">本章知识点</h4>
+        <div class="klist" id="sideKps"></div>
+      </div>
+      <div class="card">
+        <h4>学习资料</h4>
+        <div class="res" id="sideRes"></div>
+      </div>
+    </aside>
+
+    <!-- 右侧：步骤按钮行 + 单面板 -->
+    <div>
+      <div class="step-tabs" id="stepTabs"></div>
+      <div id="panels"></div>
+      <div class="pnav">
+        <button class="btn" id="pPrev">← 上一步</button>
+        <span class="pos" id="pPos"></span>
+        <button class="btn primary" id="pNext">下一步 →</button>
+      </div>
+      <div class="pn" id="pn"></div>
+    </div>
+  </div>
+
+  <div class="foot">LOSS LAB · 英国精算师 IFoA CS2 · Risk Modelling &amp; Survival Analysis</div>
+</main>
+
+<script src="course.js"></script>
+<script>
+/* 媒体资源已本地化（video/img/demos/pdf/qa 同目录），直接相对路径 */
+const A = '';
+
+/* ---------- 解析参数 ---------- */
+const qp = new URLSearchParams(location.search);
+const chId = parseInt(qp.get('ch')||'17');
+const chap = COURSE.chapters.find(c=>c.id===chId) || COURSE.chapters[0];
+let kp = chap.kps.find(k=>k.id===qp.get('kp')) || chap.kps[0];
+const lec = (COURSE.lectures||{})[kp.id] || {};
+const idx = chap.kps.indexOf(kp);
+V2.setProg(kp.id,{v:1});   /* 访问即记已学（进度供首页展示） */
+
+/* 讲解视频观看记录：累计看到的最深位置（秒） */
+setTimeout(()=>{
+  const v=document.querySelector('video'); if(!v)return;
+  v.addEventListener('timeupdate',()=>{
+    const sec=Math.floor(v.currentTime);
+    if(sec>0){
+      const prev=(V3.stepOf(kp.id).video)||0;
+      if(typeof prev!=='number' || sec>prev) V3.step(kp.id,'video',sec);
+    }
+  });
+}, 300);
+
+document.title = `${kp.name} · ${chap.no} · LOSS LAB V2`;
+document.getElementById('crumb').innerHTML =
+  `<a href="index.html">首页</a> › <a href="index.html#ch${chap.id}">${chap.no} ${chap.name}</a> › ${kp.name}`;
+document.getElementById('kpHead').innerHTML =
+  `<span class="ic">${kp.icon||'📘'}</span>
+   <h1>${kp.name}</h1>
+   <span class="tag">${chap.no}</span>
+   ${kp.minutes?`<span class="tag">⏱ 约 ${kp.minutes} 分钟</span>`:''}`;
+
+/* ---------- 组装各步骤面板（一次只显示一个，按钮切换） ---------- */
+const S = [];
+if(lec.video) S.push({t:'看讲解', h:`
+  <div class="card pad"><video controls preload="metadata" src="${A}${lec.video}"></video>
+  <div class="cap-line">🎥 <b>${lec.vTitle||''}</b></div>
+  ${lec.text?`<p class="lecture-text">${lec.text}</p>`:''}</div>`});
+if(lec.img) S.push({t:'看图解', h:`
+  <div class="card pad"><figure class="figure">
+    <img src="${A}${lec.img}" alt="${lec.iCap||''}">
+    <figcaption>${lec.iCap||''}</figcaption></figure></div>`});
+if(kp.hook||kp.intuition) S.push({t:'抓直觉', h:`
+  ${kp.hook?`<div class="callout" style="margin-bottom:12px"><span class="lab">场景导入</span>${kp.hook}</div>`:''}
+  ${kp.intuition?`<div class="card pad">${kp.intuition}</div>`:''}`});
+if(kp.chain){const c=kp.chain; S.push({t:'串链条', h:`
+  <div class="chain">
+    <div class="card link"><div class="lab">PARAM · ${c.param.lab}</div><div class="val">${c.param.val}</div><div class="sub">${c.param.sub||''}</div></div>
+    <span class="arrow">➜</span>
+    <div class="card link"><div class="lab">MATH · ${c.math.lab}</div><div class="val">${c.math.val}</div><div class="sub">${c.math.sub||''}</div></div>
+    <span class="arrow">➜</span>
+    <div class="card link"><div class="lab">REAL · ${c.real.lab}</div><div class="val">${c.real.val}</div><div class="sub">${c.real.sub||''}</div></div>
+  </div>`});}
+if(kp.demo){
+  const ds = typeof kp.demo==='string' ? [{t:'互动演示',src:kp.demo}] : kp.demo;
+  const tabs = ds.length>1
+    ? `<div class="demo-tabs">${ds.map((d,i)=>`<button class="${i?'':'on'}" data-i="${i}">${d.t||'演示'+(i+1)}</button>`).join('')}</div>`:'';
+  S.push({t:'动手玩', h:`
+    <div class="card pad">
+      ${tabs}
+      <iframe class="demo" id="demoFrame" src="${A}${ds[0].src}" loading="lazy"></iframe>
+    </div>`});
+}
+if(kp.quiz&&kp.quiz.length) S.push({t:'通关自测', h:`
+  <div class="card pad">
+    <div class="quiz-q" id="qQ"></div>
+    <div class="quiz-opts" id="qOpts"></div>
+    <div class="why" id="qWhy"></div>
+    <div class="quiz-bar">
+      <span class="prog" id="qProg"></span>
+      <span style="flex:1"></span>
+      <button class="btn primary" id="qNext" style="display:none">下一题 →</button>
+    </div>
+  </div>`});
+
+/* 注入面板与按钮 */
+document.getElementById('panels').innerHTML = S.map((s,i)=>`
+  <section class="panel" data-i="${i}">${s.h}</section>`).join('');
+document.getElementById('stepTabs').innerHTML = S.map((s,i)=>`
+  <button data-i="${i}"><span class="no">0${i+1}</span>${s.t}</button>`).join('');
+
+/* ---------- 面板切换 ---------- */
+let cur = 0;
+const videoEl = () => document.querySelector('.panel.show video');
+const STEPKEY = {'看讲解':'video','看图解':'fig','抓直觉':'hook','串链条':'chain','动手玩':'demo'};
+function show(i){
+  cur = Math.max(0, Math.min(S.length-1, i));
+  const v = videoEl(); if(v) v.pause();          /* 切走时暂停讲解视频 */
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('show',+p.dataset.i===cur));
+  document.querySelectorAll('#stepTabs button').forEach(b=>b.classList.toggle('on',+b.dataset.i===cur));
+  document.getElementById('pPos').textContent = `${cur+1} / ${S.length}`;
+  document.getElementById('pPrev').style.visibility = cur===0?'hidden':'visible';
+  document.getElementById('pNext').style.visibility = cur===S.length-1?'hidden':'visible';
+  /* 步骤级学习记录：看过哪一步就记一笔（账号化存储） */
+  const key = STEPKEY[S[cur].t];
+  if(key) V3.step(kp.id, key, 1);
+}
+document.getElementById('stepTabs').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(b) show(+b.dataset.i);
+});
+document.getElementById('pPrev').onclick=()=>show(cur-1);
+document.getElementById('pNext').onclick=()=>show(cur+1);
+show(0);
+
+/* ---------- 自测运行器（首次进入自测面板时初始化一次） ---------- */
+let quizReady=false;
+document.getElementById('stepTabs').addEventListener('click',()=>{ if(!quizReady&&S[cur]&&S[cur].t==='通关自测'){initQuiz();quizReady=true;} });
+function initQuiz(){
+  const Q=kp.quiz; let qi=0, ok=0;
+  const attemptLog=[];                            /* 逐题作答记录（含对错） */
+  V2.setProg(kp.id,{v:1});                       /* 进入知识点即记已访问 */
+  function renderQ(){
+    document.getElementById('qQ').innerHTML = `Q${qi+1} · ${Q[qi].q}`;
+    document.getElementById('qProg').textContent = `${qi+1} / ${Q.length}`;
+    document.getElementById('qWhy').className='why';
+    document.getElementById('qNext').style.display='none';
+    document.getElementById('qOpts').innerHTML = Q[qi].opts.map((o,i)=>`<button class="opt" data-i="${i}">${String.fromCharCode(65+i)}. ${o}</button>`).join('');
+  }
+  document.getElementById('qOpts').addEventListener('click',e=>{
+    const b=e.target.closest('.opt'); if(!b||b.disabled)return;
+    const pick=+b.dataset.i, q=Q[qi];
+    [...b.parentElement.children].forEach((o,i)=>{
+      o.disabled=true;
+      if(i===q.ans)o.classList.add('correct');
+      else if(i===pick)o.classList.add('wrong');
+    });
+    const w=document.getElementById('qWhy');
+    w.innerHTML=(pick===q.ans?'✅ 答对了！':'❌ 再想想——正确答案是 '+'ABCD'[q.ans]+'。')+' '+(q.why||'');
+    w.className='why show';
+    attemptLog.push({qi, my:pick, ok:pick===q.ans, t:Date.now()});
+    if(pick===q.ans)ok++;
+    else V2.addWrong({ch:chap.id, chNo:chap.no, chName:chap.name, kp:kp.id, kpName:kp.name, qi, q:q.q, opts:q.opts, ans:q.ans, why:q.why||'', my:pick, t:Date.now()});   /* 错题入本 */
+    const nb=document.getElementById('qNext');
+    nb.style.display='inline-block';
+    nb.textContent = qi<Q.length-1?'下一题 →':'看结果 →';
+  });
+  document.getElementById('qNext').addEventListener('click',function(){
+    if(++qi<Q.length){renderQ();}
+    else{
+      document.getElementById('qQ').innerHTML=`🎉 完成！${ok} / ${Q.length} 题正确`;
+      document.getElementById('qOpts').innerHTML='';
+      document.getElementById('qWhy').className='why';
+      this.style.display='none';
+      document.getElementById('qProg').textContent='';
+      const best=(V2.progOf(kp.id)||{}).s||0;
+      V2.setProg(kp.id,{s:Math.max(best,ok)});   /* 记录最佳自测成绩 */
+      V3.step(kp.id,'quiz',{s:ok, n:Q.length, log:attemptLog});   /* 逐题记录本轮作答 */
+    }
+  });
+  renderQ();
+}
+
+/* demo 标签切换 */
+document.querySelectorAll('.demo-tabs').forEach(t=>t.addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  t.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+  document.getElementById('demoFrame').src = A + (typeof kp.demo==='string'?kp.demo:kp.demo[+b.dataset.i].src);
+}));
+
+/* ---------- 左侧选择栏 ---------- */
+document.getElementById('sideChTitle').textContent = `${chap.no} ${chap.name} · 知识点`;
+document.getElementById('sideKps').innerHTML = chap.kps.map(k=>`
+  <a class="${k.id===kp.id?'on':''}" href="learn.html?ch=${chap.id}&kp=${k.id}">
+    <span class="k-ic">${k.icon||'📘'}</span>${k.name}</a>`).join('');
+document.getElementById('sideRes').innerHTML =
+  (chap.pdf?`<a href="${A}${chap.pdf}" target="_blank">📄 本章讲义 PDF</a>`:'')+
+  (chap.qa?`<a href="${A}${chap.qa}" target="_blank">📝 配套题库 QA</a>`:'')+
+  `<a href="index.html#ch${chap.id}">🗂 返回知识点框架</a>`;
+
+/* ---------- 上一 / 下一知识点 ---------- */
+const all = COURSE.chapters.flatMap(c=>c.kps.map(k=>({c,k})));
+const gi = all.findIndex(x=>x.k.id===kp.id&&x.c.id===chap.id);
+const prev = all[gi-1], next = all[gi+1];
+document.getElementById('pn').innerHTML =
+  (prev?`<a class="card" href="learn.html?ch=${prev.c.id}&kp=${prev.k.id}"><span class="pn-in"><span class="lab">← 上一知识点</span><br><span class="nm">${prev.k.name}</span></span></a>`:'<span style="flex:1"></span>')+
+  (next?`<a class="card next" href="learn.html?ch=${next.c.id}&kp=${next.k.id}"><span class="pn-in"><span class="lab">下一知识点 →</span><br><span class="nm">${next.k.name}</span></span></a>`:'<span style="flex:1"></span>');
+</script>
+</body>
+</html>

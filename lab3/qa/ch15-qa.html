@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CS2-15 损失分布 练习题库</title>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$','$$'],['\\[','\\]']] },
+  svg: { fontCache: 'global' }
+};
+</script>
+<script id="MathJax-script" async src="../demos/vendor/mathjax-tex-svg.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+    margin: 0; background: #f5f4f9; color: #2a2440; line-height: 1.6;
+  }
+  header {
+    background: linear-gradient(135deg, #7b2d6b, #4a2b76);
+    color: #fff; padding: 24px 20px; text-align: center;
+  }
+  header h1 { margin: 0 0 6px; font-size: 22px; }
+  header p { margin: 0; opacity: .85; font-size: 14px; }
+  .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+
+  .toolbar {
+    background: #fff; border-radius: 12px; padding: 16px 18px; margin-bottom: 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06); display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+  }
+  .toolbar .label { font-weight: 600; margin-right: 4px; }
+  button {
+    cursor: pointer; border: none; border-radius: 8px; padding: 8px 14px;
+    font-size: 14px; background: #4a2b76; color: #fff; transition: .15s;
+  }
+  button:hover { opacity: .88; }
+  button.ghost { background: #ece7f0; color: #4a3a5a; }
+  select {
+    padding: 8px 10px; border-radius: 8px; border: 1px solid #d3ccdf; font-size: 14px;
+  }
+
+  .picker {
+    background: #fff; border-radius: 12px; padding: 16px 18px; margin-bottom: 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  }
+  .picker h3 { margin: 0 0 12px; font-size: 15px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    border: 1.5px solid #cec2da; background: #fff; color: #4a3a5a;
+    border-radius: 20px; padding: 6px 14px; cursor: pointer; font-size: 14px; user-select: none;
+  }
+  .chip.active { background: #7b2d6b; color: #fff; border-color: #7b2d6b; }
+  .chip.exam::after { content: " ★"; color: #f0a500; }
+  .chip.active.exam::after { color: #ffd76a; }
+
+  .count { margin: 12px 0 0; font-size: 13px; color: #776; }
+
+  .card {
+    background: #fff; border-radius: 12px; padding: 18px 20px; margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  }
+  .card .qhead {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+  }
+  .qnum {
+    background: #7b2d6b; color: #fff; border-radius: 8px; padding: 3px 10px;
+    font-weight: 700; font-size: 14px;
+  }
+  .badge {
+    background: #fdecc8; color: #8a5a00; border-radius: 6px; padding: 2px 8px; font-size: 12px;
+  }
+  .qbody { font-size: 15px; }
+  .answer {
+    margin-top: 14px; padding: 14px 16px; background: #f6f1f8;
+    border-left: 4px solid #9c4b8c; border-radius: 6px; display: none;
+  }
+  .answer.show { display: block; }
+  .answer .atitle { font-weight: 700; color: #7b2d6b; margin-bottom: 6px; }
+  .toggle-ans {
+    margin-top: 12px; background: #9c4b8c; font-size: 13px; padding: 6px 12px;
+  }
+  .empty { text-align: center; color: #889; padding: 40px 0; }
+  footer { text-align: center; color: #99a; font-size: 12px; padding: 20px; }
+  table.tbl { border-collapse: collapse; margin: 8px 0; font-size: 13px; }
+  table.tbl th, table.tbl td { border: 1px solid #d6cddd; padding: 4px 10px; text-align: center; }
+  table.tbl th { background: #f1eaf4; }
+</style>
+</head>
+<body>
+<header>
+  <h1>CS2-15 损失分布 · 练习题库</h1>
+  <p>Loss Distributions — Practice Questions（★ 为考试风格题 Exam style）</p>
+</header>
+
+<div class="container">
+  <div class="toolbar">
+    <span class="label">操作：</span>
+    <button onclick="selectAll(true)" class="ghost">全选</button>
+    <button onclick="selectAll(false)" class="ghost">清空</button>
+    <button onclick="randomPick()" class="ghost">随机抽题</button>
+    <select id="randCount">
+      <option value="3">随机 3 题</option>
+      <option value="5">随机 5 题</option>
+      <option value="8">随机 8 题</option>
+    </select>
+    <span style="flex:1"></span>
+    <button onclick="toggleAllAns(true)" class="ghost">展开全部答案</button>
+    <button onclick="toggleAllAns(false)" class="ghost">收起全部答案</button>
+  </div>
+
+  <div class="picker">
+    <h3>选择题目（点击标签选/取消）</h3>
+    <div class="chips" id="chips"></div>
+    <p class="count" id="count"></p>
+  </div>
+
+  <div id="quiz"></div>
+</div>
+
+<footer>题目内容摘自 IFE/ActEd CS2-15 (2019) 教材，仅供个人学习使用。</footer>
+
+<script>
+/* ===== 题库数据 ===== */
+const questions = [
+  {
+    id: "15.1", exam: false,
+    q: `某投资组合的损失服从参数 $\\alpha=3$、$\\lambda=2{,}000$ 的 Pareto 分布。计算随机选取的一笔损失超过平均损失的概率。`,
+    a: `$X\\sim Pa(3,2000)$，均值 $E(X)=\\dfrac{\\lambda}{\\alpha-1}=\\dfrac{2000}{2}=1000$。<br>
+
+    $$P(X>1000)=\\Big(\\frac{\\lambda}{\\lambda+1000}\\Big)^\\alpha=\\Big(\\frac{2000}{3000}\\Big)^3=0.29630$$`
+  },
+  {
+    id: "15.2", exam: false,
+    q: `设 $X$ 服从参数为 $c$、$\\gamma$ 的 Weibull 分布。<br>
+    (i) 用 Tables 中 $E(X^r)$ 的公式写出 $\\mathrm{var}(X)$ 的表达式。<br>
+    (ii) 证明当 $\\gamma=1$ 时化简为指数分布方差的公式。`,
+    a: `<b>(i)</b> $E(X)=\\Gamma\\!\\big(1+\\tfrac1\\gamma\\big)c^{-1/\\gamma}$，$E(X^2)=\\Gamma\\!\\big(1+\\tfrac2\\gamma\\big)c^{-2/\\gamma}$，故
+
+    $$\\mathrm{var}(X)=\\Gamma\\!\\Big(1+\\tfrac2\\gamma\\Big)c^{-2/\\gamma}-\\Big[\\Gamma\\!\\Big(1+\\tfrac1\\gamma\\Big)c^{-1/\\gamma}\\Big]^2$$
+    <b>(ii)</b> 当 $\\gamma=1$：$\\mathrm{var}(X)=\\Gamma(3)c^{-2}-[\\Gamma(2)c^{-1}]^2=\\dfrac{2}{c^2}-\\dfrac{1}{c^2}=\\dfrac{1}{c^2}$，即 $Exp(c)$ 的方差。`
+  },
+  {
+    id: "15.3", exam: false,
+    q: `证明：若 $\\gamma=\\tfrac12$，Weibull 分布的标准差大于均值；而若 $\\gamma=2$，则相反。`,
+    a: `<b>$\\gamma=\\tfrac12$：</b> $E(X)=\\Gamma(3)c^{-2}=\\dfrac{2}{c^2}$，$E(X^2)=\\Gamma(5)c^{-4}=\\dfrac{24}{c^4}$，
+
+    $$\\mathrm{var}(X)=\\frac{24}{c^4}-\\frac{4}{c^4}=\\frac{20}{c^4}$$
+    标准差 $=\\dfrac{\\sqrt{20}}{c^2}\\approx\\dfrac{4.47}{c^2}>E(X)=\\dfrac{2}{c^2}$。<br>
+    <b>$\\gamma=2$：</b> $E(X)=\\Gamma(1.5)c^{-1/2}=0.5\\sqrt\\pi\\,c^{-1/2}\\approx\\dfrac{0.886}{\\sqrt c}$，$E(X^2)=\\Gamma(2)c^{-1}=\\dfrac1c$，
+
+    $$\\mathrm{var}(X)=\\frac1c-\\frac{0.25\\pi}{c}=\\frac{1-0.25\\pi}{c}$$
+    标准差 $\\approx\\dfrac{0.463}{\\sqrt c}<E(X)$。（当 $\\gamma=1$ 时两者相等。）`
+  },
+  {
+    id: "15.4", exam: false,
+    q: `随机变量 $X$ 服从参数 $\\alpha=20$、$\\lambda=0.1$ 的 gamma 分布。求满足 $P(X>a)=0.05$ 的 $a$。`,
+    a: `利用 gamma 与卡方的关系：$X\\sim Gamma(20,0.1)$，$2\\lambda X=0.2X\\sim\\chi^2_{40}$。
+
+    $$P(X>a)=P(0.2X>0.2a)=P(\\chi^2_{40}>0.2a)=0.05$$
+    故 $0.2a$ 为 $\\chi^2_{40}$ 的上 5% 点 = 55.76，
+
+    $$a=\\frac{55.76}{0.2}=278.8$$
+    （R 中可用 <code>qgamma(0.95,20,0.1)</code>。）`
+  },
+  {
+    id: "15.5", exam: false,
+    q: `随机变量 $X$ 服从参数 $\\alpha$、$\\lambda=500$、$\\gamma=2$ 的 Burr 分布。<br>
+    (i) 证明基于样本 $x_1,\\dots,x_n$，参数 $\\alpha$ 的最大似然估计为
+    $\\hat\\alpha=\\dfrac{n}{\\sum\\log(500+x_i^2)-n\\log500}$（可假设为极大值）。<br>
+    (ii) 用样本 52, 109, 114, 163, 181 求其数值。`,
+    a: `<b>(i)</b> Burr PDF：$f(x)=\\dfrac{\\alpha\\gamma\\lambda^\\alpha x^{\\gamma-1}}{(\\lambda+x^\\gamma)^{\\alpha+1}}$。取 $\\gamma=2,\\lambda=500$，对数似然：
+
+    $$\\ln L=n\\ln\\alpha+n\\ln\\gamma+n\\alpha\\ln\\lambda+(\\gamma-1)\\sum\\ln x_i-(\\alpha+1)\\sum\\ln(\\lambda+x_i^\\gamma)$$
+    对 $\\alpha$ 求导置零：$\\dfrac{n}{\\alpha}+n\\ln\\lambda-\\sum\\ln(\\lambda+x_i^2)=0$，得
+
+    $$\\hat\\alpha=\\frac{n}{\\sum\\ln(500+x_i^2)-n\\ln500}$$
+    <b>(ii)</b> $\\sum\\ln(500+x_i^2)=47.6245$，
+
+    $$\\hat\\alpha=\\frac{5}{47.6245-5\\ln500}=0.3021$$`
+  },
+  {
+    id: "15.6", exam: false,
+    q: `某组保单的索赔额分布如下：
+    <table class="tbl"><tr><th>金额</th><td>£200</td><td>£500</td></tr>
+    <tr><th>概率</th><td>$p$</td><td>$1-p$</td></tr></table>
+    40 笔随机索赔中 25 笔为 £200，15 笔为 £500。求 $p$ 的最大似然估计。`,
+    a: `似然 $L=C\\,p^{25}(1-p)^{15}$，对数似然 $\\ln L=\\ln C+25\\ln p+15\\ln(1-p)$。
+
+    $$\\frac{d\\ln L}{dp}=\\frac{25}{p}-\\frac{15}{1-p}=0\\Rightarrow 25(1-p)=15p\\Rightarrow p=\\frac{25}{40}=0.625$$
+    二阶导恒为负，故 $\\hat p=0.625$。`
+  },
+  {
+    id: "15.7", exam: false,
+    q: `某损失额随机变量的矩母函数为 $M(t)=0.4(1-20t)^{-2}+0.6(1-30t)^{-3}$。计算期望损失额。`,
+    a: `$$M'(t)=0.4(-2)(-20)(1-20t)^{-3}+0.6(-3)(-30)(1-30t)^{-4}$$
+
+    $$=16(1-20t)^{-3}+54(1-30t)^{-4}$$
+    期望损失 $=M'(0)=16+54=70$。`
+  },
+  {
+    id: "15.8", exam: true,
+    q: `某汽车保单组合的个别索赔额服从参数 $\\alpha$、$\\lambda$ 的 gamma 分布。已知对所有司机 $\\lambda=0.8$，但 $\\alpha$ 在总体中变化。给定 $\\alpha\\sim Gamma(200,0.5)$，计算随机选取索赔额的均值与方差。 [5]`,
+    a: `设 $X$ 为随机选取的索赔额，则 $X\\mid\\alpha\\sim Gamma(\\alpha,0.8)$，故 $E(X\\mid\\alpha)=\\dfrac{\\alpha}{0.8}$，$\\mathrm{var}(X\\mid\\alpha)=\\dfrac{\\alpha}{0.8^2}$。<br><br>
+    <b>均值</b>（条件期望公式）：
+
+    $$E(X)=E\\big(E(X\\mid\\alpha)\\big)=E\\Big(\\frac{\\alpha}{0.8}\\Big)=\\frac{1}{0.8}E(\\alpha)$$
+    由 $\\alpha\\sim Gamma(200,0.5)$，$E(\\alpha)=\\dfrac{200}{0.5}$：
+
+    $$E(X)=\\frac{1}{0.8}\\times\\frac{200}{0.5}=500$$
+    <b>方差</b>（条件方差公式）：
+
+    $$\\mathrm{var}(X)=E\\big(\\mathrm{var}(X\\mid\\alpha)\\big)+\\mathrm{var}\\big(E(X\\mid\\alpha)\\big)=E\\Big(\\frac{\\alpha}{0.8^2}\\Big)+\\mathrm{var}\\Big(\\frac{\\alpha}{0.8}\\Big)=\\frac{1}{0.8^2}E(\\alpha)+\\frac{1}{0.8^2}\\mathrm{var}(\\alpha)$$
+    由 $\\alpha\\sim Gamma(200,0.5)$，$E(\\alpha)=\\dfrac{200}{0.5}$，$\\mathrm{var}(\\alpha)=\\dfrac{200}{0.5^2}$：
+
+    $$\\mathrm{var}(X)=\\frac{1}{0.8^2}\\times\\frac{200}{0.5}+\\frac{1}{0.8^2}\\times\\frac{200}{0.5^2}=1{,}875$$`
+  },
+  {
+    id: "15.9", exam: true,
+    q: `(i) 某保单组合索赔分布为 Weibull，密度 $f_1(x)=2cx\\,e^{-cx^2}$（$x>0$）。预期每 100 笔中有 1 笔超过 £1,000，据此估计 $c$。 [2]<br>
+    (ii) 另一建议密度为 $f_2(x)=\\lambda e^{-\\lambda x}$（$x>0$），用同样信息估计 $\\lambda$。 [2]<br>
+    (iii) (a) 对 $f_1$ 与 $f_2$ 分别求满足 $P(X>M)=0.001$ 的 $M$；(b) 评论结果。 [3]`,
+    a: `<b>(i)</b> $P(X>1000)=e^{-c\\cdot1000^2}=0.01$，
+
+    $$\\hat c=\\frac{-\\ln0.01}{1000^2}=4.605\\times10^{-6}$$
+    <b>(ii)</b> $P(X>1000)=e^{-1000\\lambda}=0.01$，
+
+    $$\\hat\\lambda=\\frac{-\\ln0.01}{1000}=4.605\\times10^{-3}$$
+    <b>(iii)(a)</b> Weibull：$e^{-4.605\\times10^{-6}M^2}=0.001\\Rightarrow M^2=\\dfrac{-\\ln0.001}{4.605\\times10^{-6}}=1{,}500{,}000\\Rightarrow M\\approx1{,}225$。<br>
+    指数：$e^{-4.605\\times10^{-3}M}=0.001\\Rightarrow M=\\dfrac{-\\ln0.001}{4.605\\times10^{-3}}=1{,}500$。<br>
+    <b>(b)</b> 指数分布在 1,225 处的超额概率大于 0.001，说明指数分布的尾部比 Weibull 更重（更厚）。`
+  },
+  {
+    id: "15.10", exam: true,
+    q: `从参数 $\\gamma=2$（$c$ 未知）的 Weibull 分布观测到 100 个索赔额，满足 $\\sum x_i=487{,}926$，$\\sum x_i^2=976{,}444{,}000$，样本中位数 $=4{,}500$。<br>
+    (i) 证明 $c$ 的最大似然估计为 $\\hat c=\\dfrac{n}{\\sum x_i^2}$，并估计 $c$。 [4]<br>
+    (ii) 用矩法估计 $c$。 [2]<br>
+    (iii) 用百分位法估计 $c$。 [2]`,
+    a: `<b>(i)</b> $f(x)=2cx\\,e^{-cx^2}$，似然 $L\\propto c^n e^{-c\\sum x_i^2}$，$\\ln L=\\text{常数}+n\\ln c-c\\sum x_i^2$，求导置零：
+
+    $$\\hat c=\\frac{n}{\\sum x_i^2}=\\frac{100}{976{,}444{,}000}=1.0241\\times10^{-7}$$
+    （二阶导 $-n/c^2<0$，为极大值。）<br>
+    <b>(ii)</b> $E(X)=\\Gamma(1.5)c^{-1/2}=0.5\\sqrt\\pi\\,c^{-1/2}$。样本均值 $\\bar x=4{,}879.26$，令 $E(X)=\\bar x$：
+
+    $$\\hat c=\\Big(\\frac{0.5\\sqrt\\pi}{4879.26}\\Big)^2=3.299\\times10^{-8}$$
+    <b>(iii)</b> 中位数 $M$：$F(M)=1-e^{-cM^2}=0.5$。令 $M=4{,}500$：
+
+    $$\\tilde c=\\frac{-\\ln0.5}{4500^2}=3.423\\times10^{-8}$$`
+  },
+  {
+    id: "15.11", exam: true,
+    q: `某类保单的索赔额服从指数分布。下四分位数索赔为 200，计算平均索赔额。 [3]`,
+    a: `$F(200)=0.25$，即 $1-e^{-200\\lambda}=0.25\\Rightarrow e^{-200\\lambda}=0.75$。
+
+    $$\\lambda=\\frac{-\\ln0.75}{200}=0.0014384$$
+    平均索赔额 $=\\dfrac{1}{\\lambda}=695.21$。`
+  }
+];
+
+/* ===== 状态 ===== */
+let selected = new Set(); // 默认全不选
+
+/* ===== 渲染标签 ===== */
+function renderChips(){
+  const box = document.getElementById('chips');
+  box.innerHTML = '';
+  questions.forEach(q => {
+    const c = document.createElement('span');
+    c.className = 'chip' + (q.exam ? ' exam' : '') + (selected.has(q.id) ? ' active' : '');
+    c.textContent = 'Q ' + q.id;
+    c.onclick = () => {
+      if(selected.has(q.id)) selected.delete(q.id); else selected.add(q.id);
+      renderChips(); renderQuiz();
+    };
+    box.appendChild(c);
+  });
+  document.getElementById('count').textContent =
+    `已选 ${selected.size} / ${questions.length} 题（★ 表示 Exam style 考试风格题）`;
+}
+
+/* ===== 渲染题目 ===== */
+function renderQuiz(){
+  const quiz = document.getElementById('quiz');
+  quiz.innerHTML = '';
+  const list = questions.filter(q => selected.has(q.id));
+  if(list.length === 0){
+    quiz.innerHTML = '<div class="card empty">还没有选择题目，请在上方点击标签选择。</div>';
+    return;
+  }
+  list.forEach(q => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="qhead">
+        <span class="qnum">Q ${q.id}</span>
+        ${q.exam ? '<span class="badge">★ Exam style</span>' : ''}
+      </div>
+      <div class="qbody">${q.q}</div>
+      <button class="toggle-ans">显示答案</button>
+      <div class="answer"><div class="atitle">解答 Solution</div>${q.a}</div>
+    `;
+    const btn = card.querySelector('.toggle-ans');
+    const ans = card.querySelector('.answer');
+    btn.onclick = () => {
+      ans.classList.toggle('show');
+      btn.textContent = ans.classList.contains('show') ? '隐藏答案' : '显示答案';
+    };
+    quiz.appendChild(card);
+  });
+  if(window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([quiz]);
+}
+
+/* ===== 工具函数 ===== */
+function selectAll(v){
+  selected = v ? new Set(questions.map(q=>q.id)) : new Set();
+  renderChips(); renderQuiz();
+}
+function randomPick(){
+  const n = parseInt(document.getElementById('randCount').value);
+  const pool = [...questions.map(q=>q.id)];
+  for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
+  selected = new Set(pool.slice(0, n));
+  renderChips(); renderQuiz();
+}
+function toggleAllAns(show){
+  document.querySelectorAll('.card').forEach(card=>{
+    const ans = card.querySelector('.answer');
+    const btn = card.querySelector('.toggle-ans');
+    if(!ans) return;
+    if(show){ ans.classList.add('show'); if(btn) btn.textContent='隐藏答案'; }
+    else { ans.classList.remove('show'); if(btn) btn.textContent='显示答案'; }
+  });
+}
+
+/* ===== 初始化 ===== */
+renderChips();
+renderQuiz();
+</script>
+</body>
+</html>

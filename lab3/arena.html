@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>竞技场 · LOSS LAB V2</title>
+<link rel="stylesheet" href="style.css">
+<script>
+try{
+  var t=localStorage.getItem('v2theme');
+  if(t) document.documentElement.dataset.theme=t;
+}catch(e){}
+</script>
+<style>
+  .page-h{margin:30px 0 6px;font-size:24px;font-weight:800}
+  .page-sub{color:var(--ink2);font-size:14px}
+  .setup{max-width:520px;margin:26px auto 0;padding:26px 28px}
+  .setup label{display:block;font-size:12px;font-weight:700;letter-spacing:1px;color:var(--muted);margin:16px 0 7px}
+  .setup label:first-of-type{margin-top:0}
+  .setup select{width:100%;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit}
+  .setup .btn{width:100%;margin-top:22px;padding:12px}
+  .setup .hint{font-size:12px;color:var(--muted);text-align:center;margin-top:12px}
+  .hud{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+  .hud .chip{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:7px 14px;font-size:13px;color:var(--ink2)}
+  .hud .chip b{color:var(--ink);font-family:Consolas,monospace}
+  .hud .chip.fire{border-color:#FB923C;color:#C2660F}
+  html[data-theme="dark"] .hud .chip.fire{color:#FDBA74}
+  .qmeta{font-size:12px;color:var(--muted);margin-bottom:7px}
+  .result{max-width:560px;margin:30px auto 0;padding:34px;text-align:center}
+  .result .score{font-family:Consolas,monospace;font-size:44px;font-weight:800;color:var(--navy2)}
+  .result .msg{margin:8px 0 20px;color:var(--ink2)}
+  .result .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<script src="nav.js"></script>
+
+<main class="wrap">
+  <h1 class="page-h">⚔️ 竞技场</h1>
+  <p class="page-sub">限时答题 · 连对攒连击 · 答错的题自动进错题本</p>
+
+  <!-- 准备页 -->
+  <div class="card setup" id="setup">
+    <label>选择范围</label>
+    <select id="scope"><option value="all">全部 10 章（468 题）</option></select>
+    <label>题数</label>
+    <select id="nq"><option>5</option><option selected>10</option><option>15</option><option>20</option></select>
+    <button class="btn primary" id="start">开始挑战 →</button>
+    <div class="hint">每题限时 60 秒，答对 +100 分，连击每层 +20%</div>
+  </div>
+
+  <!-- 答题页 -->
+  <div id="play" style="display:none;max-width:680px;margin:26px auto 0">
+    <div class="hud">
+      <span class="chip">进度 <b id="hProg"></b></span>
+      <span class="chip">得分 <b id="hScore">0</b></span>
+      <span class="chip fire">连击 <b id="hCombo">×0</b></span>
+      <span class="chip">⏱ <b id="hTime">60</b>s</span>
+    </div>
+    <div class="card pad">
+      <div class="qmeta" id="qMeta"></div>
+      <div class="quiz-q" id="qQ"></div>
+      <div class="quiz-opts" id="qOpts"></div>
+      <div class="why" id="qWhy"></div>
+      <div class="quiz-bar">
+        <span style="flex:1"></span>
+        <button class="btn primary" id="qNext" style="display:none">下一题 →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 结果页 -->
+  <div id="done" style="display:none">
+    <div class="card result">
+      <div class="score" id="rScore"></div>
+      <div class="msg" id="rMsg"></div>
+      <div class="row">
+        <button class="btn primary" id="again">再来一局</button>
+        <a class="btn" href="wrong.html">看错题本 →</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">LOSS LAB · 英国精算师 IFoA CS2 · Risk Modelling &amp; Survival Analysis</div>
+</main>
+
+<script src="course.js"></script>
+<script>
+/* ---------- 题库索引 ---------- */
+const BANK=[];
+COURSE.chapters.forEach(c=>c.kps.forEach(k=>(k.quiz||[]).forEach((q,qi)=>BANK.push({c,k,qi,q}))));
+document.getElementById('scope').innerHTML +=
+  COURSE.chapters.map(c=>`<option value="${c.id}">${c.no} ${c.name}（${BANK.filter(b=>b.c.id===c.id).length} 题）</option>`).join('');
+
+/* ---------- 状态 ---------- */
+let run=null, timer=null;
+
+document.getElementById('start').onclick=()=>{
+  const scope=document.getElementById('scope').value;
+  const n=+document.getElementById('nq').value;
+  const pool=scope==='all'?BANK:BANK.filter(b=>String(b.c.id)===scope);
+  const qs=[...pool].sort(()=>Math.random()-.5).slice(0,Math.min(n,pool.length));
+  run={qs, i:0, score:0, combo:0, maxCombo:0, right:0};
+  document.getElementById('setup').style.display='none';
+  document.getElementById('done').style.display='none';
+  document.getElementById('play').style.display='block';
+  showQ();
+};
+document.getElementById('again').onclick=()=>{ document.getElementById('done').style.display='none'; document.getElementById('setup').style.display='block'; };
+
+function showQ(){
+  const {qs,i}=run;
+  const b=qs[i];
+  run.combo= (run.i>0 && run.lastRight) ? run.combo : 0;   /* 连击延续判断放在 answer 里，这里仅展示 */
+  document.getElementById('hProg').textContent=`${i+1} / ${qs.length}`;
+  document.getElementById('hScore').textContent=run.score;
+  document.getElementById('hCombo').textContent='×'+run.combo;
+  document.getElementById('qMeta').textContent=`${b.c.no} · ${b.k.name}`;
+  document.getElementById('qQ').innerHTML=`Q${i+1} · ${b.q.q}`;
+  document.getElementById('qWhy').className='why';
+  document.getElementById('qNext').style.display='none';
+  document.getElementById('qOpts').innerHTML=b.q.opts.map((o,j)=>`<button class="opt" data-i="${j}">${String.fromCharCode(65+j)}. ${o}</button>`).join('');
+  /* 计时 */
+  clearInterval(timer);
+  let left=60;
+  document.getElementById('hTime').textContent=left;
+  run.lock=false;
+  timer=setInterval(()=>{
+    left--;
+    const el=document.getElementById('hTime'); if(el)el.textContent=left;
+    if(left<=0){ clearInterval(timer); answer(-1); }
+  },1000);
+}
+
+function answer(pick){
+  if(run.lock)return; run.lock=true;
+  clearInterval(timer);
+  const b=run.qs[run.i], q=b.q;
+  const right=pick===q.ans;
+  run.lastRight=right;
+  [...document.querySelectorAll('#qOpts .opt')].forEach((o,j)=>{
+    o.disabled=true;
+    if(j===q.ans)o.classList.add('correct');
+    else if(j===pick)o.classList.add('wrong');
+  });
+  const w=document.getElementById('qWhy');
+  if(right){
+    run.combo++; run.maxCombo=Math.max(run.maxCombo,run.combo); run.right++;
+    const gain=Math.round(100*(1+0.2*(run.combo-1)));
+    run.score+=gain;
+    w.innerHTML=`✅ 答对 +${gain} 分${run.combo>1?`（连击 ×${run.combo}）`:''}`;
+  }else{
+    run.combo=0;
+    w.innerHTML=(pick===-1?'⏰ 超时了——':'❌ 再想想——正确答案是 '+'ABCD'[q.ans]+'。')+' '+(q.why||'');
+    V2.addWrong({ch:b.c.id, chNo:b.c.no, chName:b.c.name, kp:b.k.id, kpName:b.k.name, qi:b.qi, q:q.q, opts:q.opts, ans:q.ans, why:q.why||'', my:Math.max(pick,0), t:Date.now()});
+  }
+  w.className='why show';
+  document.getElementById('hScore').textContent=run.score;
+  document.getElementById('hCombo').textContent='×'+run.combo;
+  const nb=document.getElementById('qNext');
+  nb.style.display='inline-block';
+  nb.textContent=run.i<run.qs.length-1?'下一题 →':'看结果 →';
+}
+document.getElementById('qOpts').addEventListener('click',e=>{
+  const o=e.target.closest('.opt'); if(o&&!o.disabled)answer(+o.dataset.i);
+});
+document.getElementById('qNext').onclick=()=>{
+  if(++run.i<run.qs.length)showQ();
+  else finish();
+};
+function finish(){
+  clearInterval(timer);
+  document.getElementById('play').style.display='none';
+  document.getElementById('done').style.display='block';
+  const {score,right,qs,maxCombo}=run;
+  document.getElementById('rScore').textContent=score+' 分';
+  const pct=Math.round(right/qs.length*100);
+  document.getElementById('rMsg').innerHTML=
+    `答对 ${right} / ${qs.length}（${pct}%）· 最高连击 ×${maxCombo}<br>`+
+    (pct===100?'🏆 全对！这个知识点你已经拿下了。':pct>=70?'👍 不错！错题已收进错题本，去把它们消灭掉。':'💪 别灰心——错题已收进错题本，重练几遍就熟了。');
+  /* 记录本章最佳分 */
+  const scope=document.getElementById('scope').value;
+  if(scope!=='all'){
+    const kp0=COURSE.chapters.find(c=>String(c.id)===scope).kps[0].id;
+    const best=(V2.prog()[kp0]||{}).arena||0;
+    V2.setProg(kp0,{arena:Math.max(best,score)});
+  }
+}
+</script>
+</body>
+</html>

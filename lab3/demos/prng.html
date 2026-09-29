@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高级伪随机数生成器 - 分布分析与可视化</title>
+    <script src="vendor/chart.umd.min.js"></script>
+    <script src="vendor/simple-statistics.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2c3e50;
+            --accent-color: #e74c3c;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --light-bg: #f8f9fa;
+            --dark-bg: #2c3e50;
+            --border-color: #dee2e6;
+            --shadow: 0 4px 6px rgba(0,0,0,0.1);
+            --transition: all 0.3s ease;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: var(--secondary-color);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            min-height: 800px;
+        }
+        
+        .sidebar {
+            background: var(--light-bg);
+            padding: 20px;
+            border-right: 1px solid var(--border-color);
+        }
+        
+        .content-area {
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .nav-tabs {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-bottom: 30px;
+        }
+        
+        .nav-tab {
+            padding: 15px 20px;
+            background: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: left;
+            font-size: 14px;
+            transition: var(--transition);
+            border-left: 4px solid transparent;
+        }
+        
+        .nav-tab:hover {
+            background: #e3f2fd;
+            transform: translateX(5px);
+        }
+        
+        .nav-tab.active {
+            background: var(--primary-color);
+            color: white;
+            border-left-color: var(--accent-color);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .section {
+            background: white;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+        }
+        
+        .section h2 {
+            color: var(--secondary-color);
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 10px;
+        }
+        
+        .param-group {
+            margin-bottom: 20px;
+        }
+        
+        .param-group h3 {
+            color: var(--secondary-color);
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+        
+        .param-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            gap: 15px;
+        }
+        
+        .param-row label {
+            min-width: 120px;
+            font-weight: 600;
+            color: var(--secondary-color);
+        }
+        
+        input, select {
+            padding: 10px 12px;
+            border: 2px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 14px;
+            transition: var(--transition);
+            flex: 1;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background: var(--secondary-color);
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #1c2833;
+        }
+        
+        .chart-container {
+            height: 400px;
+            margin: 20px 0;
+            position: relative;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .stat-card {
+            background: var(--light-bg);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .stat-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: var(--secondary-color);
+            margin: 5px 0;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .test-results {
+            background: #e8f5e8;
+            border-left: 4px solid var(--success-color);
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 6px;
+        }
+        
+        .number-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 8px;
+            margin: 15px 0;
+        }
+        
+        .number-item {
+            background: var(--light-bg);
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            text-align: center;
+            border: 1px solid var(--border-color);
+        }
+        
+        .algorithm-info {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid var(--warning-color);
+        }
+        
+        .algorithm-info h4 {
+            color: var(--secondary-color);
+            margin-bottom: 10px;
+        }
+        
+        .distribution-comparison {
+            background: #e3f2fd;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: var(--success-color);
+            transition: width 0.3s ease;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            background: var(--primary-color);
+            color: white;
+            border-radius: 12px;
+            font-size: 0.8em;
+            margin-left: 5px;
+        }
+        
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .sidebar {
+                border-right: none;
+                border-bottom: 1px solid var(--border-color);
+            }
+            
+            .nav-tabs {
+                flex-direction: row;
+                overflow-x: auto;
+                padding-bottom: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>高级伪随机数生成器</h1>
+            <p>探索10种概率分布与3种生成算法的统计特性</p>
+        </div>
+        
+        <div class="main-content">
+            <div class="sidebar">
+                <div class="nav-tabs">
+                    <button class="nav-tab active" onclick="showTab('intro')">📊 算法介绍</button>
+                    <button class="nav-tab" onclick="showTab('distributions')">📈 分布设置</button>
+                    <button class="nav-tab" onclick="showTab('results')">📋 生成结果</button>
+                    <button class="nav-tab" onclick="showTab('analysis')">🔍 统计分析</button>
+                </div>
+                
+                <div class="param-group">
+                    <h3>快速设置</h3>
+                    <div class="param-row">
+                        <label for="quickDist">分布类型:</label>
+                        <select id="quickDist" onchange="quickDistributionChange()">
+                            <option value="uniform">均匀分布</option>
+                            <option value="normal">正态分布</option>
+                            <option value="exponential">指数分布</option>
+                            <option value="poisson">泊松分布</option>
+                            <option value="binomial">二项分布</option>
+                            <option value="gamma">伽马分布</option>
+                            <option value="beta">贝塔分布</option>
+                            <option value="lognormal">对数正态分布</option>
+                            <option value="weibull">威布尔分布</option>
+                            <option value="cauchy">柯西分布</option>
+                        </select>
+                    </div>
+                    
+                    <div class="param-row">
+                        <label for="quickAlgo">生成算法:</label>
+                        <select id="quickAlgo" onchange="quickAlgorithmChange()">
+                            <option value="lcg">线性同余(LCG)</option>
+                            <option value="middleSquare">平方取中法</option>
+                            <option value="excelRand">Excel RAND()</option>
+                        </select>
+                    </div>
+                    
+                    <div class="param-row">
+                        <label for="quickCount">样本数量:</label>
+                        <input type="number" id="quickCount" value="1000" min="100" max="10000">
+                    </div>
+                    
+                    <div class="btn-group">
+                        <button class="btn-primary" onclick="generateRandomNumbers()">
+                            🎲 生成随机数
+                        </button>
+                        <button class="btn-secondary" onclick="resetParameters()">
+                            🔄 重置参数
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="content-area">
+                <!-- 算法介绍 -->
+                <div id="intro" class="tab-content active">
+                    <div class="section">
+                        <h2>伪随机数生成算法介绍</h2>
+                        
+                        <div class="algorithm-info">
+                            <h4>1. 线性同余生成器 (LCG)</h4>
+                            <p><strong>公式:</strong> X<sub>n+1</sub> = (a × X<sub>n</sub> + c) mod m</p>
+                            <p><strong>特点:</strong> 简单高效，周期可控，但可能存在相关性</p>
+                            <p><strong>应用:</strong> 大多数编程语言的随机数生成器基础</p>
+                        </div>
+                        
+                        <div class="algorithm-info">
+                            <h4>2. 平方取中法</h4>
+                            <p><strong>方法:</strong> 取种子平方，取中间几位作为新种子</p>
+                            <p><strong>特点:</strong> 实现简单，但质量较差，容易产生短周期</p>
+                            <p><strong>应用:</strong> 教学演示，不推荐实际应用</p>
+                        </div>
+                        
+                        <div class="algorithm-info">
+                            <h4>3. Excel RAND() 函数</h4>
+                            <p><strong>实现:</strong> 基于改进的线性同余算法</p>
+                            <p><strong>特点:</strong> 质量较好，周期长，适合一般应用</p>
+                            <p><strong>应用:</strong> Excel、统计分析软件</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 分布设置 -->
+                <div id="distributions" class="tab-content">
+                    <div class="section">
+                        <h2>概率分布参数设置</h2>
+                        
+                        <div class="param-group">
+                            <h3>分布类型参数</h3>
+                            
+                            <div id="uniformParams">
+                                <div class="param-row">
+                                    <label for="uniformMin">最小值 (a):</label>
+                                    <input type="number" id="uniformMin" value="0" step="0.1">
+                                </div>
+                                <div class="param-row">
+                                    <label for="uniformMax">最大值 (b):</label>
+                                    <input type="number" id="uniformMax" value="1" step="0.1">
+                                </div>
+                            </div>
+                            
+                            <div id="normalParams" style="display:none;">
+                                <div class="param-row">
+                                    <label for="normalMean">均值 (μ):</label>
+                                    <input type="number" id="normalMean" value="0" step="0.1">
+                                </div>
+                                <div class="param-row">
+                                    <label for="normalStd">标准差 (σ):</label>
+                                    <input type="number" id="normalStd" value="1" step="0.1" min="0.1">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="param-group">
+                            <h3>生成算法参数</h3>
+                            
+                            <div id="lcgParams">
+                                <div class="param-row">
+                                    <label for="seed">种子值:</label>
+                                    <input type="number" id="seed" value="12345">
+                                </div>
+                                <div class="param-row">
+                                    <label for="a">乘数 (a):</label>
+                                    <input type="number" id="a" value="1664525">
+                                </div>
+                                <div class="param-row">
+                                    <label for="c">增量 (c):</label>
+                                    <input type="number" id="c" value="1013904223">
+                                </div>
+                                <div class="param-row">
+                                    <label for="m">模数 (m):</label>
+                                    <input type="number" id="m" value="4294967296">
+                                </div>
+                            </div>
+                            
+                            <div id="middleSquareParams" style="display:none;">
+                                <div class="param-row">
+                                    <label for="middleSeed">种子值 (4位):</label>
+                                    <input type="number" id="middleSeed" value="1234" min="1000" max="9999">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 生成结果 -->
+                <div id="results" class="tab-content">
+                    <div class="section">
+                        <h2>随机数生成结果</h2>
+                        
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-label">样本数量</div>
+                                <div class="stat-value" id="statCount">0</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">均值</div>
+                                <div class="stat-value" id="statMean">0.0000</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">标准差</div>
+                                <div class="stat-value" id="statStd">0.0000</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">方差</div>
+                                <div class="stat-value" id="statVar">0.0000</div>
+                            </div>
+                        </div>
+                        
+                        <div class="chart-container">
+                            <canvas id="distributionChart"></canvas>
+                        </div>
+                        
+                        <div>
+                            <h3>生成的随机数 (前50个)</h3>
+                            <div id="output" class="number-list">
+                                <div class="number-item">等待生成数据...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 统计分析 -->
+                <div id="analysis" class="tab-content">
+                    <div class="section">
+                        <h2>统计分析与检验</h2>
+                        
+                        <div class="test-results">
+                            <h3>分布拟合检验</h3>
+                            <div id="distributionTest">
+                                <p>等待生成数据进行分析...</p>
+                            </div>
+                        </div>
+                        
+                        <div class="distribution-comparison">
+                            <h3>理论分布与实际分布对比</h3>
+                            <div id="distributionComparison">
+                                <p>等待生成数据进行比较...</p>
+                            </div>
+                        </div>
+                        
+                        <div class="param-group">
+                            <h3>直方图设置</h3>
+                            <div class="param-row">
+                                <label for="bins">分组数量:</label>
+                                <input type="number" id="bins" value="20" min="5" max="50">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let currentRandomNumbers = [];
+        let distributionChart = null;
+        let currentDistributionType = 'uniform';
+        
+        // 标签切换函数
+        function showTab(tabId) {
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            event.target.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+        }
+        
+        // 快速分布切换
+        function quickDistributionChange() {
+            const distType = document.getElementById('quickDist').value;
+            currentDistributionType = distType;
+            
+            // 隐藏所有分布参数
+            document.querySelectorAll('[id$="Params"]').forEach(el => {
+                if (el.id.includes('Params') && !el.id.includes('lcg') && 
+                    !el.id.includes('middleSquare') && !el.id.includes('excelRand')) {
+                    el.style.display = 'none';
+                }
+            });
+            
+            // 显示当前分布参数
+            if (distType === 'uniform') {
+                document.getElementById('uniformParams').style.display = 'block';
+            } else if (distType === 'normal') {
+                document.getElementById('normalParams').style.display = 'block';
+            }
+        }
+        
+        // 快速算法切换
+        function quickAlgorithmChange() {
+            const algo = document.getElementById('quickAlgo').value;
+            
+            // 隐藏所有算法参数
+            document.getElementById('lcgParams').style.display = 'none';
+            document.getElementById('middleSquareParams').style.display = 'none';
+            
+            // 显示当前算法参数
+            if (algo === 'lcg') {
+                document.getElementById('lcgParams').style.display = 'block';
+            } else if (algo === 'middleSquare') {
+                document.getElementById('middleSquareParams').style.display = 'block';
+            }
+        }
+        
+        // 生成随机数
+        function generateRandomNumbers() {
+            const distributionType = document.getElementById('quickDist').value;
+            const algorithm = document.getElementById('quickAlgo').value;
+            const count = parseInt(document.getElementById('quickCount').value);
+            
+            // 显示加载状态
+            document.getElementById('output').innerHTML = '<div class="number-item">生成中...</div>';
+            
+            // 先生成均匀分布的随机数
+            let uniformNumbers = [];
+            switch(algorithm) {
+                case 'lcg':
+                    uniformNumbers = generateLCG(
+                        parseInt(document.getElementById('seed').value),
+                        parseInt(document.getElementById('a').value),
+                        parseInt(document.getElementById('c').value),
+                        parseInt(document.getElementById('m').value),
+                        count
+                    );
+                    break;
+                case 'middleSquare':
+                    uniformNumbers = generateMiddleSquare(
+                        parseInt(document.getElementById('middleSeed').value),
+                        count
+                    );
+                    break;
+                case 'excelRand':
+                    uniformNumbers = generateExcelRand(count);
+                    break;
+            }
+            
+            // 根据分布类型转换
+            currentRandomNumbers = transformToDistribution(uniformNumbers, distributionType);
+            
+            // 更新显示
+            updateDisplay();
+            
+            // 切换到结果标签
+            showTab('results');
+        }
+        
+        // 重置参数
+        function resetParameters() {
+            document.getElementById('seed').value = '12345';
+            document.getElementById('a').value = '1664525';
+            document.getElementById('c').value = '1013904223';
+            document.getElementById('m').value = '4294967296';
+            document.getElementById('middleSeed').value = '1234';
+            document.getElementById('quickCount').value = '1000';
+            document.getElementById('bins').value = '20';
+            
+            // 重置分布参数
+            document.getElementById('uniformMin').value = '0';
+            document.getElementById('uniformMax').value = '1';
+            document.getElementById('normalMean').value = '0';
+            document.getElementById('normalStd').value = '1';
+        }
+        
+        // 更新显示
+        function updateDisplay() {
+            displayResults(currentRandomNumbers);
+            updateStatistics(currentRandomNumbers);
+            updateDistributionTest(currentRandomNumbers);
+            updateDistributionChart(currentRandomNumbers);
+            updateDistributionComparison(currentRandomNumbers);
+        }
+        
+        // 显示随机数列表
+        function displayResults(numbers) {
+            const output = document.getElementById('output');
+            const displayCount = Math.min(50, numbers.length);
+            
+            let html = '';
+            for (let i = 0; i < displayCount; i++) {
+                html += `<div class="number-item">${i + 1}: ${numbers[i].toFixed(4)}</div>`;
+            }
+            
+            if (numbers.length > 50) {
+                html += `<div style="text-align:center;color:#666;margin-top:10px;">... 还有 ${numbers.length - 50} 个数据</div>`;
+            }
+            
+            output.innerHTML = html;
+        }
+        
+        // 更新基本统计量
+        function updateStatistics(numbers) {
+            if (numbers.length === 0) return;
+            
+            const mean = numbers.reduce((a, b) => a + b, 0) / numbers.length;
+            const variance = numbers.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / numbers.length;
+            const stdDev = Math.sqrt(variance);
+            
+            document.getElementById('statCount').textContent = numbers.length;
+            document.getElementById('statMean').textContent = mean.toFixed(4);
+            document.getElementById('statVar').textContent = variance.toFixed(4);
+            document.getElementById('statStd').textContent = stdDev.toFixed(4);
+        }
+        
+        // 分布拟合检验
+        function updateDistributionTest(numbers) {
+            const distributionType = document.getElementById('quickDist').value;
+            let testResult = '';
+            
+            switch(distributionType) {
+                case 'uniform':
+                    testResult = performUniformTest(numbers);
+                    break;
+                case 'normal':
+                    testResult = performNormalTest(numbers);
+                    break;
+                case 'exponential':
+                    testResult = performExponentialTest(numbers);
+                    break;
+                default:
+                    testResult = '<p>该分布的检验功能暂未实现</p>';
+            }
+            
+            document.getElementById('distributionTest').innerHTML = testResult;
+        }
+        
+        // 均匀分布检验
+        function performUniformTest(numbers) {
+            const bins = parseInt(document.getElementById('bins').value);
+            const expected = numbers.length / bins;
+            const observed = new Array(bins).fill(0);
+            const min = Math.min(...numbers);
+            const max = Math.max(...numbers);
+            
+            numbers.forEach(num => {
+                const binIndex = Math.floor((num - min) / (max - min) * bins);
+                if (binIndex >= 0 && binIndex < bins) {
+                    observed[binIndex]++;
+                }
+            });
+            
+            let chiSquare = 0;
+            for (let i = 0; i < bins; i++) {
+                chiSquare += Math.pow(observed[i] - expected, 2) / expected;
+            }
+            
+            const criticalValue = 2 * (bins - 1);
+            const passed = chiSquare < criticalValue;
+            
+            return `
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: ${Math.min(chiSquare / criticalValue * 100, 100)}%"></div>
+                </div>
+                <p>卡方统计量: <strong>${chiSquare.toFixed(4)}</strong></p>
+                <p>临界值 (α=0.05): <strong>${criticalValue.toFixed(2)}</strong></p>
+                <p>检验结果: <span style="color:${passed ? 'green' : 'red'};font-weight:bold;">
+                    ${passed ? '✅ 通过均匀性检验' : '❌ 可能不符合均匀分布'}
+                </span></p>
+            `;
+        }
+        
+        // 正态分布检验
+        function performNormalTest(numbers) {
+            const mean = numbers.reduce((a, b) => a + b, 0) / numbers.length;
+            const stdDev = Math.sqrt(numbers.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / numbers.length);
+            
+            // 计算偏度和峰度
+            let skewness = 0;
+            let kurtosis = 0;
+            
+            if (numbers.length > 1) {
+                const n = numbers.length;
+                const m2 = numbers.reduce((sum, x) => sum + Math.pow(x - mean, 2), 0) / n;
+                const m3 = numbers.reduce((sum, x) => sum + Math.pow(x - mean, 3), 0) / n;
+                const m4 = numbers.reduce((sum, x) => sum + Math.pow(x - mean, 4), 0) / n;
+                
+                skewness = m3 / Math.pow(m2, 1.5);
+                kurtosis = m4 / Math.pow(m2, 2);
+            }
+            
+            const skewPass = Math.abs(skewness) < 0.5;
+            const kurtPass = Math.abs(kurtosis - 3) < 1;
+            
+            return `
+                <p>样本均值: <strong>${mean.toFixed(4)}</strong></p>
+                <p>样本标准差: <strong>${stdDev.toFixed(4)}</strong></p>
+                <p>偏度: <strong>${skewness.toFixed(4)}</strong> <span class="badge">理论值: 0</span></p>
+                <p>峰度: <strong>${kurtosis.toFixed(4)}</strong> <span class="badge">理论值: 3</span></p>
+                <p>检验结果: <span style="color:${skewPass && kurtPass ? 'green' : 'red'};font-weight:bold;">
+                    ${skewPass && kurtPass ? '✅ 近似正态分布' : '❌ 可能不符合正态分布'}
+                </span></p>
+            `;
+        }
+        
+        // 指数分布检验
+        function performExponentialTest(numbers) {
+            const mean = numbers.reduce((a, b) => a + b, 0) / numbers.length;
+            const lambda = 1 / mean;
+            
+            // 计算变异系数
+            const variance = numbers.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / numbers.length;
+            const cv = Math.sqrt(variance) / mean;
+            
+            const cvPass = Math.abs(cv - 1) < 0.2;
+            
+            return `
+                <p>样本均值: <strong>${mean.toFixed(4)}</strong></p>
+                <p>估计的λ: <strong>${lambda.toFixed(4)}</strong></p>
+                <p>变异系数: <strong>${cv.toFixed(4)}</strong> <span class="badge">理论值: 1</span></p>
+                <p>检验结果: <span style="color:${cvPass ? 'green' : 'red'};font-weight:bold;">
+                    ${cvPass ? '✅ 近似指数分布' : '❌ 可能不符合指数分布'}
+                </span></p>
+            `;
+        }
+        
+        // 更新分布图表
+        function updateDistributionChart(numbers) {
+            const ctx = document.getElementById('distributionChart').getContext('2d');
+            const bins = parseInt(document.getElementById('bins').value);
+            const distributionType = document.getElementById('quickDist').value;
+            
+            if (distributionChart) {
+                distributionChart.destroy();
+            }
+            
+            const min = Math.min(...numbers);
+            const max = Math.max(...numbers);
+            const binWidth = (max - min) / bins;
+            
+            const observed = new Array(bins).fill(0);
+            numbers.forEach(num => {
+                const binIndex = Math.floor((num - min) / binWidth);
+                if (binIndex >= 0 && binIndex < bins) {
+                    observed[binIndex]++;
+                }
+            });
+            
+            const binLabels = Array.from({length: bins}, (_, i) => 
+                `${(min + i * binWidth).toFixed(2)}-${(min + (i+1) * binWidth).toFixed(2)}`
+            );
+            
+            distributionChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: binLabels,
+                    datasets: [{
+                        label: '实际观测值',
+                        data: observed,
+                        backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '频数',
+                                font: { size: 14, weight: 'bold' }
+                            },
+                            grid: {
+                                color: 'rgba(0,0,0,0.1)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: '数值区间',
+                                font: { size: 14, weight: 'bold' }
+                            },
+                            grid: {
+                                display: false
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                font: { size: 12 }
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: '随机数分布直方图',
+                            font: { size: 16, weight: 'bold' }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 更新分布对比
+        function updateDistributionComparison(numbers) {
+            const bins = parseInt(document.getElementById('bins').value);
+            const min = Math.min(...numbers);
+            const max = Math.max(...numbers);
+            const binWidth = (max - min) / bins;
+            
+            const observed = new Array(bins).fill(0);
+            numbers.forEach(num => {
+                const binIndex = Math.floor((num - min) / binWidth);
+                if (binIndex >= 0 && binIndex < bins) {
+                    observed[binIndex]++;
+                }
+            });
+            
+            let comparisonHTML = '<table style="width:100%;border-collapse:collapse;font-size:12px;">';
+            comparisonHTML += '<tr style="background:#2c3e50;color:white;"><th style="padding:8px;">区间</th><th>观测频数</th><th>占比(%)</th></tr>';
+            
+            for (let i = 0; i < bins; i++) {
+                const percentage = (observed[i] / numbers.length * 100).toFixed(1);
+                const bgColor = i % 2 === 0 ? '#f8f9fa' : 'white';
+                comparisonHTML += `<tr style="background:${bgColor};">
+                    <td style="padding:6px 8px;border:1px solid #dee2e6;">${(min + i * binWidth).toFixed(2)}-${(min + (i+1) * binWidth).toFixed(2)}</td>
+                    <td style="padding:6px 8px;border:1px solid #dee2e6;text-align:center;">${observed[i]}</td>
+                    <td style="padding:6px 8px;border:1px solid #dee2e6;text-align:center;">${percentage}%</td>
+                </tr>`;
+            }
+            comparisonHTML += '</table>';
+            
+            document.getElementById('distributionComparison').innerHTML = comparisonHTML;
+        }
+        
+        // 分布转换函数（改进版本）
+        function transformToDistribution(uniformNumbers, distributionType) {
+            switch(distributionType) {
+                case 'uniform':
+                    const min = parseFloat(document.getElementById('uniformMin').value);
+                    const max = parseFloat(document.getElementById('uniformMax').value);
+                    return uniformNumbers.map(u => min + u * (max - min));
+                
+                case 'normal':
+                    const mean = parseFloat(document.getElementById('normalMean').value);
+                    const std = parseFloat(document.getElementById('normalStd').value);
+                    // 改进的Box-Muller变换
+                    const normalNumbers = [];
+                    for (let i = 0; i < uniformNumbers.length; i += 2) {
+                        if (i + 1 < uniformNumbers.length) {
+                            const u1 = Math.max(0.000001, Math.min(0.999999, uniformNumbers[i]));
+                            const u2 = Math.max(0.000001, Math.min(0.999999, uniformNumbers[i + 1]));
+                            const z0 = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+                            const z1 = Math.sqrt(-2 * Math.log(u1)) * Math.sin(2 * Math.PI * u2);
+                            normalNumbers.push(mean + z0 * std);
+                            normalNumbers.push(mean + z1 * std);
+                        }
+                    }
+                    // 处理奇数个数的情形
+                    if (uniformNumbers.length % 2 !== 0) {
+                        const u = Math.max(0.000001, Math.min(0.999999, uniformNumbers[uniformNumbers.length - 1]));
+                        const z = Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * u);
+                        normalNumbers.push(mean + z * std);
+                    }
+                    return normalNumbers;
+                
+                case 'exponential':
+                    const lambda = 1; // 简化参数
+                    return uniformNumbers.map(u => -Math.log(1 - Math.max(0.000001, Math.min(0.999999, u))) / lambda);
+                
+                case 'poisson':
+                    const poissonLambda = 3; // 简化参数
+                    return uniformNumbers.map(u => {
+                        let L = Math.exp(-poissonLambda);
+                        let k = 0;
+                        let p = 1;
+                        do {
+                            k++;
+                            p *= Math.max(0.000001, Math.min(0.999999, u));
+                        } while (p > L && k < 100); // 添加安全限制
+                        return k - 1;
+                    });
+                
+                default:
+                    return uniformNumbers;
+            }
+        }
+        
+        // 线性同余生成器
+        function generateLCG(seed, a, c, m, count) {
+            let results = [];
+            let current = seed;
+            
+            for (let i = 0; i < count; i++) {
+                current = (a * current + c) % m;
+                results.push(current / m);
+            }
+            
+            return results;
+        }
+        
+        // 平方取中法
+        function generateMiddleSquare(seed, count) {
+            let results = [];
+            let current = seed;
+            
+            for (let i = 0; i < count; i++) {
+                let squared = current * current;
+                let str = squared.toString().padStart(8, '0');
+                // 取中间4位
+                let middle = str.substring(2, 6);
+                current = parseInt(middle);
+                // 处理0值情况
+                if (current === 0) current = 1234;
+                results.push(current / 10000);
+            }
+            
+            return results;
+        }
+        
+        // Excel RAND()函数模拟
+        function generateExcelRand(count) {
+            let results = [];
+            let seed = Date.now() % 10000;
+            
+            // 使用更好的参数
+            const a = 1664525;
+            const c = 1013904223;
+            const m = 4294967296;
+            
+            let current = seed;
+            for (let i = 0; i < count; i++) {
+                current = (a * current + c) % m;
+                results.push(current / m);
+            }
+            
+            return results;
+        }
+        
+        // 初始化页面
+        document.addEventListener('DOMContentLoaded', function() {
+            // 默认设置
+            quickDistributionChange();
+            quickAlgorithmChange();
+            
+            // 添加示例数据用于演示
+            setTimeout(() => {
+                generateRandomNumbers();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

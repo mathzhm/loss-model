@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>连续时间破产模型模拟</title>
+    <script src="vendor/plotly.min.js"></script>
+    
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Microsoft YaHei', Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f5f7fa; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        header { text-align: center; margin-bottom: 30px; padding: 20px; background-color: #1e88e5; color: white; border-radius: 8px; }
+        header h1 { font-size: 2.5rem; margin-bottom: 10px; }
+        header p { font-size: 1.2rem; opacity: 0.9; }
+        .main-content { display: flex; flex-wrap: wrap; gap: 30px; }
+        .parameters-section { flex: 1; min-width: 350px; background-color: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }
+        .parameters-section h2 { margin-bottom: 20px; color: #1e88e5; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; }
+        .model-info { background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #1e88e5; }
+        .model-info h3 { color: #1e88e5; margin-bottom: 10px; }
+        .formula { font-family: 'Cambria Math', serif; line-height: 1.8; }
+        .formula p { margin: 5px 0; }
+        .formula ul { margin-left: 20px; }
+        .distribution-info { background-color: #e8f4fd; padding: 10px; border-radius: 5px; margin-top: 10px; font-size: 0.9em; display: none; }
+        .form-group { margin-bottom: 15px; position: relative; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; color: #2c3e50; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 16px; }
+        .form-group input:focus, .form-group select:focus { border-color: #1e88e5; outline: none; box-shadow: 0 0 0 2px rgba(30, 136, 229, 0.2); }
+        .param-desc { display: block; font-size: 0.85em; color: #666; margin-top: 5px; }
+        button { background-color: #1e88e5; color: white; border: none; padding: 12px 20px; font-size: 16px; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 10px; transition: background-color 0.3s; }
+        button:hover { background-color: #1565c0; }
+        .results-section { flex: 2; min-width: 500px; background-color: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }
+        .results-section h2 { margin-bottom: 20px; color: #1e88e5; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; }
+        .loading { text-align: center; padding: 40px 0; display: none; }
+        .spinner { border: 4px solid rgba(0, 0, 0, 0.1); border-radius: 50%; border-top: 4px solid #1e88e5; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .result-summary { background-color: #f5f7fa; padding: 20px; border-radius: 8px; margin-bottom: 25px; }
+        .condition-message { font-weight: bold; margin-bottom: 10px; font-size: 18px; }
+        .net-profit-condition, .ruin-probability, .theoretical-probability { margin-bottom: 8px; font-size: 16px; }
+        .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 25px; }
+        .chart-container { background-color: #f5f7fa; padding: 15px; border-radius: 8px; }
+        .chart-container h3 { margin-bottom: 15px; color: #1e88e5; text-align: center; }
+        .chart-div { width: 100%; height: 400px; border-radius: 4px; }
+        footer { text-align: center; margin-top: 40px; padding: 20px; color: #666; border-top: 1px solid #ddd; }
+        @media (max-width: 768px) { .main-content { flex-direction: column; } .parameters-section, .results-section { min-width: 100%; } .charts { grid-template-columns: 1fr; } }
+        .math { font-family: 'Cambria Math', serif; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>连续时间破产模型模拟</h1>
+            <p>基于Cramér-Lundberg模型的保险公司盈余过程模拟</p>
+        </header>
+
+        <div class="main-content">
+            <div class="parameters-section">
+                <h2>模型参数</h2>
+                <div class="model-info">
+                    <h3>📊 模型公式说明</h3>
+                    <div class="formula">
+                        <p><strong>盈余过程:</strong> \( U(t) = u + ct - \sum_{i=1}^{N(t)} X_i \)</p>
+                        <p><strong>其中:</strong></p>
+                        <ul>
+                            <li>\( U(t) \): 时间 \( t \) 时的盈余</li>
+                            <li>\( u \): 初始资本</li>
+                            <li>\( c \): 保费率（单位时间保费收入）</li>
+                            <li>\( N(t) \): 到时间 \( t \) 为止的索赔次数（泊松过程，强度 \( \lambda \)）</li>
+                            <li>\( X_i \): 第 \( i \) 次索赔的金额（独立同分布）</li>
+                        </ul>
+                        
+                        <p><strong>安全负载参数 (Safety Loading):</strong></p>
+                        <p>\( \theta = \frac{c - \lambda \mathbb{E}[X]}{\lambda \mathbb{E}[X]} = \frac{c}{\lambda \mathbb{E}[X]} - 1 \)</p>
+                        <p><em>安全负载衡量保费收入相对于期望索赔成本的超额部分</em></p>
+                        
+                        <p><strong>净保费条件 (Net Profit Condition):</strong></p>
+                        <p>\( c > \lambda \mathbb{E}[X] \quad \text{或等价地} \quad \theta > 0 \)</p>
+                        <p><em>这是保险公司长期生存的必要条件。如果 \( \theta \leq 0 \)，长期来看破产是必然的</em></p>
+                        
+                        <p><strong>破产概率计算:</strong></p>
+                        <ul>
+                            <li><strong>有限时间破产概率:</strong> \( \psi(u,T) = \mathbb{P}(\tau \leq T \mid U(0) = u) \)</li>
+                            <li><strong>最终破产概率:</strong> \( \psi(u) = \mathbb{P}(\tau < \infty \mid U(0) = u) \)</li>
+                        </ul>
+                        
+                        <p><strong>破产时间:</strong> \( \tau = \inf\{t \geq 0: U(t) < 0\} \)</p>
+                        
+                        <p><strong>Cramér-Lundberg近似（当净保费条件满足时）:</strong></p>
+                        <p>\( \psi(u) \approx C e^{-R u} \quad \text{当} \quad u \to \infty \)</p>
+                        <p><em>其中 \( R \) 是调节系数，满足 \( \lambda \mathbb{E}[e^{RX} - 1] = cR \)</em></p>
+                        
+                        <p><strong>指数索赔分布的特殊情况:</strong></p>
+                        <p>如果 \( X \sim \text{Exp}(\beta) \)，则 \( \psi(u) = \frac{1}{1+\theta} e^{-\frac{\theta}{1+\theta} \beta u} \)</p>
+                    </div>
+                </div>
+                <form id="simulation-form">
+                    <div class="form-group">
+                        <label for="initial_capital">初始资本 \( u \):</label>
+                        <input type="number" id="initial_capital" value="100" min="1" step="1">
+                        <span class="param-desc">保险公司开始时的资金储备</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="premium_rate">保费率 \( c \):</label>
+                        <input type="number" id="premium_rate" value="1.2" min="0.1" step="0.1">
+                        <span class="param-desc">单位时间内收取的保费金额</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="claim_distribution">索赔金额分布:</label>
+                        <select id="claim_distribution">
+                            <option value="exponential">指数分布 \( \text{Exp}(\beta) \)</option>
+                            <option value="gamma">伽马分布 \( \Gamma(\alpha, \beta) \)</option>
+                            <option value="lognormal">对数正态分布 \( \text{LN}(\mu, \sigma) \)</option>
+                            <option value="pareto">帕累托分布 \( \text{Pareto}(x_m, \alpha) \)</option>
+                        </select>
+                        <span class="param-desc">索赔金额的概率分布类型</span>
+                        <div id="exponential_info" class="distribution-info">
+                            <strong>指数分布:</strong> \( f(x) = \beta e^{-\beta x} \), \( \mathbb{E}[X] = 1/\beta \), 适用于小额频繁索赔
+                        </div>
+                        <div id="gamma_info" class="distribution-info">
+                            <strong>伽马分布:</strong> \( f(x) = \frac{\beta^\alpha}{\Gamma(\alpha)} x^{\alpha-1} e^{-\beta x} \), 适用于中等规模索赔
+                        </div>
+                        <div id="lognormal_info" class="distribution-info">
+                            <strong>对数正态分布:</strong> \( f(x) = \frac{1}{x\sigma\sqrt{2\pi}} e^{-\frac{(\ln x - \mu)^2}{2\sigma^2}} \), 适用于右偏的重尾索赔
+                        </div>
+                        <div id="pareto_info" class="distribution-info">
+                            <strong>帕累托分布:</strong> \( f(x) = \frac{\alpha x_m^\alpha}{x^{\alpha+1}} \), 适用于极端大额索赔（重尾分布）
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="claim_size_mean">索赔金额平均值 \( \mathbb{E}[X] \):</label>
+                        <input type="number" id="claim_size_mean" value="1.0" min="0.1" step="0.1">
+                        <span class="param-desc">索赔金额的期望值（均值）</span>
+                    </div>
+                    <div class="form-group" id="shape_param_group">
+                        <label for="shape_parameter">形状参数 \( \alpha \):</label>
+                        <input type="number" id="shape_parameter" value="2.0" min="0.1" step="0.1">
+                        <span class="param-desc">控制分布形状的参数（伽马/帕累托分布）</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="claim_arrival_rate">索赔到达率 \( \lambda \):</label>
+                        <input type="number" id="claim_arrival_rate" value="1.0" min="0.1" step="0.1">
+                        <span class="param-desc">单位时间内平均索赔次数（泊松过程强度）</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="time_horizon">模拟时间范围 \( T \):</label>
+                        <input type="number" id="time_horizon" value="100" min="10" step="10">
+                        <span class="param-desc">模拟的总时间长度</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="num_simulations">模拟次数:</label>
+                        <input type="number" id="num_simulations" value="1000" min="100" max="10000" step="100">
+                        <span class="param-desc">蒙特卡洛模拟的次数（影响计算精度）</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="num_paths">样本路径数:</label>
+                        <input type="number" id="num_paths" value="5" min="1" max="20" step="1">
+                        <span class="param-desc">在样本路径图中显示的路径数量</span>
+                    </div>
+                    <button type="submit">运行模拟</button>
+                </form>
+            </div>
+            
+            <div class="results-section" id="results-section" style="display: none;">
+                <h2>模拟结果</h2>
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>正在运行模拟，请稍候...</p>
+                </div>
+                <div class="result-summary" id="result-summary" style="display: none;">
+                    <div class="condition-message" id="condition-message"></div>
+                    <div class="net-profit-condition" id="net-profit-condition"></div>
+                    <div class="ruin-probability" id="ruin-probability"></div>
+                    <div class="theoretical-probability" id="theoretical-probability"></div>
+                    <div class="distribution-parameters" id="distribution-parameters"></div>
+                </div>
+                <div class="charts" id="charts" style="display: none;">
+                    <div class="chart-container">
+                        <h3>样本路径</h3>
+                        <div id="sample-paths-chart" class="chart-div"></div>
+                    </div>
+                    <div class="chart-container">
+                        <h3>破产概率随时间的变化</h3>
+                        <div id="ruin-prob-chart" class="chart-div"></div>
+                    </div>
+                    <div class="chart-container" id="ruin-time-hist-container">
+                        <h3>破产时间分布</h3>
+                        <div id="ruin-time-hist-chart" class="chart-div"></div>
+                    </div>
+                    <div class="chart-container" id="theoretical-container">
+                        <h3>模拟与理论比较</h3>
+                        <div id="theoretical-chart" class="chart-div"></div>
+                    </div>
+                    <div class="chart-container" id="claim-distribution-container">
+                        <h3>索赔金额分布</h3>
+                        <div id="claim-distribution-chart" class="chart-div"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>连续时间破产模型 &copy; 2025 | 基于Cramér-Lundberg模型</p>
+        </footer>
+    </div>
+
+    <script>
+        // 随机数生成器
+        function exponentialRandom(lambda) {
+            return -Math.log(1 - Math.random()) / lambda;
+        }
+
+        function gammaRandom(alpha, beta) {
+            // 使用接受-拒绝法生成伽马分布随机数
+            if (alpha < 1) {
+                // 对于alpha < 1的情况
+                const b = (alpha + Math.E) / Math.E;
+                while (true) {
+                    const u1 = Math.random();
+                    const u2 = Math.random();
+                    const x = Math.pow(b * u1, 1/alpha);
+                    if (u2 <= Math.exp(-x)) {
+                        return x / beta;
+                    }
+                }
+            } else {
+                // 对于alpha >= 1的情况
+                const d = alpha - 1/3;
+                const c = 1/Math.sqrt(9*d);
+                while (true) {
+                    let x, v;
+                    do {
+                        x = randomNormal();
+                        v = Math.pow(1 + c*x, 3);
+                    } while (v <= 0);
+                    
+                    const u = Math.random();
+                    if (u < 1 - 0.0331*Math.pow(x, 4) || 
+                        Math.log(u) < 0.5*x*x + d*(1 - v + Math.log(v))) {
+                        return d*v / beta;
+                    }
+                }
+            }
+        }
+
+        function randomNormal() {
+            // Box-Muller变换生成标准正态分布
+            let u = 0, v = 0;
+            while(u === 0) u = Math.random();
+            while(v === 0) v = Math.random();
+            return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+        }
+
+        function lognormalRandom(mu, sigma) {
+            const normal = randomNormal();
+            return Math.exp(mu + sigma * normal);
+        }
+
+        function paretoRandom(xm, alpha) {
+            return xm / Math.pow(Math.random(), 1/alpha);
+        }
+
+        // 连续时间破产模型类
+        class ContinuousTimeRuinModel {
+            constructor(initialCapital, premiumRate, claimDistribution, claimSizeMean, shapeParameter, claimArrivalRate, timeHorizon, numSimulations) {
+                this.initialCapital = initialCapital;
+                this.premiumRate = premiumRate;
+                this.claimDistribution = claimDistribution;
+                this.claimSizeMean = claimSizeMean;
+                this.shapeParameter = shapeParameter;
+                this.claimArrivalRate = claimArrivalRate;
+                this.timeHorizon = timeHorizon;
+                this.numSimulations = numSimulations;
+                
+                // 计算分布参数
+                this.calculateDistributionParameters();
+                
+                // 检查净保费条件
+                this.netProfitCondition = this.premiumRate - this.claimArrivalRate * this.claimSizeMean;
+                this.safetyLoading = (this.premiumRate / (this.claimArrivalRate * this.claimSizeMean)) - 1;
+                this.conditionMessage = this.netProfitCondition <= 0 ? 
+                    "警告: 净保费条件不满足，长期来看破产是必然的" : 
+                    "净保费条件满足，长期来看有可能避免破产";
+            }
+            
+            calculateDistributionParameters() {
+                switch(this.claimDistribution) {
+                    case 'exponential':
+                        this.beta = 1 / this.claimSizeMean;
+                        this.distributionParams = `指数分布: β = ${this.beta.toFixed(4)}`;
+                        break;
+                    case 'gamma':
+                        this.alpha = this.shapeParameter;
+                        this.beta = this.alpha / this.claimSizeMean;
+                        this.distributionParams = `伽马分布: α = ${this.alpha.toFixed(4)}, β = ${this.beta.toFixed(4)}`;
+                        break;
+                    case 'lognormal':
+                        this.sigma = Math.sqrt(Math.log(1 + (this.shapeParameter/this.claimSizeMean)**2));
+                        this.mu = Math.log(this.claimSizeMean) - 0.5 * this.sigma**2;
+                        this.distributionParams = `对数正态分布: μ = ${this.mu.toFixed(4)}, σ = ${this.sigma.toFixed(4)}`;
+                        break;
+                    case 'pareto':
+                        this.xm = this.claimSizeMean * (this.shapeParameter - 1) / this.shapeParameter;
+                        this.alpha = this.shapeParameter;
+                        this.distributionParams = `帕累托分布: x_m = ${this.xm.toFixed(4)}, α = ${this.alpha.toFixed(4)}`;
+                        break;
+                }
+            }
+            
+            generateClaimSize() {
+                switch(this.claimDistribution) {
+                    case 'exponential':
+                        return exponentialRandom(this.beta);
+                    case 'gamma':
+                        return gammaRandom(this.alpha, this.beta);
+                    case 'lognormal':
+                        return lognormalRandom(this.mu, this.sigma);
+                    case 'pareto':
+                        return paretoRandom(this.xm, this.alpha);
+                }
+            }
+            
+            generateClaimTimes() {
+                const claimTimes = [];
+                let t = 0;
+                while (true) {
+                    const dt = exponentialRandom(this.claimArrivalRate);
+                    t += dt;
+                    if (t > this.timeHorizon) break;
+                    claimTimes.push(t);
+                }
+                return claimTimes;
+            }
+            
+            simulateSurplusProcess() {
+                const claimTimes = this.generateClaimTimes();
+                const surplus = [this.initialCapital];
+                const times = [0];
+                
+                for (let i = 0; i < claimTimes.length; i++) {
+                    const claimTime = claimTimes[i];
+                    const timeSinceLast = claimTime - times[times.length - 1];
+                    const premiumIncome = this.premiumRate * timeSinceLast;
+                    const claimAmount = this.generateClaimSize();
+                    
+                    const newSurplus = surplus[surplus.length - 1] + premiumIncome - claimAmount;
+                    surplus.push(newSurplus);
+                    times.push(claimTime);
+                    
+                    if (newSurplus < 0) {
+                        return { times: times, surplus: surplus, ruined: true, claimAmounts: claimAmount };
+                    }
+                }
+                
+                // 添加最终时间点
+                if (times[times.length - 1] < this.timeHorizon) {
+                    const timeRemaining = this.timeHorizon - times[times.length - 1];
+                    const finalSurplus = surplus[surplus.length - 1] + this.premiumRate * timeRemaining;
+                    surplus.push(finalSurplus);
+                    times.push(this.timeHorizon);
+                }
+                
+                return { times: times, surplus: surplus, ruined: false };
+            }
+            
+            runSimulations(progressCallback) {
+                const ruinTimes = [];
+                let numRuins = 0;
+                const timePoints = Array.from({length: 100}, (_, i) => i * this.timeHorizon / 99);
+                const ruinCounts = new Array(timePoints.length).fill(0);
+                const samplePaths = [];
+                const claimSamples = [];
+                
+                for (let i = 0; i < this.numSimulations; i++) {
+                    if (i % Math.max(1, Math.floor(this.numSimulations / 10)) === 0 && progressCallback) {
+                        progressCallback(i / this.numSimulations * 100);
+                    }
+                    
+                    const result = this.simulateSurplusProcess();
+                    if (i < 10) samplePaths.push(result);
+                    if (i < 1000) claimSamples.push(this.generateClaimSize());
+                    
+                    if (result.ruined) {
+                        numRuins++;
+                        const ruinTime = result.times[result.times.length - 1];
+                        ruinTimes.push(ruinTime);
+                        ruinCounts.forEach((_, j) => { if (ruinTime <= timePoints[j]) ruinCounts[j]++ });
+                    }
+                }
+                
+                const ruinProbability = numRuins / this.numSimulations;
+                const timeRuinProbs = ruinCounts.map(count => count / this.numSimulations);
+                let theoreticalRuinProb = null;
+                
+                if (this.netProfitCondition > 0) {
+                    const safetyLoading = (this.premiumRate / (this.claimArrivalRate * this.claimSizeMean)) - 1;
+                    theoreticalRuinProb = Math.exp(-this.initialCapital * safetyLoading / this.claimSizeMean);
+                }
+                
+                return { 
+                    ruinTimes, 
+                    ruinProbability, 
+                    timePoints, 
+                    timeRuinProbs, 
+                    samplePaths, 
+                    theoreticalRuinProb,
+                    claimSamples,
+                    distributionParams: this.distributionParams
+                };
+            }
+        }
+
+        // 页面交互逻辑
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('simulation-form');
+            const distributionSelect = document.getElementById('claim_distribution');
+            const shapeParamGroup = document.getElementById('shape_param_group');
+            const distributionInfos = document.querySelectorAll('.distribution-info');
+            
+            // 分布类型切换
+            distributionSelect.addEventListener('change', function() {
+                distributionInfos.forEach(info => info.style.display = 'none');
+                document.getElementById(this.value + '_info').style.display = 'block';
+                
+                // 显示/隐藏形状参数
+                if (this.value === 'exponential') {
+                    shapeParamGroup.style.display = 'none';
+                } else {
+                    shapeParamGroup.style.display = 'block';
+                }
+            });
+            
+            // 触发初始状态
+            distributionSelect.dispatchEvent(new Event('change'));
+            
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                document.getElementById('results-section').style.display = 'block';
+                document.getElementById('loading').style.display = 'block';
+                document.getElementById('result-summary').style.display = 'none';
+                document.getElementById('charts').style.display = 'none';
+                
+                const initialCapital = parseFloat(document.getElementById('initial_capital').value);
+                const premiumRate = parseFloat(document.getElementById('premium_rate').value);
+                const claimDistribution = document.getElementById('claim_distribution').value;
+                const claimSizeMean = parseFloat(document.getElementById('claim_size_mean').value);
+                const shapeParameter = parseFloat(document.getElementById('shape_parameter').value);
+                const claimArrivalRate = parseFloat(document.getElementById('claim_arrival_rate').value);
+                const timeHorizon = parseFloat(document.getElementById('time_horizon').value);
+                const numSimulations = parseInt(document.getElementById('num_simulations').value);
+                const numPaths = parseInt(document.getElementById('num_paths').value);
+                
+                setTimeout(() => {
+                    const model = new ContinuousTimeRuinModel(
+                        initialCapital, premiumRate, claimDistribution, claimSizeMean, 
+                        shapeParameter, claimArrivalRate, timeHorizon, numSimulations
+                    );
+                    const results = model.runSimulations((progress) => {
+                        console.log(`模拟进度: ${progress.toFixed(1)}%`);
+                    });
+                    
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('condition-message').textContent = model.conditionMessage;
+                    document.getElementById('net-profit-condition').innerHTML = 
+                        `净保费条件: ${model.netProfitCondition.toFixed(4)} \\( (c = ${premiumRate},\\ \\lambda\\mathbb{E}[X] = ${(claimArrivalRate * claimSizeMean).toFixed(4)}) \\)<br>
+                        安全负载参数 \\(\\theta\\): ${model.safetyLoading.toFixed(4)}`;
+                    document.getElementById('ruin-probability').innerHTML = 
+                        `有限时间破产概率 \\(\\psi(u,T)\\): ${results.ruinProbability.toFixed(4)}<br>
+                        最终破产概率 \\(\\psi(u)\\): ${results.theoreticalRuinProb !== null ? results.theoreticalRuinProb.toFixed(4) : 'N/A'}`;
+                    document.getElementById('distribution-parameters').textContent = 
+                        `分布参数: ${results.distributionParams}`;
+                    
+                    if (results.theoreticalRuinProb !== null) {
+                        document.getElementById('theoretical-probability').innerHTML = 
+                            `理论渐近破产概率: ${results.theoreticalRuinProb.toFixed(4)}<br>
+                            Cramér-Lundberg近似: \\(\\psi(u)\\approx ${results.theoreticalRuinProb.toFixed(4)}\\)`;
+                        document.getElementById('theoretical-probability').style.display = 'block';
+                    } else {
+                        document.getElementById('theoretical-probability').style.display = 'none';
+                    }
+                    document.getElementById('result-summary').style.display = 'block';
+if (window.MathJax && window.MathJax.Hub) {
+    MathJax.Hub.Queue(["Typeset", MathJax.Hub, document.getElementById('results-section')]);
+}
+                    
+                    // 绘制样本路径图
+                    const samplePathsData = results.samplePaths.slice(0, numPaths).map((path, i) => ({
+                        x: path.times, y: path.surplus, type: 'scatter', mode: 'lines',
+                        name: `路径 ${i+1} (${path.ruined ? '破产' : '未破产'})`,
+                        line: { color: path.ruined ? 'rgb(255, 0, 0)' : 'rgb(0, 0, 255)', width: 2 }
+                    }));
+                    samplePathsData.push({ 
+                        x: [0, timeHorizon], y: [0, 0], type: 'scatter', mode: 'lines', 
+                        name: '破产线', line: { color: 'black', width: 1, dash: 'dash' } 
+                    });
+                    Plotly.newPlot('sample-paths-chart', samplePathsData, { 
+                        title: '样本路径', 
+                        xaxis: { title: '时间' }, 
+                        yaxis: { 
+                            title: '盈余',
+                            tickformat: '.0f',
+                            tickmode: 'auto'
+                        } 
+                    });
+                    
+                    // 破产概率图
+                    Plotly.newPlot('ruin-prob-chart', [{ 
+                        x: results.timePoints, y: results.timeRuinProbs, type: 'scatter', 
+                        mode: 'lines', line: { color: 'rgb(0, 0, 255)', width: 2 } 
+                    }], { 
+                        title: '破产概率随时间的变化', 
+                        xaxis: { title: '时间' }, 
+                        yaxis: { 
+                            title: '破产概率', 
+                            range: [0, Math.max(...results.timeRuinProbs) * 1.1],
+                            tickformat: '.4f',
+                            tickmode: 'auto',
+                            nticks: 6
+                        } 
+                    });
+                    
+                    // 破产时间直方图
+                    if (results.ruinTimes.length > 0) {
+                        Plotly.newPlot('ruin-time-hist-chart', [{ 
+                            x: results.ruinTimes, type: 'histogram', 
+                            marker: { color: 'rgb(255, 0, 0)' } 
+                        }], { 
+                            title: '破产时间分布', 
+                            xaxis: { title: '破产时间' }, 
+                            yaxis: { title: '频数' } 
+                        });
+                        document.getElementById('ruin-time-hist-container').style.display = 'block';
+                    } else {
+                        document.getElementById('ruin-time-hist-container').style.display = 'none';
+                    }
+                    
+                    // 理论比较图
+                    if (results.theoreticalRuinProb !== null) {
+                        const theoreticalData = [
+                            { 
+                                x: results.timePoints, y: results.timeRuinProbs, type: 'scatter', mode: 'lines', 
+                                name: '模拟结果', line: { color: 'rgb(0, 0, 255)', width: 2 } 
+                            },
+                            { 
+                                x: [0, timeHorizon], y: [results.theoreticalRuinProb, results.theoreticalRuinProb], 
+                                type: 'scatter', mode: 'lines', name: `理论渐近值: ${results.theoreticalRuinProb.toFixed(4)}`,
+                                line: { color: 'rgb(255, 0, 0)', width: 2, dash: 'dash' } 
+                            }
+                        ];
+                        Plotly.newPlot('theoretical-chart', theoreticalData, { 
+                            title: '模拟与理论比较', 
+                            xaxis: { title: '时间' }, 
+                            yaxis: { 
+                                title: '破产概率', 
+                                range: [0, Math.max(Math.max(...results.timeRuinProbs), results.theoreticalRuinProb) * 1.1],
+                                tickformat: '.4f',
+                                tickmode: 'auto',
+                                nticks: 6
+                            } 
+                        });
+                        document.getElementById('theoretical-container').style.display = 'block';
+                    } else {
+                        document.getElementById('theoretical-container').style.display = 'none';
+                    }
+                    
+                    // 索赔金额分布图
+                    if (results.claimSamples.length > 0) {
+                        const histData = [{
+                            x: results.claimSamples,
+                            type: 'histogram',
+                            name: '索赔金额分布',
+                            marker: { color: 'rgb(100, 149, 237)' }
+                        }];
+                        Plotly.newPlot('claim-distribution-chart', histData, {
+                            title: '索赔金额分布',
+                            xaxis: { title: '索赔金额' },
+                            yaxis: { title: '频数' }
+                        });
+                        document.getElementById('claim-distribution-container').style.display = 'block';
+                    }
+                    
+                    document.getElementById('charts').style.display = 'grid';
+                }, 100);
+            });
+        });
+    </script>
+  <script src="vendor/mathjax-loader.js"></script>
+  <script src="vendor/mathjax-tex-svg.js"></script>
+</body>
+</html>

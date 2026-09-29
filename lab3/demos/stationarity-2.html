@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>平稳与非平稳时间序列对比（带参数设置）</title>
+    <script src="vendor/chart.umd.min.js"></script>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1, h2 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        .chart-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            margin-bottom: 30px;
+        }
+        .chart-wrapper {
+            width: 48%;
+            margin-bottom: 20px;
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 1px 5px rgba(0, 0, 0, 0.1);
+        }
+        .explanation {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #3498db;
+        }
+        .controls {
+            background-color: #f0f8ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2ecc71;
+        }
+        .control-group {
+            margin-bottom: 15px;
+        }
+        .control-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .control-label {
+            width: 200px;
+            font-weight: bold;
+        }
+        .control-input {
+            width: 60px;
+            padding: 5px;
+            margin-right: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>平稳与非平稳时间序列对比（带参数设置）</h1>
+        
+        <div class="controls">
+            <h3>参数设置</h3>
+            <div class="control-group">
+                <h4>平稳时间序列参数</h4>
+                <div class="control-row">
+                    <span class="control-label">均值：</span>
+                    <input type="number" id="stationaryMean" class="control-input" value="10" min="0" max="50" step="1">
+                </div>
+                <div class="control-row">
+                    <span class="control-label">标准差：</span>
+                    <input type="number" id="stationaryStdDev" class="control-input" value="2" min="0.1" max="10" step="0.1">
+                </div>
+                <div class="control-row">
+                    <span class="control-label">噪音参数：</span>
+                    <input type="number" id="stationaryNoise" class="control-input" value="0.5" min="0" max="2" step="0.1">
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <h4>非平稳时间序列参数</h4>
+                <div class="control-row">
+                    <span class="control-label">初始均值：</span>
+                    <input type="number" id="nonstationaryInitialMean" class="control-input" value="5" min="0" max="50" step="1">
+                </div>
+                <div class="control-row">
+                    <span class="control-label">均值趋势系数：</span>
+                    <input type="number" id="nonstationaryTrendCoef" class="control-input" value="0.15" min="0" max="1" step="0.01">
+                </div>
+                <div class="control-row">
+                    <span class="control-label">初始标准差：</span>
+                    <input type="number" id="nonstationaryInitialStdDev" class="control-input" value="1" min="0.1" max="10" step="0.1">
+                </div>
+                <div class="control-row">
+                    <span class="control-label">方差增长系数：</span>
+                    <input type="number" id="nonstationaryVarGrowth" class="control-input" value="0.033" min="0" max="0.2" step="0.001">
+                </div>
+                <div class="control-row">
+                    <span class="control-label">噪音参数：</span>
+                    <input type="number" id="nonstationaryNoise" class="control-input" value="0.5" min="0" max="2" step="0.1">
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <div class="control-row">
+                    <span class="control-label">移动窗口大小：</span>
+                    <input type="number" id="windowSize" class="control-input" value="10" min="2" max="50" step="1">
+                </div>
+                <div class="control-row">
+                    <span class="control-label">时间序列长度：</span>
+                    <input type="number" id="timeSeriesLength" class="control-input" value="100" min="10" max="500" step="10">
+                </div>
+                <button id="updateButton" class="btn">更新图表</button>
+            </div>
+        </div>
+        
+        <div class="explanation">
+            <h3>什么是平稳时间序列？</h3>
+            <p>平稳时间序列是指其统计特性（如均值、方差）不随时间变化的序列。严格平稳要求所有统计矩不变，而弱平稳仅要求一阶矩（均值）和二阶矩（方差、自协方差）不随时间变化。</p>
+            <p>平稳序列的特点：</p>
+            <ul>
+                <li>均值恒定（不随时间变化）</li>
+                <li>方差恒定（不随时间变化）</li>
+                <li>自协方差仅与时间间隔有关，与具体时间点无关</li>
+            </ul>
+        </div>
+
+        <h2>时间序列数据可视化</h2>
+        <div class="chart-container">
+            <div class="chart-wrapper">
+                <h3>平稳时间序列</h3>
+                <canvas id="stationaryChart"></canvas>
+            </div>
+            <div class="chart-wrapper">
+                <h3>非平稳时间序列</h3>
+                <canvas id="nonstationaryChart"></canvas>
+            </div>
+        </div>
+
+        <h2>均值随时间变化</h2>
+        <div class="chart-container">
+            <div class="chart-wrapper">
+                <h3>平稳序列均值</h3>
+                <canvas id="stationaryMeanChart"></canvas>
+            </div>
+            <div class="chart-wrapper">
+                <h3>非平稳序列均值</h3>
+                <canvas id="nonstationaryMeanChart"></canvas>
+            </div>
+        </div>
+
+        <h2>方差随时间变化</h2>
+        <div class="chart-container">
+            <div class="chart-wrapper">
+                <h3>平稳序列方差</h3>
+                <canvas id="stationaryVarianceChart"></canvas>
+            </div>
+            <div class="chart-wrapper">
+                <h3>非平稳序列方差</h3>
+                <canvas id="nonstationaryVarianceChart"></canvas>
+            </div>
+        </div>
+
+        <div class="explanation">
+            <h3>平稳与非平稳序列的主要区别</h3>
+            <table>
+                <tr>
+                    <th>特性</th>
+                    <th>平稳序列</th>
+                    <th>非平稳序列</th>
+                </tr>
+                <tr>
+                    <td>均值</td>
+                    <td>恒定，不随时间变化</td>
+                    <td>随时间变化（可能有趋势）</td>
+                </tr>
+                <tr>
+                    <td>方差</td>
+                    <td>恒定，不随时间变化</td>
+                    <td>可能随时间变化（异方差性）</td>
+                </tr>
+                <tr>
+                    <td>自相关性</td>
+                    <td>仅与时间间隔有关</td>
+                    <td>与具体时间点有关</td>
+                </tr>
+                <tr>
+                    <td>预测难度</td>
+                    <td>相对容易预测</td>
+                    <td>预测难度较大</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // 图表对象
+        let stationaryChart, nonstationaryChart, stationaryMeanChart, nonstationaryMeanChart, 
+            stationaryVarianceChart, nonstationaryVarianceChart;
+        
+        // 生成时间点
+        function generateTimePoints(length) {
+            return Array.from({length: length}, (_, i) => i);
+        }
+        
+        // 生成平稳时间序列数据
+        function generateStationaryData(mean, stdDev, noise, length) {
+            return Array.from({length: length}, () => {
+                // 使用噪音参数调整随机波动
+                const randomFactor = (Math.random() + Math.random() + Math.random() - 1.5) * noise;
+                return mean + stdDev * randomFactor;
+            });
+        }
+        
+        // 生成非平稳时间序列数据
+        function generateNonstationaryData(initialMean, trendCoef, initialStdDev, varGrowth, noise, length) {
+            return Array.from({length: length}, (_, t) => {
+                const trendMean = initialMean + trendCoef * t;
+                const timeVaryingStdDev = initialStdDev + t * varGrowth;
+                // 使用噪音参数调整随机波动
+                const randomFactor = (Math.random() + Math.random() + Math.random() - 1.5) * noise;
+                return trendMean + timeVaryingStdDev * randomFactor;
+            });
+        }
+        
+        // 计算移动均值
+        function calculateMovingAverage(data, windowSize) {
+            const result = [];
+            for (let i = 0; i < data.length; i++) {
+                if (i < windowSize - 1) {
+                    result.push(null);
+                } else {
+                    let sum = 0;
+                    for (let j = 0; j < windowSize; j++) {
+                        sum += data[i - j];
+                    }
+                    result.push(sum / windowSize);
+                }
+            }
+            return result;
+        }
+        
+        // 计算移动方差
+        function calculateMovingVariance(data, windowSize) {
+            const result = [];
+            for (let i = 0; i < data.length; i++) {
+                if (i < windowSize - 1) {
+                    result.push(null);
+                } else {
+                    let sum = 0;
+                    let sumSquared = 0;
+                    for (let j = 0; j < windowSize; j++) {
+                        sum += data[i - j];
+                        sumSquared += data[i - j] * data[i - j];
+                    }
+                    const mean = sum / windowSize;
+                    result.push(sumSquared / windowSize - mean * mean);
+                }
+            }
+            return result;
+        }
+        
+        // 更新所有图表
+        function updateCharts() {
+            // 获取参数值
+            const stationaryMean = parseFloat(document.getElementById('stationaryMean').value);
+            const stationaryStdDev = parseFloat(document.getElementById('stationaryStdDev').value);
+            const stationaryNoise = parseFloat(document.getElementById('stationaryNoise').value);
+            const nonstationaryInitialMean = parseFloat(document.getElementById('nonstationaryInitialMean').value);
+            const nonstationaryTrendCoef = parseFloat(document.getElementById('nonstationaryTrendCoef').value);
+            const nonstationaryInitialStdDev = parseFloat(document.getElementById('nonstationaryInitialStdDev').value);
+            const nonstationaryVarGrowth = parseFloat(document.getElementById('nonstationaryVarGrowth').value);
+            const nonstationaryNoise = parseFloat(document.getElementById('nonstationaryNoise').value);
+            const windowSize = parseInt(document.getElementById('windowSize').value);
+            const timeSeriesLength = parseInt(document.getElementById('timeSeriesLength').value);
+            
+            // 生成时间点
+            const timePoints = generateTimePoints(timeSeriesLength);
+            
+            // 生成数据
+            const stationaryData = generateStationaryData(stationaryMean, stationaryStdDev, stationaryNoise, timeSeriesLength);
+            const nonstationaryData = generateNonstationaryData(
+                nonstationaryInitialMean, 
+                nonstationaryTrendCoef, 
+                nonstationaryInitialStdDev, 
+                nonstationaryVarGrowth,
+                nonstationaryNoise,
+                timeSeriesLength
+            );
+            
+            // 计算移动均值和方差
+            const stationaryMovingMean = calculateMovingAverage(stationaryData, windowSize);
+            const nonstationaryMovingMean = calculateMovingAverage(nonstationaryData, windowSize);
+            const stationaryMovingVariance = calculateMovingVariance(stationaryData, windowSize);
+            const nonstationaryMovingVariance = calculateMovingVariance(nonstationaryData, windowSize);
+            
+            // 更新时间序列图表数据
+            stationaryChart.data.labels = timePoints;
+            stationaryChart.data.datasets = [{
+                label: '平稳序列',
+                data: stationaryData,
+                borderColor: 'rgba(54, 162, 235, 1)',
+                backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                borderWidth: 1,
+                fill: true
+            }];
+            
+            nonstationaryChart.data.labels = timePoints;
+            nonstationaryChart.data.datasets = [{
+                label: '非平稳序列',
+                data: nonstationaryData,
+                borderColor: 'rgba(255, 99, 132, 1)',
+                backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                borderWidth: 1,
+                fill: true
+            }];
+            
+            // 更新均值和方差图表数据
+            stationaryMeanChart.data.labels = timePoints;
+            stationaryMeanChart.data.datasets = [{
+                label: '移动均值',
+                data: stationaryMovingMean,
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 2
+            }];
+            
+            nonstationaryMeanChart.data.labels = timePoints;
+            nonstationaryMeanChart.data.datasets = [{
+                label: '移动均值',
+                data: nonstationaryMovingMean,
+                borderColor: 'rgba(255, 99, 132, 1)',
+                borderWidth: 2
+            }];
+            
+            stationaryVarianceChart.data.labels = timePoints;
+            stationaryVarianceChart.data.datasets = [{
+                label: '移动方差',
+                data: stationaryMovingVariance,
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 2
+            }];
+            
+            nonstationaryVarianceChart.data.labels = timePoints;
+            nonstationaryVarianceChart.data.datasets = [{
+                label: '移动方差',
+                data: nonstationaryMovingVariance,
+                borderColor: 'rgba(255, 99, 132, 1)',
+                borderWidth: 2
+            }];
+            
+            // 更新图表
+            stationaryChart.update();
+            nonstationaryChart.update();
+            stationaryMeanChart.update();
+            nonstationaryMeanChart.update();
+            stationaryVarianceChart.update();
+            nonstationaryVarianceChart.update();
+        }
+        
+        // 初始化图表
+        document.addEventListener('DOMContentLoaded', function() {
+            // 获取初始参数值
+            const stationaryMean = parseFloat(document.getElementById('stationaryMean').value);
+            const stationaryStdDev = parseFloat(document.getElementById('stationaryStdDev').value);
+            const stationaryNoise = parseFloat(document.getElementById('stationaryNoise').value);
+            const nonstationaryInitialMean = parseFloat(document.getElementById('nonstationaryInitialMean').value);
+            const nonstationaryTrendCoef = parseFloat(document.getElementById('nonstationaryTrendCoef').value);
+            const nonstationaryInitialStdDev = parseFloat(document.getElementById('nonstationaryInitialStdDev').value);
+            const nonstationaryVarGrowth = parseFloat(document.getElementById('nonstationaryVarGrowth').value);
+            const nonstationaryNoise = parseFloat(document.getElementById('nonstationaryNoise').value);
+            const windowSize = parseInt(document.getElementById('windowSize').value);
+            const timeSeriesLength = parseInt(document.getElementById('timeSeriesLength').value);
+            
+            // 生成时间点
+            const timePoints = generateTimePoints(timeSeriesLength);
+            
+            // 生成数据
+            const stationaryData = generateStationaryData(stationaryMean, stationaryStdDev, stationaryNoise, timeSeriesLength);
+            const nonstationaryData = generateNonstationaryData(
+                nonstationaryInitialMean, 
+                nonstationaryTrendCoef, 
+                nonstationaryInitialStdDev, 
+                nonstationaryVarGrowth,
+                nonstationaryNoise,
+                timeSeriesLength
+            );
+            
+            // 计算移动均值和方差
+            const stationaryMovingMean = calculateMovingAverage(stationaryData, windowSize);
+            const nonstationaryMovingMean = calculateMovingAverage(nonstationaryData, windowSize);
+            const stationaryMovingVariance = calculateMovingVariance(stationaryData, windowSize);
+            const nonstationaryMovingVariance = calculateMovingVariance(nonstationaryData, windowSize);
+            
+            // 创建时间序列图表
+            stationaryChart = new Chart(document.getElementById('stationaryChart'), {
+                type: 'line',
+                data: {
+                    labels: timePoints,
+                    datasets: [{
+                        label: '平稳序列',
+                        data: stationaryData,
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                        borderWidth: 1,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true
+                }
+            });
+            
+            nonstationaryChart = new Chart(document.getElementById('nonstationaryChart'), {
+                type: 'line',
+                data: {
+                    labels: timePoints,
+                    datasets: [{
+                        label: '非平稳序列',
+                        data: nonstationaryData,
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                        borderWidth: 1,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true
+                }
+            });
+            
+            // 创建均值图表
+            stationaryMeanChart = new Chart(document.getElementById('stationaryMeanChart'), {
+                type: 'line',
+                data: {
+                    labels: timePoints,
+                    datasets: [{
+                        label: '移动均值',
+                        data: stationaryMovingMean,
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true
+                }
+            });
+            
+            nonstationaryMeanChart = new Chart(document.getElementById('nonstationaryMeanChart'), {
+                type: 'line',
+                data: {
+                    labels: timePoints,
+                    datasets: [{
+                        label: '移动均值',
+                        data: nonstationaryMovingMean,
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true
+                }
+            });
+            
+            // 创建方差图表
+            stationaryVarianceChart = new Chart(document.getElementById('stationaryVarianceChart'), {
+                type: 'line',
+                data: {
+                    labels: timePoints,
+                    datasets: [{
+                        label: '移动方差',
+                        data: stationaryMovingVariance,
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true
+                }
+            });
+            
+            nonstationaryVarianceChart = new Chart(document.getElementById('nonstationaryVarianceChart'), {
+                type: 'line',
+                data: {
+                    labels: timePoints,
+                    datasets: [{
+                        label: '移动方差',
+                        data: nonstationaryMovingVariance,
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true
+                }
+            });
+            
+            // 添加更新按钮事件
+            document.getElementById('updateButton').addEventListener('click', updateCharts);
+        });
+    </script>
+</body>
+</html>

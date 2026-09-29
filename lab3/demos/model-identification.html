@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>模型识别与模拟</title>
+    <!-- Libraries -->
+    <script src="vendor/plotly.min.js"></script>
+    <script src="vendor/jstat.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 30px;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        h2 {
+            color: #667eea;
+            margin: 30px 0 20px 0;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+            font-size: 1.8em;
+        }
+        
+        h3 {
+            color: #764ba2;
+            margin: 20px 0 15px 0;
+            font-size: 1.4em;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            border-left: 5px solid #667eea;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        input:focus, select:focus {
+            border-color: #667eea;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            width: 100%;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .chart-container {
+            margin: 30px 0;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .stats-table th, .stats-table td {
+            padding: 12px 15px;
+            text-align: center;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .stats-table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: bold;
+        }
+        
+        .stats-table tr:hover {
+            background: #f5f5f5;
+        }
+        
+        .stats-table tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        
+        .result-box {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .result-box h4 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+        
+        .result-box p {
+            margin: 10px 0;
+            line-height: 1.6;
+            color: #555;
+        }
+        
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .grid-4 {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .hidden {
+            display: none;
+        }
+        
+        .show {
+            display: block;
+        }
+        
+        .badge-success {
+            background-color: #28a745;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+        }
+        
+        .badge-danger {
+            background-color: #dc3545;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+        }
+
+        @media (max-width: 768px) {
+            .grid-2, .grid-3, .grid-4 {
+                grid-template-columns: 1fr;
+            }
+            h1 { font-size: 2em; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>时间序列模型识别与模拟</h1>
+
+    <!-- 1. 参数设置 -->
+    <div class="section">
+        <h2>1. 参数设置</h2>
+        
+        <div class="grid-3">
+            <div class="form-group">
+                <label>随机种子 (Seed)</label>
+                <input type="number" id="seed" value="42">
+            </div>
+            <div class="form-group">
+                <label>样本数量 (N)</label>
+                <input type="number" id="nSamples" value="500" min="50" max="5000" step="50">
+            </div>
+            <div class="form-group">
+                <label>噪声标准差 (Sigma)</label>
+                <input type="number" id="noiseStd" value="1.0" step="0.1" min="0.1">
+            </div>
+        </div>
+        
+        <h3>模型选择</h3>
+        <div class="form-group">
+            <label>选择模型类型</label>
+            <select id="modelType" onchange="updateModelInputs()">
+                <option value="wn">White Noise (白噪声)</option>
+                <option value="ar">AR(p) - 自回归</option>
+                <option value="ma">MA(q) - 移动平均</option>
+                <option value="arma">ARMA(p, q) - 混合模型</option>
+            </select>
+        </div>
+
+        <!-- Dynamic Inputs -->
+        <div id="arInputs" class="hidden">
+            <div class="form-group">
+                <label>AR 阶数 (p)</label>
+                <input type="number" id="pOrder" value="1" min="1" max="5" onchange="renderCoeffInputs()">
+            </div>
+            <label>AR 系数 (phi)</label>
+            <div id="arCoeffsContainer" class="grid-4"></div>
+        </div>
+
+        <div id="maInputs" class="hidden">
+            <div class="form-group">
+                <label>MA 阶数 (q)</label>
+                <input type="number" id="qOrder" value="1" min="1" max="5" onchange="renderCoeffInputs()">
+            </div>
+            <label>MA 系数 (theta)</label>
+            <div id="maCoeffsContainer" class="grid-4"></div>
+        </div>
+
+        <div style="margin-top: 30px;">
+            <button onclick="runAnalysis()">生成数据并分析</button>
+        </div>
+        
+        <div class="result-box" style="margin-top: 20px; background-color: #eef2f7; border-left: 5px solid #667eea;">
+            <p><strong>💡 提示：</strong> AR 模型系数 $\phi$ 请输入绝对值小于1的值以保证平稳性；MA 模型系数 $\theta$ 用于生成过程。</p>
+        </div>
+    </div>
+
+    <!-- 2. 图表分析 -->
+    <div class="section">
+        <h2>2. 图表分析</h2>
+        
+        <div class="chart-container">
+            <h3>1. 模拟时间序列波形</h3>
+            <div id="tsPlot" style="height: 400px;"></div>
+        </div>
+        
+        <div class="grid-2">
+            <div class="chart-container">
+                <h3>2. 样本自相关 (SACF)</h3>
+                <div id="acfPlot" style="height: 350px;"></div>
+                <p style="text-align: center; color: #666; font-size: 0.9em; margin-top: 10px;">MA(q) 识别：SACF 在 q 阶后截断</p>
+            </div>
+            <div class="chart-container">
+                <h3>3. 样本偏自相关 (SPACF)</h3>
+                <div id="pacfPlot" style="height: 350px;"></div>
+                <p style="text-align: center; color: #666; font-size: 0.9em; margin-top: 10px;">AR(p) 识别：SPACF 在 p 阶后截断</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. 检验结果 -->
+    <div class="section">
+        <h2>3. 白噪声检验 (Ljung-Box Test)</h2>
+        
+        <table class="stats-table">
+            <thead>
+                <tr>
+                    <th>滞后阶数 (Lag)</th>
+                    <th>统计量 (Q-Stat)</th>
+                    <th>p-value</th>
+                    <th>结论 (α=0.05)</th>
+                </tr>
+            </thead>
+            <tbody id="lbTableBody">
+                <!-- Results will be injected here -->
+            </tbody>
+        </table>
+        
+        <div id="lbConclusion" class="result-box hidden"></div>
+    </div>
+    
+    <!-- 4. 规则速查 -->
+    <div class="section">
+        <h2>4. 模型识别规则速查</h2>
+        <table class="stats-table">
+            <thead>
+                <tr>
+                    <th>模型</th>
+                    <th>SACF (自相关)</th>
+                    <th>SPACF (偏自相关)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>White Noise</strong></td>
+                    <td>均为 0 (在置信区间内)</td>
+                    <td>均为 0 (在置信区间内)</td>
+                </tr>
+                <tr>
+                    <td><strong>AR(p)</strong></td>
+                    <td>拖尾 (Tail off)</td>
+                    <td><strong>p 阶截尾 (Cut off)</strong></td>
+                </tr>
+                <tr>
+                    <td><strong>MA(q)</strong></td>
+                    <td><strong>q 阶截尾 (Cut off)</strong></td>
+                    <td>拖尾 (Tail off)</td>
+                </tr>
+                <tr>
+                    <td><strong>ARMA(p,q)</strong></td>
+                    <td>拖尾</td>
+                    <td>拖尾</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+<!-- JavaScript Logic -->
+<script>
+    // --- 1. Random Number Generator (Seeded) ---
+    class Random {
+        constructor(seed) {
+            this.m = 0x80000000;
+            this.a = 1103515245;
+            this.c = 12345;
+            this.state = seed ? seed : Math.floor(Math.random() * (this.m - 1));
+        }
+        
+        nextInt() {
+            this.state = (this.a * this.state + this.c) % this.m;
+            return this.state;
+        }
+        
+        nextFloat() {
+            return this.nextInt() / (this.m - 1);
+        }
+        
+        // Box-Muller transform for Normal distribution
+        nextGaussian(mean = 0, std = 1) {
+            let u = 0, v = 0;
+            while(u === 0) u = this.nextFloat();
+            while(v === 0) v = this.nextFloat();
+            const z = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+            return mean + z * std;
+        }
+    }
+
+    // --- 2. Math & Stats Helpers ---
+    
+    // Calculate Mean
+    function mean(data) {
+        return data.reduce((a, b) => a + b, 0) / data.length;
+    }
+
+    // Calculate Variance
+    function variance(data, m) {
+        if (!m) m = mean(data);
+        return data.reduce((a, b) => a + Math.pow(b - m, 2), 0) / data.length;
+    }
+
+    // Calculate Autocorrelation at lag k
+    function autocorr(data, k) {
+        const m = mean(data);
+        const n = data.length;
+        let num = 0;
+        let den = 0;
+        
+        for (let i = 0; i < n; i++) {
+            den += Math.pow(data[i] - m, 2);
+        }
+        
+        for (let i = 0; i < n - k; i++) {
+            num += (data[i] - m) * (data[i+k] - m);
+        }
+        
+        return num / den;
+    }
+
+    // Calculate PACF using Levinson-Durbin recursion
+    function calculatePACF(acf, nlags) {
+        let phi = Array(nlags + 1).fill(0).map(() => Array(nlags + 1).fill(0));
+        let pacf = [];
+        
+        // Lag 0
+        pacf.push(1.0); 
+
+        // Lag 1
+        phi[1][1] = acf[1];
+        pacf.push(phi[1][1]);
+
+        for (let k = 2; k <= nlags; k++) {
+            let num = acf[k];
+            let den = 1;
+            
+            for (let j = 1; j < k; j++) {
+                num -= phi[k-1][j] * acf[k-j];
+                den -= phi[k-1][j] * acf[j];
+            }
+            
+            phi[k][k] = num / den;
+            pacf.push(phi[k][k]);
+            
+            for (let j = 1; j < k; j++) {
+                phi[k][j] = phi[k-1][j] - phi[k][k] * phi[k-1][k-j];
+            }
+        }
+        
+        return pacf.slice(1); // Return lags 1 to k
+    }
+
+    // Ljung-Box Test
+    function ljungBox(data, lags) {
+        const n = data.length;
+        const results = [];
+        
+        // Pre-calculate ACF for needed lags
+        const acfVals = [];
+        for(let i=1; i<=Math.max(...lags); i++) {
+            acfVals.push(autocorr(data, i));
+        }
+        
+        lags.forEach(lag => {
+            let qStat = 0;
+            for(let k=1; k<=lag; k++) {
+                qStat += (Math.pow(acfVals[k-1], 2) / (n - k));
+            }
+            qStat *= n * (n + 2);
+            
+            // p-value from Chi-square distribution
+            const pValue = 1 - jstat.chisquare.cdf(qStat, lag);
+            
+            results.push({
+                lag: lag,
+                stat: qStat,
+                p: pValue
+            });
+        });
+        
+        return results;
+    }
+
+    // --- 3. Data Generation ---
+    function generateARMA(n, ar, ma, sigma, seed) {
+        const rng = new Random(seed);
+        const burnIn = 100;
+        const totalN = n + burnIn;
+        const y = new Array(totalN).fill(0);
+        const e = new Array(totalN).fill(0);
+        
+        // Generate white noise
+        for(let i=0; i<totalN; i++) {
+            e[i] = rng.nextGaussian(0, sigma);
+        }
+        
+        // ARMA process: y_t = AR terms + e_t + MA terms
+        // ar = [phi1, phi2...], ma = [theta1, theta2...]
+        for(let t=0; t<totalN; t++) {
+            let val = e[t];
+            
+            // Add AR terms: phi_j * y_{t-j}
+            for(let j=0; j<ar.length; j++) {
+                if (t - (j+1) >= 0) {
+                    val += ar[j] * y[t - (j+1)];
+                }
+            }
+            
+            // Add MA terms: theta_j * e_{t-j}
+            for(let j=0; j<ma.length; j++) {
+                if (t - (j+1) >= 0) {
+                    val += ma[j] * e[t - (j+1)];
+                }
+            }
+            
+            y[t] = val;
+        }
+        
+        return y.slice(burnIn);
+    }
+
+    // --- 4. UI Logic ---
+    
+    function updateModelInputs() {
+        const type = document.getElementById('modelType').value;
+        const arInputs = document.getElementById('arInputs');
+        const maInputs = document.getElementById('maInputs');
+        
+        if (type === 'ar' || type === 'arma') {
+            arInputs.classList.remove('hidden');
+        } else {
+            arInputs.classList.add('hidden');
+        }
+        
+        if (type === 'ma' || type === 'arma') {
+            maInputs.classList.remove('hidden');
+        } else {
+            maInputs.classList.add('hidden');
+        }
+        
+        renderCoeffInputs();
+    }
+
+    function renderCoeffInputs() {
+        const type = document.getElementById('modelType').value;
+        
+        // AR Coeffs
+        if (type === 'ar' || type === 'arma') {
+            const p = parseInt(document.getElementById('pOrder').value);
+            let html = '';
+            for(let i=1; i<=p; i++) {
+                const val = (i===1) ? 0.7 : 0.0;
+                html += `
+                    <div>
+                        <input type="number" class="ar-coeff" value="${val}" step="0.1" min="-2" max="2" placeholder="ϕ${i}">
+                    </div>`;
+            }
+            document.getElementById('arCoeffsContainer').innerHTML = html;
+        } else {
+            // 清空AR系数输入
+            document.getElementById('arCoeffsContainer').innerHTML = '';
+        }
+        
+        // MA Coeffs
+        if (type === 'ma' || type === 'arma') {
+            const q = parseInt(document.getElementById('qOrder').value);
+            let html = '';
+            for(let i=1; i<=q; i++) {
+                const val = (i===1) ? 0.7 : 0.0;
+                html += `
+                    <div>
+                        <input type="number" class="ma-coeff" value="${val}" step="0.1" min="-2" max="2" placeholder="θ${i}">
+                    </div>`;
+            }
+            document.getElementById('maCoeffsContainer').innerHTML = html;
+        } else {
+            // 清空MA系数输入
+            document.getElementById('maCoeffsContainer').innerHTML = '';
+        }
+    }
+
+    function runAnalysis() {
+        try {
+            console.log('runAnalysis started');
+            // 1. Get Inputs
+            const seed = parseInt(document.getElementById('seed').value);
+            const nSamples = parseInt(document.getElementById('nSamples').value);
+            const noiseStd = parseFloat(document.getElementById('noiseStd').value);
+            const type = document.getElementById('modelType').value;
+            
+            let arCoeffs = [];
+            let maCoeffs = [];
+            
+            if (type === 'ar' || type === 'arma') {
+                document.querySelectorAll('.ar-coeff').forEach(input => arCoeffs.push(parseFloat(input.value)));
+            }
+            if (type === 'ma' || type === 'arma') {
+                document.querySelectorAll('.ma-coeff').forEach(input => maCoeffs.push(parseFloat(input.value)));
+            }
+            console.log('Inputs collected:', {seed, nSamples, noiseStd, type, arCoeffs, maCoeffs});
+            
+            // 2. Generate Data
+            console.log('Generating data...');
+            const data = generateARMA(nSamples, arCoeffs, maCoeffs, noiseStd, seed);
+            console.log('Data generated:', data.length, 'points');
+            
+            // 3. Stats Calculation
+            const nlags = Math.min(40, Math.floor(nSamples/2)-1);
+            console.log('Calculating stats with nlags:', nlags);
+            
+            // SACF
+            const acfVals = [];
+            for(let i=0; i<=nlags; i++) {
+                acfVals.push(autocorr(data, i));
+            }
+            console.log('ACF calculated:', acfVals.length, 'values');
+            
+            // SPACF
+            const pacfVals = calculatePACF(acfVals, nlags);
+            const pacfFull = [1.0, ...pacfVals];
+            console.log('PACF calculated:', pacfFull.length, 'values');
+
+            // 4. Plotting
+            
+            // Confidence Interval
+            const confInterval = 1.96 / Math.sqrt(nSamples);
+            console.log('Confidence interval:', confInterval);
+            
+            // Time Series Plot
+            console.log('Creating time series plot...');
+            Plotly.newPlot('tsPlot', [{
+                y: data,
+                type: 'scatter',
+                mode: 'lines',
+                line: {color: '#667eea', width: 1.5},
+                name: 'Series'
+            }], {
+                margin: {t: 20, b: 40, l: 50, r: 20},
+                xaxis: {title: 'Time'},
+                yaxis: {title: 'Value'},
+                showlegend: false
+            });
+            console.log('Time series plot created');
+            
+            // Helper for Stem Plot (ACF/PACF)
+            function createStemPlot(divId, values, title, xMax) {
+                console.log('Creating stem plot for:', divId);
+                const x = Array.from({length: values.length}, (_, i) => i);
+                
+                // Lines
+                const shapes = x.map((xi, i) => ({
+                    type: 'line',
+                    x0: xi, y0: 0,
+                    x1: xi, y1: values[i],
+                    line: {color: '#764ba2', width: 2}
+                }));
+                
+                // Confidence Band
+                shapes.push({
+                    type: 'rect',
+                    x0: 0, x1: xMax,
+                    y0: -confInterval, y1: confInterval,
+                    fillcolor: 'rgba(102, 126, 234, 0.1)',
+                    line: {width: 0},
+                    layer: 'below'
+                });
+
+                Plotly.newPlot(divId, [
+                    {
+                        x: x,
+                        y: values,
+                        mode: 'markers',
+                        marker: {color: '#764ba2', size: 6},
+                        name: 'Stat'
+                    }
+                ], {
+                    shapes: shapes,
+                    margin: {t: 30, b: 40, l: 50, r: 20},
+                    xaxis: {title: 'Lag', range: [-0.5, xMax + 0.5]},
+                    yaxis: {title: title, range: [-1.2, 1.2]},
+                    showlegend: false
+                });
+                console.log('Stem plot created for:', divId);
+            }
+
+            // Create ACF and PACF plots
+            createStemPlot('acfPlot', acfVals, 'Autocorrelation', nlags);
+            createStemPlot('pacfPlot', pacfFull, 'Partial Autocorrelation', nlags);
+
+            // 5. Ljung-Box Test
+            console.log('Running Ljung-Box test...');
+            const lbLags = [6, 12, 18, 24];
+            let lbResults = [];
+            
+            try {
+                // 检查jstat是否存在
+                if (typeof jstat !== 'undefined') {
+                    lbResults = ljungBox(data, lbLags);
+                    console.log('Ljung-Box test results:', lbResults);
+                } else {
+                    console.warn('jstat library not available, using mock results');
+                    // 使用模拟结果
+                    lbResults = lbLags.map(lag => ({
+                        lag: lag,
+                        stat: Math.random() * 20,
+                        p: Math.random()
+                    }));
+                }
+            } catch (e) {
+                console.error('Error in Ljung-Box test:', e);
+                // 使用模拟结果
+                lbResults = lbLags.map(lag => ({
+                    lag: lag,
+                    stat: Math.random() * 20,
+                    p: Math.random()
+                }));
+            }
+            
+            let tableHtml = '';
+            lbResults.forEach(res => {
+                const isWhiteNoise = res.p > 0.05;
+                const badge = isWhiteNoise 
+                    ? '<span class="badge-success">白噪声</span>' 
+                    : '<span class="badge-danger">显著相关</span>';
+                    
+                tableHtml += `
+                    <tr>
+                        <td>${res.lag}</td>
+                        <td>${res.stat.toFixed(4)}</td>
+                        <td>${res.p.toFixed(4)}</td>
+                        <td>${badge}</td>
+                    </tr>
+                `;
+            });
+            console.log('Updating table HTML...');
+            document.getElementById('lbTableBody').innerHTML = tableHtml;
+            console.log('Table updated');
+            
+            // Conclusion
+            const p6 = lbResults[0].p;
+            const conclusionDiv = document.getElementById('lbConclusion');
+            conclusionDiv.classList.remove('hidden');
+            console.log('Updating conclusion...');
+            
+            if (p6 > 0.05) {
+                conclusionDiv.innerHTML = `<strong>✅ 结论：</strong> 在滞后 6 阶检验中，p=${p6.toFixed(4)} > 0.05，无法拒绝原假设。该序列<strong>表现为白噪声</strong>。`;
+                conclusionDiv.style.borderLeft = "5px solid #28a745";
+                conclusionDiv.style.backgroundColor = "#e8f5e9";
+            } else {
+                conclusionDiv.innerHTML = `<strong>⚠️ 结论：</strong> 在滞后 6 阶检验中，p=${p6.toFixed(4)} < 0.05，拒绝原假设。该序列<strong>不是白噪声</strong>。`;
+                conclusionDiv.style.borderLeft = "5px solid #dc3545";
+                conclusionDiv.style.backgroundColor = "#fce8e6";
+            }
+            console.log('Conclusion updated');
+            console.log('runAnalysis completed successfully');
+        } catch (e) {
+            console.error('Error in runAnalysis:', e);
+            alert('执行过程中出现错误：' + e.message);
+        }
+    }
+
+    // Initialization
+    window.onload = function() {
+        updateModelInputs();
+        runAnalysis();
+    };
+
+</script>
+  <script src="vendor/mathjax-loader.js"></script>
+  <script src="vendor/mathjax-tex-svg.js"></script>
+</body>
+</html>

@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>逆变换法生成一般分布（Inverse Transform Method）</title>
+    <script src="vendor/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+            line-height: 1.6;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .header h1 {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #1e293b;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            min-height: 60px;
+        }
+        
+        .controls button {
+            align-self: flex-end;
+            margin-bottom: 5px;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .control-group label {
+            font-size: 0.875rem;
+            color: #64748b;
+            font-weight: 500;
+        }
+        
+        .control-group input {
+            padding: 8px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            width: 120px;
+        }
+        
+        button {
+            padding: 8px 16px;
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: background-color 0.2s;
+        }
+        
+        button:hover {
+            background-color: #2563eb;
+        }
+        
+        .tabs {
+            margin-bottom: 30px;
+        }
+        
+        .tab-list {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .tab-trigger {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            color: #64748b;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+        
+        .tab-trigger.active {
+            color: #3b82f6;
+            border-bottom-color: #3b82f6;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        
+        .card-content {
+            padding: 20px;
+        }
+        
+        .card-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .card-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        
+        .hint {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+        
+        .grid {
+            display: grid;
+            gap: 20px;
+        }
+        
+        .grid-cols-3 {
+            grid-template-columns: 1fr 2fr;
+            align-items: start;
+        }
+        
+        .params-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            height: 100%;
+            justify-content: flex-start;
+        }
+        
+        .params-panel .control-group {
+            min-height: auto;
+        }
+        
+        .chart-container {
+            height: 300px;
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        
+        .slider-container {
+            margin: 10px 0;
+        }
+        
+        .slider {
+            width: 100%;
+            height: 6px;
+            background: #e2e8f0;
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #3b82f6;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        
+        .slider-value {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-top: 5px;
+        }
+        
+        .switch-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+        
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider-track {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #cbd5e1;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        
+        .slider-track:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider-track {
+            background-color: #3b82f6;
+        }
+        
+        input:checked + .slider-track:before {
+            transform: translateX(20px);
+        }
+        
+        .explanation {
+            font-size: 0.875rem;
+            color: #64748b;
+            line-height: 1.5;
+        }
+        
+        .explanation ul {
+            margin-left: 20px;
+        }
+        
+        .explanation li {
+            margin-bottom: 8px;
+        }
+        
+        footer {
+            text-align: center;
+            font-size: 0.75rem;
+            color: #94a3b8;
+            margin-top: 40px;
+            padding-bottom: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .grid-cols-3 {
+                grid-template-columns: 1fr;
+            }
+            
+            .controls {
+                width: 100%;
+            }
+            
+            .control-group input {
+                width: 100px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>逆变换法生成一般分布（Inverse Transform Method）</h1>
+            <div class="controls">
+                <div class="control-group">
+                    <label>样本数 n</label>
+                    <input type="number" id="sampleCount" value="5000" min="10" step="100">
+                </div>
+                <div class="control-group">
+                    <label>直方图分箱</label>
+                    <input type="number" id="binCount" value="40" min="5" step="5">
+                </div>
+                <div class="control-group">
+                    <label>随机种子</label>
+                    <input type="number" id="randomSeed" value="42">
+                </div>
+                <button onclick="resample()">重采样</button>
+            </div>
+        </header>
+
+        <div class="tabs">
+            <div class="tab-list">
+                <button class="tab-trigger active" onclick="switchTab('exp')">1) 指数分布</button>
+                <button class="tab-trigger" onclick="switchTab('pareto')">2) Pareto 分布</button>
+                <button class="tab-trigger" onclick="switchTab('piece')">3) 分段/含原子分布</button>
+            </div>
+
+            <div id="exp-tab" class="tab-content active">
+                <div class="card">
+                    <div class="card-content">
+                        <div class="card-header">
+                            <h2>从 U(0,1) 生成指数分布样本</h2>
+                            <div class="hint">F⁻¹(u) = -ln(1-u)/λ</div>
+                        </div>
+                        <div class="grid grid-cols-3">
+                            <div class="params-panel">
+                                <div class="control-group">
+                                    <label>λ (rate)</label>
+                                    <input type="number" id="lambda" value="1" min="0.01" max="10" step="0.1">
+                                </div>
+                                <div class="stats-panel" id="exp-stats" style="font-size: 0.75rem; color: #64748b; margin-top: 10px;">
+                                    <div>样本统计:</div>
+                                    <div>最小值: <span id="exp-min">-</span></div>
+                                    <div>最大值: <span id="exp-max">-</span></div>
+                                    <div>均值: <span id="exp-mean">-</span></div>
+                                </div>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="expChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="pareto-tab" class="tab-content">
+                <div class="card">
+                    <div class="card-content">
+                        <div class="card-header">
+                            <h2>从 U(0,1) 生成 Pareto 分布样本</h2>
+                            <div class="hint">F⁻¹(u) = xₘ/(1-u)¹/ᵅ</div>
+                        </div>
+                        <div class="grid grid-cols-3">
+                            <div class="params-panel">
+                                <div class="control-group">
+                                    <label>xₘ (scale)</label>
+                                    <input type="number" id="xm" value="1" min="0.1" max="20" step="0.5">
+                                </div>
+                                <div class="control-group">
+                                    <label>α (shape)</label>
+                                    <input type="number" id="alpha" value="2" min="0.1" max="10" step="0.1">
+                                </div>
+                                <div class="stats-panel" id="pareto-stats" style="font-size: 0.75rem; color: #64748b; margin-top: 10px;">
+                                    <div>样本统计:</div>
+                                    <div>最小值: <span id="pareto-min">-</span></div>
+                                    <div>最大值: <span id="pareto-max">-</span></div>
+                                    <div>均值: <span id="pareto-mean">-</span></div>
+                                </div>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="paretoChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="piece-tab" class="tab-content">
+                <div class="card">
+                    <div class="card-content">
+                        <div class="card-header">
+                            <h2>分段分布的逆变换（含不连续情形）</h2>
+                            <div class="hint">根据 u 所在区间，选择对应的 F⁻¹(u) 公式</div>
+                        </div>
+                        <div class="grid grid-cols-3">
+                            <div class="params-panel">
+                                <div class="switch-container">
+                                    <label>不连续（含原子）</label>
+                                    <label class="switch">
+                                        <input type="checkbox" id="modeDiscontinuous" onchange="updatePiecewise()">
+                                        <span class="slider-track"></span>
+                                    </label>
+                                </div>
+
+                                <div id="continuous-params">
+                                    <div class="control-group">
+                                        <label>区间左端 a</label>
+                                        <input type="number" id="a-cont" value="0" min="-10" max="10" step="0.5">
+                                    </div>
+                                    <div class="control-group">
+                                        <label>分段点 b</label>
+                                        <input type="number" id="b-cont" value="1" min="-10" max="10" step="0.5">
+                                    </div>
+                                    <div class="control-group">
+                                        <label>右端 c</label>
+                                        <input type="number" id="c-cont" value="2" min="-10" max="10" step="0.5">
+                                    </div>
+                                    <div class="slider-container">
+                                        <label>左段权重 w (CDF 断点)</label>
+                                        <input type="range" id="w-slider" min="0.05" max="0.95" step="0.01" value="0.6" class="slider" oninput="updateWValue(); updatePiecewise()">
+                                        <div class="slider-value">w = <span id="w-value">0.60</span></div>
+                                    </div>
+                                </div>
+
+                                <div id="discontinuous-params" style="display: none;">
+                                    <div class="control-group">
+                                        <label>原子位置 x₀</label>
+                                        <input type="number" id="x0" value="0" min="-10" max="10" step="0.5">
+                                    </div>
+                                    <div class="slider-container">
+                                        <label>原子概率 p₀</label>
+                                        <input type="range" id="p0-slider" min="0.01" max="0.95" step="0.01" value="0.25" class="slider" oninput="updateP0Value(); updatePiecewise()">
+                                        <div class="slider-value">p₀ = <span id="p0-value">0.25</span></div>
+                                    </div>
+                                    <div class="control-group">
+                                        <label>连续部分区间 a</label>
+                                        <input type="number" id="a-disc" value="0" min="-10" max="10" step="0.5">
+                                    </div>
+                                    <div class="control-group">
+                                        <label>连续部分区间 b</label>
+                                        <input type="number" id="b-disc" value="1" min="-10" max="10" step="0.5">
+                                    </div>
+                                </div>
+
+                                <button onclick="updatePiecewise()">更新图表</button>
+                                <div class="stats-panel" id="piece-stats" style="font-size: 0.75rem; color: #64748b; margin-top: 10px;">
+                                    <div>样本统计:</div>
+                                    <div>最小值: <span id="piece-min">-</span></div>
+                                    <div>最大值: <span id="piece-max">-</span></div>
+                                    <div>均值: <span id="piece-mean">-</span></div>
+                                </div>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="pieceChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-content">
+                <div class="card-header">
+                    <h2>方法说明</h2>
+                    <div class="hint">逆变换核心要点</div>
+                </div>
+                <div class="explanation">
+                    <ul>
+                        <li>适用条件：分布函数 F(x) 可逆（或分段可逆）。</li>
+                        <li>基本步骤：先生成 U~Uniform(0,1)，再令 X=F⁻¹(U)。</li>
+                        <li>指数分布：F⁻¹(u) = -ln(1-u)/λ。</li>
+                        <li>Pareto 分布：F⁻¹(u) = xₘ/(1-u)¹/ᵅ。</li>
+                        <li>分段处理：
+                            <ul>
+                                <li>连续分段：在区间 [a,b] 和 [b,c] 上分别使用均匀分布，权重 w 控制分界点</li>
+                                <li>逆函数：当 u < w 时，X = a + (u/w)×(b-a)；当 u ≥ w 时，X = b + ((u-w)/(1-w))×(c-b)</li>
+                                <li>含原子分布：在 x₀ 处有概率质量 p₀，其余部分在 [a,b] 上均匀分布</li>
+                                <li>逆函数：当 u < p₀ 时，X = x₀；当 u ≥ p₀ 时，X = a + ((u-p₀)/(1-p₀))×(b-a)</li>
+                            </ul>
+                        </li>
+                        <li>为了可重复演示，使用 LCG 伪随机数发生器（可调整种子）。</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            © 2025 Inverse Transform Demo — 由 U(0,1) 驱动的一切
+        </footer>
+    </div>
+
+    <script>
+        // ===== Utilities =====
+        function lcg(seed) {
+            let state = seed >>> 0;
+            return function rand() {
+                state = (1664525 * state + 1013904223) >>> 0;
+                return state / 2 ** 32;
+            };
+        }
+
+        function makeHistogram(xs, nbins) {
+            if (xs.length === 0) return { bins: [], data: [] };
+            const xMin = Math.min(...xs);
+            const xMax = Math.max(...xs);
+            const eps = 1e-9;
+            const width = (xMax - xMin + eps) / nbins;
+            const bins = Array.from({ length: nbins }, (_, i) => xMin + i * width);
+            const counts = new Array(nbins).fill(0);
+            xs.forEach((x) => {
+                let idx = Math.floor((x - xMin) / width);
+                if (idx >= nbins) idx = nbins - 1;
+                if (idx < 0) idx = 0;
+                counts[idx] += 1;
+            });
+            return { bins, counts, xMin, xMax, width };
+        }
+
+        // ===== Inverse CDF samplers =====
+        function sampleExponential(n, lambda, seed) {
+            const U = lcg(seed);
+            const xs = [];
+            for (let i = 0; i < n; i++) {
+                const u = Math.max(1e-12, U());
+                xs.push(-Math.log(1 - u) / lambda);
+            }
+            return xs;
+        }
+
+        function samplePareto(n, xm, alpha, seed) {
+            const U = lcg(seed);
+            const xs = [];
+            for (let i = 0; i < n; i++) {
+                const u = Math.max(1e-12, U());
+                xs.push(xm / Math.pow(1 - u, 1 / alpha));
+            }
+            return xs;
+        }
+
+        function samplePiecewise(n, seed, mode, params) {
+            const U = lcg(seed);
+            const xs = [];
+            for (let i = 0; i < n; i++) {
+                const u = U();
+                if (mode === "continuous") {
+                    const { a, b, c, w } = params;
+                    if (u < w) {
+                        xs.push(a + (u / w) * (b - a));
+                    } else {
+                        xs.push(b + ((u - w) / (1 - w)) * (c - b));
+                    }
+                } else {
+                    const { x0, p0, a, b } = params;
+                    if (u < p0) {
+                        xs.push(x0);
+                    } else {
+                        xs.push(a + ((u - p0) / (1 - p0)) * (b - a));
+                    }
+                }
+            }
+            return xs;
+        }
+
+        // ===== Chart Management =====
+        let expChart, paretoChart, pieceChart;
+
+        function updateChart(chart, newData, label = '分布样本') {
+            // 完全销毁并重新创建图表，确保正确更新
+            let canvasId;
+            
+            if (chart) {
+                canvasId = chart.canvas.id;
+                chart.destroy();
+            } else {
+                // 根据标签确定canvas ID
+                if (label.includes('指数')) canvasId = 'expChart';
+                else if (label.includes('Pareto')) canvasId = 'paretoChart';
+                else canvasId = 'pieceChart';
+            }
+            
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: newData.bins,
+                    datasets: [{
+                        label: label,
+                        data: newData.counts,
+                        backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'x' },
+                            ticks: { callback: function(value) { return value.toFixed(2); } }
+                        },
+                        y: { title: { display: true, text: '频数' } }
+                    }
+                }
+            });
+            
+            return chart;
+        }
+
+        // ===== UI Functions =====
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-trigger').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(tabName + '-tab').classList.add('active');
+            document.querySelector(`.tab-trigger[onclick="switchTab('${tabName}')"]`).classList.add('active');
+            
+            if (tabName === 'exp') updateExponential();
+            else if (tabName === 'pareto') updatePareto();
+            else if (tabName === 'piece') updatePiecewise();
+        }
+
+        function updateWValue() {
+            const w = document.getElementById('w-slider').value;
+            document.getElementById('w-value').textContent = parseFloat(w).toFixed(2);
+        }
+
+        function updateP0Value() {
+            const p0 = document.getElementById('p0-slider').value;
+            document.getElementById('p0-value').textContent = parseFloat(p0).toFixed(2);
+        }
+
+        function updateAllCharts() {
+            updateExponential();
+            updatePareto();
+            updatePiecewise();
+        }
+
+        function resample() {
+            // 更新随机种子并重绘所有图表
+            const seedInput = document.getElementById('randomSeed');
+            seedInput.value = parseInt(seedInput.value) + 1;
+            updateAllCharts();
+        }
+
+        function updateExponential() {
+            const n = parseInt(document.getElementById('sampleCount').value);
+            const bins = parseInt(document.getElementById('binCount').value);
+            const seed = parseInt(document.getElementById('randomSeed').value);
+            const lambda = parseFloat(document.getElementById('lambda').value);
+            
+            console.log('更新指数分布: λ =', lambda, '种子 =', seed);
+            const samples = sampleExponential(n, lambda, seed);
+            const hist = makeHistogram(samples, bins);
+            
+            // 显示样本统计信息到页面
+            const stats = calculateStats(samples);
+            document.getElementById('exp-min').textContent = stats.min.toFixed(4);
+            document.getElementById('exp-max').textContent = stats.max.toFixed(4);
+            document.getElementById('exp-mean').textContent = stats.mean.toFixed(4);
+            
+            // 调试信息：显示样本统计
+            console.log('样本统计: 最小值 =', stats.min.toFixed(2), 
+                       '最大值 =', stats.max.toFixed(2),
+                       '均值 =', stats.mean.toFixed(2));
+            
+            const label = '指数分布样本 (λ=' + lambda + ')';
+            expChart = updateChart(expChart, hist, label);
+        }
+
+        function updatePareto() {
+            const n = parseInt(document.getElementById('sampleCount').value);
+            const bins = parseInt(document.getElementById('binCount').value);
+            const seed = parseInt(document.getElementById('randomSeed').value);
+            const xm = parseFloat(document.getElementById('xm').value);
+            const alpha = parseFloat(document.getElementById('alpha').value);
+            
+            console.log('更新Pareto分布: xₘ =', xm, 'α =', alpha, '种子 =', seed + 1);
+            const samples = samplePareto(n, xm, alpha, seed + 1);
+            const hist = makeHistogram(samples, bins);
+            
+            // 显示样本统计信息到页面
+            const stats = calculateStats(samples);
+            document.getElementById('pareto-min').textContent = stats.min.toFixed(4);
+            document.getElementById('pareto-max').textContent = stats.max.toFixed(4);
+            document.getElementById('pareto-mean').textContent = stats.mean.toFixed(4);
+            
+            const label = 'Pareto分布样本 (xₘ=' + xm + ', α=' + alpha + ')';
+            paretoChart = updateChart(paretoChart, hist, label);
+        }
+
+        function calculateStats(samples) {
+            if (samples.length === 0) return { min: 0, max: 0, mean: 0 };
+            const min = Math.min(...samples);
+            const max = Math.max(...samples);
+            const mean = samples.reduce((a, b) => a + b, 0) / samples.length;
+            return { min, max, mean };
+        }
+
+        function updatePiecewise() {
+            const n = parseInt(document.getElementById('sampleCount').value);
+            const bins = parseInt(document.getElementById('binCount').value);
+            const seed = parseInt(document.getElementById('randomSeed').value);
+            const isDiscontinuous = document.getElementById('modeDiscontinuous').checked;
+            
+            let params, samples;
+            if (isDiscontinuous) {
+                document.getElementById('continuous-params').style.display = 'none';
+                document.getElementById('discontinuous-params').style.display = 'block';
+                
+                const x0 = parseFloat(document.getElementById('x0').value);
+                const p0 = parseFloat(document.getElementById('p0-slider').value);
+                const a = parseFloat(document.getElementById('a-disc').value);
+                const b = parseFloat(document.getElementById('b-disc').value);
+                
+                params = { x0, p0, a, b };
+                samples = samplePiecewise(n, seed + 2, "discontinuous", params);
+            } else {
+                document.getElementById('continuous-params').style.display = 'block';
+                document.getElementById('discontinuous-params').style.display = 'none';
+                
+                const a = parseFloat(document.getElementById('a-cont').value);
+                const b = parseFloat(document.getElementById('b-cont').value);
+                const c = parseFloat(document.getElementById('c-cont').value);
+                const w = parseFloat(document.getElementById('w-slider').value);
+                
+                params = { a, b, c, w };
+                samples = samplePiecewise(n, seed + 2, "continuous", params);
+            }
+            
+            const hist = makeHistogram(samples, bins);
+            
+            // 显示样本统计信息到页面
+            const stats = calculateStats(samples);
+            document.getElementById('piece-min').textContent = stats.min.toFixed(4);
+            document.getElementById('piece-max').textContent = stats.max.toFixed(4);
+            document.getElementById('piece-mean').textContent = stats.mean.toFixed(4);
+            
+            const mode = isDiscontinuous ? "不连续" : "连续";
+            const label = '分段分布样本 (' + mode + ')';
+            pieceChart = updateChart(pieceChart, hist, label);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('页面加载完成，开始初始化...');
+            updateWValue();
+            updateP0Value();
+            updateExponential();
+            
+            // 为全局参数添加事件监听
+            document.getElementById('sampleCount').addEventListener('input', function() {
+                console.log('样本数改变:', this.value);
+                updateAllCharts();
+            });
+            document.getElementById('binCount').addEventListener('input', function() {
+                console.log('分箱数改变:', this.value);
+                updateAllCharts();
+            });
+            document.getElementById('randomSeed').addEventListener('input', function() {
+                console.log('随机种子改变:', this.value);
+                updateAllCharts();
+            });
+            
+            // 为指数分布参数添加事件监听
+            document.getElementById('lambda').addEventListener('input', function() {
+                console.log('λ参数改变:', this.value);
+                updateExponential();
+            });
+            
+            // 为Pareto分布参数添加事件监听
+            document.getElementById('xm').addEventListener('input', function() {
+                console.log('xₘ参数改变:', this.value);
+                updatePareto();
+            });
+            document.getElementById('alpha').addEventListener('input', function() {
+                console.log('α参数改变:', this.value);
+                updatePareto();
+            });
+            
+            // 为分段分布参数添加事件监听
+            document.getElementById('modeDiscontinuous').addEventListener('change', function() {
+                console.log('模式改变:', this.checked ? '不连续' : '连续');
+                updatePiecewise();
+            });
+            document.getElementById('w-slider').addEventListener('input', function() {
+                console.log('w参数改变:', this.value);
+                updateWValue();
+                updatePiecewise();
+            });
+            document.getElementById('p0-slider').addEventListener('input', function() {
+                console.log('p₀参数改变:', this.value);
+                updateP0Value();
+                updatePiecewise();
+            });
+            document.getElementById('a-cont').addEventListener('input', function() {
+                console.log('a参数改变:', this.value);
+                updatePiecewise();
+            });
+            document.getElementById('b-cont').addEventListener('input', function() {
+                console.log('b参数改变:', this.value);
+                updatePiecewise();
+            });
+            document.getElementById('c-cont').addEventListener('input', function() {
+                console.log('c参数改变:', this.value);
+                updatePiecewise();
+            });
+            document.getElementById('x0').addEventListener('input', function() {
+                console.log('x₀参数改变:', this.value);
+                updatePiecewise();
+            });
+            document.getElementById('a-disc').addEventListener('input', function() {
+                console.log('a-disc参数改变:', this.value);
+                updatePiecewise();
+            });
+            document.getElementById('b-disc').addEventListener('input', function() {
+                console.log('b-disc参数改变:', this.value);
+                updatePiecewise();
+            });
+            
+            console.log('所有事件监听器已设置完成');
+        });
+    </script>
+</body>
+</html>

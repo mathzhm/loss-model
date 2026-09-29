@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CS2-14 时间序列 2 练习题库</title>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$','$$'],['\\[','\\]']] },
+  svg: { fontCache: 'global' }
+};
+</script>
+<script id="MathJax-script" async src="../demos/vendor/mathjax-tex-svg.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+    margin: 0; background: #f4f6f9; color: #24303f; line-height: 1.6;
+  }
+  header {
+    background: linear-gradient(135deg, #1f6f5c, #2b5876);
+    color: #fff; padding: 24px 20px; text-align: center;
+  }
+  header h1 { margin: 0 0 6px; font-size: 22px; }
+  header p { margin: 0; opacity: .85; font-size: 14px; }
+  .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+
+  .toolbar {
+    background: #fff; border-radius: 12px; padding: 16px 18px; margin-bottom: 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06); display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+  }
+  .toolbar .label { font-weight: 600; margin-right: 4px; }
+  button {
+    cursor: pointer; border: none; border-radius: 8px; padding: 8px 14px;
+    font-size: 14px; background: #2b5876; color: #fff; transition: .15s;
+  }
+  button:hover { opacity: .88; }
+  button.ghost { background: #e7edf0; color: #2b4a5a; }
+  select {
+    padding: 8px 10px; border-radius: 8px; border: 1px solid #ccd7df; font-size: 14px;
+  }
+
+  .picker {
+    background: #fff; border-radius: 12px; padding: 16px 18px; margin-bottom: 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  }
+  .picker h3 { margin: 0 0 12px; font-size: 15px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    border: 1.5px solid #bcd2ce; background: #fff; color: #2b4a5a;
+    border-radius: 20px; padding: 6px 14px; cursor: pointer; font-size: 14px; user-select: none;
+  }
+  .chip.active { background: #1f6f5c; color: #fff; border-color: #1f6f5c; }
+  .chip.exam::after { content: " ★"; color: #f0a500; }
+  .chip.active.exam::after { color: #ffd76a; }
+
+  .count { margin: 12px 0 0; font-size: 13px; color: #667; }
+
+  .card {
+    background: #fff; border-radius: 12px; padding: 18px 20px; margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  }
+  .card .qhead {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+  }
+  .qnum {
+    background: #1f6f5c; color: #fff; border-radius: 8px; padding: 3px 10px;
+    font-weight: 700; font-size: 14px;
+  }
+  .badge {
+    background: #fdecc8; color: #8a5a00; border-radius: 6px; padding: 2px 8px; font-size: 12px;
+  }
+  .qbody { font-size: 15px; }
+  .answer {
+    margin-top: 14px; padding: 14px 16px; background: #f1f8f5;
+    border-left: 4px solid #2e9e78; border-radius: 6px; display: none;
+  }
+  .answer.show { display: block; }
+  .answer .atitle { font-weight: 700; color: #1f7d55; margin-bottom: 6px; }
+  .toggle-ans {
+    margin-top: 12px; background: #2e9e78; font-size: 13px; padding: 6px 12px;
+  }
+  .empty { text-align: center; color: #889; padding: 40px 0; }
+  footer { text-align: center; color: #99a; font-size: 12px; padding: 20px; }
+  table.tbl { border-collapse: collapse; margin: 8px 0; font-size: 13px; }
+  table.tbl th, table.tbl td { border: 1px solid #cbd5dd; padding: 4px 8px; text-align: center; }
+  table.tbl th { background: #eef3f6; }
+</style>
+</head>
+<body>
+<header>
+  <h1>CS2-14 时间序列 2 · 练习题库</h1>
+  <p>Time Series 2 — Practice Questions（★ 为考试风格题 Exam style）</p>
+</header>
+
+<div class="container">
+  <div class="toolbar">
+    <span class="label">操作：</span>
+    <button onclick="selectAll(true)" class="ghost">全选</button>
+    <button onclick="selectAll(false)" class="ghost">清空</button>
+    <button onclick="randomPick()" class="ghost">随机抽题</button>
+    <select id="randCount">
+      <option value="2">随机 2 题</option>
+      <option value="3">随机 3 题</option>
+      <option value="4">随机 4 题</option>
+    </select>
+    <span style="flex:1"></span>
+    <button onclick="toggleAllAns(true)" class="ghost">展开全部答案</button>
+    <button onclick="toggleAllAns(false)" class="ghost">收起全部答案</button>
+  </div>
+
+  <div class="picker">
+    <h3>选择题目（点击标签选/取消）</h3>
+    <div class="chips" id="chips"></div>
+    <p class="count" id="count"></p>
+  </div>
+
+  <div id="quiz"></div>
+</div>
+
+<footer>题目内容摘自 IFE/ActEd CS2-14 (2019) 教材，仅供个人学习使用。</footer>
+
+<script>
+/* ===== 题库数据 ===== */
+const questions = [
+  {
+    id: "14.1", exam: false,
+    q: `下表给出观测时间序列 $x_t$（$t=1,\\dots,100$）的 $d$ 阶差分的一些性质：
+    <table class="tbl">
+    <tr><th>$\\nabla^d x_t$ 性质</th><th>$d=0$</th><th>$d=1$</th><th>$d=2$</th><th>$d=3$</th><th>$d=4$</th></tr>
+    <tr><td>$r_1$</td><td>0.97</td><td>0.41</td><td>0.03</td><td>-0.24</td><td>-0.41</td></tr>
+    <tr><td>$r_2$</td><td>0.92</td><td>-0.19</td><td>-0.49</td><td>-0.42</td><td>-0.25</td></tr>
+    <tr><td>$r_3$</td><td>0.88</td><td>-0.17</td><td>-0.16</td><td>-0.01</td><td>0.06</td></tr>
+    <tr><td>$r_4$</td><td>0.85</td><td>0.04</td><td>0.19</td><td>0.26</td><td>0.22</td></tr>
+    <tr><td>样本方差</td><td>162.3</td><td>7.4</td><td>8.5</td><td>16.4</td><td>40.7</td></tr>
+    </table>
+    若用 ARIMA(p,d,q) 建模，说明并给出最合适的 $d$ 值。`,
+    a: `最关键的线索是<b>样本方差</b>：达到平稳时方差应最小，此后随 $d$ 增大又开始上升。样本方差在 $d=1$（7.4）时最小，$d=2$ 起回升，故排除过度差分。<br>
+    其次，样本自相关系数应快速衰减到 0：$d=0$ 时衰减极慢（0.97,0.92,0.88,0.85），需要差分，故排除。$d=1$ 时 $r_k$ 迅速趋于 0 且形态最规则。<br>
+    综合两条线索，<b>选 $d=1$</b>（继续差分到 $d=2$ 无实质改善）。实际该序列是 ARIMA(2,1,0) 的模拟，故 $d$ 确为 1。`
+  },
+  {
+    id: "14.2", exam: false,
+    q: `时间序列 $X$ 拟合 AR(1) 模型 $X_n = \\alpha X_{n-1} + \\varepsilon_n$，$\\varepsilon$ 为白噪声，$\\alpha$ 未知。<br>
+    (i) 下表为 $\\alpha=0.6$ 与 $\\alpha=0.7$ 时残差计算的片段，求 A、B、C。
+    <table class="tbl">
+    <tr><th>$n$</th><th>15</th><th>16</th><th>17</th><th>18</th><th>19</th><th>20</th></tr>
+    <tr><td>$x_n$</td><td>371</td><td>507</td><td><b>B</b></td><td>449</td><td>272</td><td>76</td></tr>
+    <tr><td>残差($\\alpha$=0.6)</td><td>357</td><td><b>A</b></td><td>-48</td><td>295</td><td>3</td><td>-87</td></tr>
+    <tr><td>残差($\\alpha$=0.7)</td><td>354</td><td>247</td><td>-99</td><td><b>C</b></td><td>-42</td><td>-114</td></tr>
+    </table>
+    (ii) 列出可用于检验残差拟合优度的检验方法。`,
+    a: `<b>(i)</b> 残差 $=x_n-\\alpha x_{n-1}$：
+
+
+    $$A=507-0.6\\times371=284$$
+    由 $-48=B-0.6\\times507\\Rightarrow B=256$
+
+
+    $$C=449-0.7\\times256=270$$
+    <b>(ii)</b> Core Reading 中的检验：残差图目视检查；SACF 与 SPACF 检查；portmanteau（Ljung-Box）检验；转折点计数检验（turning points）。`
+  },
+  {
+    id: "14.3", exam: false,
+    q: `对 Tables 第 152 页的 RPI 数据拟合 ARIMA(p,d,q) 模型。<br>
+    (i) 解释为何 $d=1$ 是最合适的选择。<br>
+    (ii) 评论该数据集是否存在季节性变化的证据。`,
+    a: `<b>(i)</b> $d$ 应取使 $\\{\\nabla^d Q_t\\}$ 可视为平稳的最小非负整数。$\\{Q_t\\}$ 本身有明显上升趋势、非平稳；其样本自相关从 1 缓慢衰减（0.977, 0.954, 0.930, 0.908, …），说明需要差分；而 $\\{\\nabla Q_t\\}$ 的样本自相关不再缓慢衰减，说明无需再差分。样本标准差方面，$\\{\\nabla Q_t\\}$（约 0.6）也在此处最小（$\\mathrm{var}(Q_t)\\approx11.9$，$\\mathrm{var}(\\nabla Q_t)\\approx0.6$，$\\mathrm{var}(\\nabla^2 Q_t)\\approx0.8$）。若两准则有冲突，依简约原则取较小的 $d$。综合取 <b>$d=1$</b>。<br>
+    <b>(ii)</b> 季节性即存在年度周期。对我们视为平稳的序列 $\\{\\nabla Q_t\\}$ 而言，其滞后 12 的样本自相关（原文中 $\\{Q_t\\}$ 的 $r_{12}=0.637$）显著大于 0 且异于零，提示存在 12 个月的周期。<br>
+    注意：由于 $\\{Q_t\\}$ 本身非平稳，无论是否存在季节性，其滞后 12 的自相关都会偏高，因此判断季节性应结合差分后的序列来看。`
+  },
+  {
+    id: "14.4", exam: false,
+    q: `对 Tables 第 153 页 NAEI 数据拟合 ARIMA(0,1,1) 模型 $\\nabla E_t = \\mu + \\varepsilon_t + \\beta\\varepsilon_{t-1}$，$\\{\\varepsilon_t\\}$ 为零均值白噪声，$|\\beta|<1$。<br>
+    (i) 说明为何要施加 $|\\beta|<1$ 的条件。<br>
+    (ii) 估计 $\\mu$。<br>
+    (iii) 通过对序列 $\\{\\nabla E_t\\}$ 令滞后 1 的样本与理论自相关相等来估计 $\\beta$。<br>
+    (iv) 用该模型估计 $E_{120}$（Jan-02），已知 $\\hat\\varepsilon_{119}=3.1$。<br>
+    (v) 解释为何该估计可能不可靠。`,
+    a: `<b>(i)</b> 该条件保证模型<b>可逆</b>。<br>
+    <b>(ii)</b> 因白噪声均值为 0，$E[\\nabla E_t]=\\mu$。令其等于一阶差分样本均值得 $\\hat\\mu=0.4$。<br>
+    <b>(iii)</b> $\\{\\nabla E_t\\}$ 的自协方差：$\\gamma_0=(1+\\beta^2)\\sigma^2$，$\\gamma_1=\\beta\\sigma^2$，故 $\\rho_1=\\dfrac{\\beta}{1+\\beta^2}$。由数据表 $\\{\\nabla E_t\\}$ 的 $r_1=-0.245$，令 $\\dfrac{\\beta}{1+\\beta^2}=\\rho_1=r_1=-0.245$：
+
+
+    $$0.245\\beta^2+\\beta+0.245=0\\Rightarrow \\hat\\beta=-0.262\\text{ 或 }-3.82$$
+    因 $\\beta$ 与 $r_1$ 同号（均为负）且要求 $|\\beta|<1$，取负根 $\\hat\\beta=-0.262$。<br>
+    <b>(iv)</b> $\\widehat{\\nabla E}_{120}=\\hat\\mu+\\hat\\beta\\hat\\varepsilon_{119}=0.4+(-0.262)(3.1)\\approx-0.4$，故
+
+
+    $$\\hat E_{120}=E_{119}+\\widehat{\\nabla E}_{120}=134.1+(-0.4)=133.7$$
+    <b>(v)</b> 该序列含强季节成分（见 $\\{\\nabla E_t\\}$ 的 $r_{12}=0.823$），本模型未考虑季节性。实际 Jan-02 值为 132.4，与估计明显不同。`
+  },
+  {
+    id: "14.5", exam: true,
+    q: `来自某平稳过程的 50 个连续观测，样本 ACF 与 PACF 如下：
+    <table class="tbl">
+    <tr><th>Lag</th><th>1</th><th>2</th><th>3</th></tr>
+    <tr><td>ACF</td><td>0.854</td><td>0.820</td><td>0.762</td></tr>
+    <tr><td>PACF</td><td>0.854</td><td>0.371</td><td>0.085</td></tr>
+    </table>
+    样本方差 1.253。<br>
+    (i) 据此建议合适的模型并说明理由。 [2]<br>
+    (ii) 对 AR(1)：$Y_t=a_1Y_{t-1}+e_t$（$e_t$ 均值 0、方差 $\\sigma^2$），用矩法(Yule-Walker)估计 $a_1$ 与 $\\sigma^2$。 [4]<br>
+    (iii) 对 AR(2)：$Y_t=a_1Y_{t-1}+a_2Y_{t-2}+e_t$，用矩法估计 $a_1,a_2,\\sigma^2$。 [7]<br>
+    (iv) 列出两种可对拟合后残差施加的统计检验。 [2]`,
+    a: `<b>(i)</b> ACF 缓慢衰减、PACF 在滞后 2 后截断，是 <b>AR(2)</b> 的特征。<br>
+    <b>(ii)</b> $\\rho_1=a_1\\Rightarrow \\hat a_1=0.854$；由 $\\gamma_0=a_1\\gamma_1+\\sigma^2$，$\\gamma_0=1.253$，$\\gamma_1=0.854\\times1.253$：
+
+
+    $$\\hat\\sigma^2=1.253(1-0.854^2)=0.339$$
+    <b>(iii)</b> Yule-Walker：$\\rho_1=a_1+a_2\\rho_1$，$\\rho_2=a_1\\rho_1+a_2$。代入 $\\rho_1=0.854,\\rho_2=0.820$：
+
+
+    $$\\hat a_2=\\frac{0.820-0.854^2}{1-0.854^2}=0.335,\\quad \\hat a_1=0.854(1-0.335)=0.568$$
+    由 $\\gamma_0=a_1\\gamma_1+a_2\\gamma_2+\\sigma^2$：
+
+
+    $$\\hat\\sigma^2=1.253\\big(1-0.568\\times0.854-0.335\\times0.820\\big)=0.301$$
+    <b>(iv)</b> 任选两种：portmanteau (Ljung-Box) 检验、转折点检验、残差图目视检查、基于 95% 置信区间的 SACF 检查、SPACF 检查。`
+  },
+  {
+    id: "14.6", exam: true,
+    q: `由 $n=500$ 个时间序列实现观测到：
+
+
+    $$\\sum_{i=1}^n x_i=13{,}153.32,\\quad \\sum_{i=1}^n(x_i-\\bar x)^2=3{,}153.67,\\quad \\sum_{i=1}^{n-1}(x_i-\\bar x)(x_{i+1}-\\bar x)=2{,}176.03$$
+    (i) 用上述数据估计模型 $X_t = \\mu + \\alpha_1(X_{t-1}-\\mu)+\\varepsilon_t$ 的参数 $\\mu,\\alpha_1,\\sigma$（$\\varepsilon$ 白噪声、方差 $\\sigma^2$）。 [7]<br>
+    (ii) 拟合后计算得残差序列 $\\hat\\varepsilon_t$ 的转折点数为 280，做统计检验判断是否有证据表明 $\\hat\\varepsilon_t$ 并非由白噪声过程生成。 [3]`,
+    a: `<b>(i)</b> $\\hat\\mu=\\bar x=\\dfrac{13153.32}{500}=26.31$。<br>
+    Yule-Walker：$\\gamma_0=\\sigma^2+\\alpha_1\\gamma_1$，$\\gamma_1=\\alpha_1\\gamma_0$，故 $\\rho_1=\\alpha_1$。
+
+
+    $$\\hat\\gamma_0=\\tfrac{3153.67}{500},\\ \\hat\\gamma_1=\\tfrac{2176.03}{500}\\Rightarrow \\hat\\alpha_1=\\hat\\rho_1=\\frac{2176.03}{3153.67}=0.6900$$
+
+
+    $$\\hat\\sigma^2=\\hat\\gamma_0-\\hat\\alpha_1\\hat\\gamma_1=\\tfrac{3153.67}{500}-0.69\\times\\tfrac{2176.03}{500}=3.3044\\Rightarrow \\hat\\sigma=1.8178$$
+    <b>(ii)</b> $H_0$：残差为白噪声；$H_1$：非白噪声。
+
+
+    $$E(T)=\\tfrac23(498)=332,\\quad \\mathrm{var}(T)=\\tfrac{16\\times500-29}{90}=88.567$$
+    检验统计量（含连续性修正）：
+
+
+    $$\\frac{|280-332|-0.5}{\\sqrt{88.567}}\\approx5.47$$
+    在 $N(0,1)$ 下，$5.47>1.96$，<b>有很强证据拒绝 $H_0$</b>，表明残差并非白噪声。`
+  },
+  {
+    id: "14.7", exam: true,
+    q: `(i) 陈述 Box-Jenkins 拟合 ARIMA 模型方法的三个主要阶段。 [3]<br>
+    (ii) 若观测数据的 ACF 在滞后 1 后截断、PACF 缓慢衰减，说明应拟合哪种 ARIMA 模型并说明理由。 [2]<br>
+    考虑模型 $X_t=\\alpha_1X_{t-1}+\\alpha_2X_{t-2}+\\beta_1e_{t-1}+e_t$（$e_t$ 白噪声、方差 $\\sigma^2$）。<br>
+    (iii) 推导该模型的 Yule-Walker 方程。 [6]<br>
+    (iv) 说明该模型的偏自相关函数是否可能取到 0 值。 [2]`,
+    a: `<b>(i)</b> ① 从 ARIMA 类中初步识别模型；② 估计所识别模型的参数；③ 诊断检验。<br>
+    <b>(ii)</b> ACF 在滞后 1 后截断、PACF 缓慢衰减，是 <b>MA(1)</b> 的特征。<br>
+    <b>(iii)</b> 预备结果：$\\mathrm{cov}(X_t,e_t)=\\sigma^2$，$\\mathrm{cov}(X_t,e_{t-1})=(\\alpha_1+\\beta_1)\\sigma^2$。
+
+
+    $$\\gamma_0=\\alpha_1\\gamma_1+\\alpha_2\\gamma_2+\\big[\\beta_1(\\alpha_1+\\beta_1)+1\\big]\\sigma^2$$
+
+
+    $$\\gamma_1=\\alpha_1\\gamma_0+\\alpha_2\\gamma_1+\\beta_1\\sigma^2$$
+
+
+    $$\\gamma_2=\\alpha_1\\gamma_1+\\alpha_2\\gamma_0$$
+    一般地，对滞后 $k\\geq2$：$\\gamma_k=\\alpha_1\\gamma_{k-1}+\\alpha_2\\gamma_{k-2}$。<br>
+    <b>(iv)</b> 对 MA(q)（$q\\geq1$）过程，PACF 趋于 0 但不完全截断。本模型是 ARMA(2,1)，即含 $q=1$，故 PACF 趋于 0 但不会完全截断，<b>始终存在微小的偏自相关</b>。`
+  }
+];
+
+/* ===== 状态 ===== */
+let selected = new Set(); // 默认全不选
+
+/* ===== 渲染标签 ===== */
+function renderChips(){
+  const box = document.getElementById('chips');
+  box.innerHTML = '';
+  questions.forEach(q => {
+    const c = document.createElement('span');
+    c.className = 'chip' + (q.exam ? ' exam' : '') + (selected.has(q.id) ? ' active' : '');
+    c.textContent = 'Q ' + q.id;
+    c.onclick = () => {
+      if(selected.has(q.id)) selected.delete(q.id); else selected.add(q.id);
+      renderChips(); renderQuiz();
+    };
+    box.appendChild(c);
+  });
+  document.getElementById('count').textContent =
+    `已选 ${selected.size} / ${questions.length} 题（★ 表示 Exam style 考试风格题）`;
+}
+
+/* ===== 渲染题目 ===== */
+function renderQuiz(){
+  const quiz = document.getElementById('quiz');
+  quiz.innerHTML = '';
+  const list = questions.filter(q => selected.has(q.id));
+  if(list.length === 0){
+    quiz.innerHTML = '<div class="card empty">还没有选择题目，请在上方点击标签选择。</div>';
+    return;
+  }
+  list.forEach(q => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="qhead">
+        <span class="qnum">Q ${q.id}</span>
+        ${q.exam ? '<span class="badge">★ Exam style</span>' : ''}
+      </div>
+      <div class="qbody">${q.q}</div>
+      <button class="toggle-ans">显示答案</button>
+      <div class="answer"><div class="atitle">解答 Solution</div>${q.a}</div>
+    `;
+    const btn = card.querySelector('.toggle-ans');
+    const ans = card.querySelector('.answer');
+    btn.onclick = () => {
+      ans.classList.toggle('show');
+      btn.textContent = ans.classList.contains('show') ? '隐藏答案' : '显示答案';
+    };
+    quiz.appendChild(card);
+  });
+  if(window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([quiz]);
+}
+
+/* ===== 工具函数 ===== */
+function selectAll(v){
+  selected = v ? new Set(questions.map(q=>q.id)) : new Set();
+  renderChips(); renderQuiz();
+}
+function randomPick(){
+  const n = parseInt(document.getElementById('randCount').value);
+  const pool = [...questions.map(q=>q.id)];
+  for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
+  selected = new Set(pool.slice(0, n));
+  renderChips(); renderQuiz();
+}
+function toggleAllAns(show){
+  document.querySelectorAll('.card').forEach(card=>{
+    const ans = card.querySelector('.answer');
+    const btn = card.querySelector('.toggle-ans');
+    if(!ans) return;
+    if(show){ ans.classList.add('show'); if(btn) btn.textContent='隐藏答案'; }
+    else { ans.classList.remove('show'); if(btn) btn.textContent='显示答案'; }
+  });
+}
+
+/* ===== 初始化 ===== */
+renderChips();
+renderQuiz();
+</script>
+</body>
+</html>

@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>广义线性模型(GLM)指南</title>
+    <style>
+        /* Tabs Styles */
+        .tabs {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .tab-button {
+            padding: 12px 25px;
+            background: rgba(255, 255, 255, 0.3);
+            border: 2px solid white;
+            color: white;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .tab-button.active {
+            background: white;
+            color: #667eea;
+        }
+        .tab-button:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Simulation Styles */
+        .sim-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .control-group {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+        }
+        .control-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        .control-group select, .control-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .btn-run {
+            width: 100%;
+            padding: 12px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1.1em;
+            transition: background 0.3s;
+        }
+        .btn-run:hover {
+            background: #2980b9;
+        }
+        .charts-container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .chart-box {
+            flex: 1;
+            min-width: 400px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        canvas {
+            width: 100% !important;
+            height: 350px !important;
+        }
+        .stats-panel {
+            margin-top: 15px;
+            padding: 10px;
+            background: #eef7fc;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #7f8c8d;
+            font-size: 1.2em;
+        }
+        
+        .content-section {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+        
+        h2 {
+            color: #3498db;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        
+        h3 {
+            color: #2c3e50;
+            margin: 20px 0 10px 0;
+        }
+        
+        .distribution-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: #f8f9fa;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .distribution-table th {
+            background: #3498db;
+            color: white;
+            padding: 15px;
+            text-align: left;
+        }
+        
+        .distribution-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .distribution-table tr:nth-child(even) {
+            background: #ecf0f1;
+        }
+        
+        .distribution-table tr:hover {
+            background: #d6eaf8;
+        }
+        
+        .formula {
+            background: #f1f8e9;
+            padding: 15px;
+            border-left: 4px solid #7cb342;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            border-radius: 5px;
+        }
+        
+        .mapping-process {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 25px 0;
+            flex-wrap: wrap;
+        }
+        
+        .step {
+            text-align: center;
+            flex: 1;
+            min-width: 200px;
+            margin: 10px;
+            padding: 20px;
+            background: #e3f2fd;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .step-number {
+            background: #3498db;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 10px;
+            font-weight: bold;
+        }
+        
+        .example {
+            background: #fff3e0;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #ff9800;
+        }
+        
+        .highlight {
+            background: #fff9c4;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        
+        @media (max-width: 768px) {
+            .mapping-process {
+                flex-direction: column;
+            }
+            
+            .step {
+                width: 100%;
+                margin: 10px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>广义线性模型(GLM)指南</h1>
+            <p class="subtitle">连接函数选择与映射机制详解</p>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-button active" onclick="switchTab('theory')">理论与映射分析</button>
+            <button class="tab-button" onclick="switchTab('simulation')">模拟实验：分布与连接函数</button>
+        </div>
+        
+        <div id="theory" class="tab-content active">
+            <div class="content-section">
+            <h2>1. 不同分布对应的连接函数选择</h2>
+            <p>广义线性模型通过连接函数将线性预测项与响应变量的均值联系起来。选择合适的连接函数取决于响应变量的分布类型。</p>
+            
+            <table class="distribution-table">
+                <thead>
+                    <tr>
+                        <th>分布类型</th>
+                        <th>典型应用场景</th>
+                        <th>连接函数</th>
+                        <th>连接函数表达式</th>
+                        <th>均值函数</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>正态分布</strong></td>
+                        <td>连续数据，如身高、温度</td>
+                        <td>恒等连接</td>
+                        <td>g(μ) = μ</td>
+                        <td>μ = η</td>
+                    </tr>
+                    <tr>
+                        <td><strong>泊松分布</strong></td>
+                        <td>计数数据，如事件发生次数</td>
+                        <td>对数连接</td>
+                        <td>g(μ) = log(μ)</td>
+                        <td>μ = exp(η)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>二项分布</strong></td>
+                        <td>二元结果，如成功/失败</td>
+                        <td>Logit连接</td>
+                        <td>g(μ) = log(μ/(1-μ))</td>
+                        <td>μ = exp(η)/(1+exp(η))</td>
+                    </tr>
+                    <tr>
+                        <td><strong>伽马分布</strong></td>
+                        <td>正连续数据，如等待时间</td>
+                        <td>逆连接</td>
+                        <td>g(μ) = 1/μ</td>
+                        <td>μ = 1/η</td>
+                    </tr>
+                    <tr>
+                        <td><strong>负二项分布</strong></td>
+                        <td>过度离散的计数数据</td>
+                        <td>对数连接</td>
+                        <td>g(μ) = log(μ)</td>
+                        <td>μ = exp(η)</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <h3>选择原则：</h3>
+            <ul>
+                <li><span class="highlight">规范性</span>：连接函数应确保预测值在响应变量的合理范围内</li>
+                <li><span class="highlight">可解释性</span>：连接函数应便于模型结果的解释</li>
+                <li><span class="highlight">统计性质</span>：应选择能提供良好统计性质的连接函数</li>
+            </ul>
+        </div>
+        
+        <div class="content-section">
+            <h2>2. 连接函数的映射机制</h2>
+            <p>连接函数的核心作用是将线性预测项 η 映射到响应变量的均值 μ。</p>
+            
+            <div class="formula">
+                <strong>GLM基本结构：</strong><br>
+                g(μ) = η = β₀ + β₁X₁ + β₂X₂ + ... + βₖXₖ<br>
+                其中：μ = E(Y|X)，η 是线性预测项，g(·) 是连接函数
+            </div>
+            
+            <h3>映射过程详解：</h3>
+            <div class="mapping-process">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <h4>线性预测</h4>
+                    <p>计算线性组合 η = Xβ</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <h4>连接函数应用</h4>
+                    <p>通过连接函数 g(μ) = η</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <h4>均值转换</h4>
+                    <p>得到均值 μ = g⁻¹(η)</p>
+                </div>
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <h4>响应生成</h4>
+                    <p>Y ~ 指定分布(μ)</p>
+                </div>
+            </div>
+            
+            <h3>具体示例：Logit连接函数（逻辑回归）</h3>
+            <div class="example">
+                <p><strong>连接函数：</strong> g(μ) = log(μ/(1-μ))</p>
+                <p><strong>逆连接函数：</strong> μ = 1/(1+exp(-η))</p>
+                <p><strong>映射过程：</strong></p>
+                <ol>
+                    <li>计算线性预测项：η = β₀ + β₁X₁ + ...</li>
+                    <li>应用连接函数：log(μ/(1-μ)) = η</li>
+                    <li>求解均值：μ = exp(η)/(1+exp(η))</li>
+                    <li>确保 μ 始终在 [0,1] 范围内</li>
+                </ol>
+            </div>
+            
+            <h3>关键数学性质：</h3>
+            <div class="formula">
+                <strong>连接函数必须满足：</strong><br>
+                1. 可逆性：存在逆函数 g⁻¹(·)<br>
+                2. 单调性：保持顺序关系<br>
+                3. 定义域匹配：确保 μ 在合理范围内
+            </div>
+        </div>
+        
+        <div class="content-section">
+            <h2>总结</h2>
+            <p>广义线性模型通过连接函数巧妙地将线性模型的简洁性与各种非正态分布数据的特性结合起来。正确选择连接函数是GLM成功应用的关键，它确保了模型预测的合理性和可解释性。</p>
+            
+            <p><strong>核心要点：</strong></p>
+            <ul>
+                <li>连接函数的选择取决于响应变量的分布类型</li>
+                <li>连接函数将线性预测项映射到响应变量均值</li>
+                <li>映射过程通过连接函数的逆函数实现</li>
+                <li>合适的连接函数确保预测值在合理范围内</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Tab 2: Simulation -->
+    <div id="simulation" class="tab-content">
+        <div class="content-section">
+            <h2>模拟实验：分布与连接函数的影响</h2>
+            <p>本实验展示如何从不同分布生成数据，并观察经过连接函数变换后的数据形态。通过对比原始数据分布 (Y) 和线性预测尺度上的分布 (g(Y))，理解连接函数的作用。</p>
+            
+            <div class="sim-controls">
+                <div class="control-group">
+                    <label>1. 选择分布 (Distribution)</label>
+                    <select id="distSelect" onchange="updateDistParams()">
+                        <option value="normal">正态分布 (Normal)</option>
+                        <option value="exponential">指数分布 (Exponential)</option>
+                        <option value="uniform">均匀分布 (Uniform)</option>
+                        <option value="gamma">伽马分布 (Gamma)</option>
+                        <option value="beta">贝塔分布 (Beta)</option>
+                        <option value="lognormal">对数正态 (Lognormal)</option>
+                        <option value="poisson">泊松分布 (Poisson)</option>
+                        <option value="binomial">二项分布 (Binomial)</option>
+                        <option value="chisq">卡方分布 (Chi-squared)</option>
+                        <option value="t">学生t分布 (Student's t)</option>
+                    </select>
+                    <div id="distParams">
+                        <!-- Dynamic Params -->
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>2. 选择连接函数 (Link Function)</label>
+                    <select id="linkSelect">
+                        <option value="identity">恒等 (Identity): μ</option>
+                        <option value="log">对数 (Log): log(μ)</option>
+                        <option value="logit">Logit: log(μ/(1-μ))</option>
+                        <option value="inverse">倒数 (Inverse): 1/μ</option>
+                        <option value="sqrt">平方根 (Sqrt): √μ</option>
+                        <option value="square">平方 (Square): μ²</option>
+                    </select>
+                    <label style="margin-top:10px">样本量 (N)</label>
+                    <input type="number" id="sampleSize" value="1000" min="100" max="10000">
+                </div>
+
+                <div class="control-group" style="display:flex; align-items:center;">
+                    <button class="btn-run" onclick="runSimulation()">生成数据并映射</button>
+                </div>
+            </div>
+
+            <div class="charts-container">
+                <div class="chart-box">
+                    <h3>原始数据分布 Y</h3>
+                    <canvas id="canvasY"></canvas>
+                    <div id="statsY" class="stats-panel"></div>
+                </div>
+                <div class="chart-box">
+                    <h3>变换后分布 g(Y)</h3>
+                    <div style="font-size:0.9em; color:#666; margin-bottom:5px;">(线性预测器尺度 η)</div>
+                    <canvas id="canvasG"></canvas>
+                    <div id="statsG" class="stats-panel"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            // Update button state logic
+            const btns = document.querySelectorAll('.tab-button');
+            if(tabId === 'theory') btns[0].classList.add('active');
+            else btns[1].classList.add('active');
+            
+            if(tabId === 'simulation') {
+                setTimeout(runSimulation, 100);
+            }
+        }
+
+        // Random Number Generators
+        const Random = {
+            // Box-Muller transform for Normal
+            normal: (mu, sigma) => {
+                let u = 0, v = 0;
+                while(u === 0) u = Math.random();
+                while(v === 0) v = Math.random();
+                return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v) * sigma + mu;
+            },
+            exponential: (lambda) => -Math.log(1.0 - Math.random()) / lambda,
+            uniform: (min, max) => Math.random() * (max - min) + min,
+            gamma: (alpha, beta) => {
+                // Marsaglia and Tsang method for alpha > 1
+                if (alpha > 1) {
+                    const d = alpha - 1/3, c = 1/Math.sqrt(9*d);
+                    while (true) {
+                        let z, v;
+                        do { z = Random.normal(0,1); v = 1 + c*z; } while (v <= 0);
+                        v = v*v*v;
+                        if (Math.random() < 1 - 0.0331*Math.pow(z,4)) return d*v/beta;
+                        if (Math.log(Math.random()) < 0.5*z*z + d*(1-v+Math.log(v))) return d*v/beta;
+                    }
+                } else {
+                    return Random.gamma(alpha + 1, beta) * Math.pow(Math.random(), 1/alpha);
+                }
+            },
+            beta: (alpha, beta) => {
+                const x = Random.gamma(alpha, 1);
+                const y = Random.gamma(beta, 1);
+                return x / (x + y);
+            },
+            lognormal: (mu, sigma) => Math.exp(Random.normal(mu, sigma)),
+            poisson: (lambda) => {
+                const L = Math.exp(-lambda);
+                let k = 0, p = 1;
+                do { k++; p *= Math.random(); } while (p > L);
+                return k - 1;
+            },
+            binomial: (n, p) => {
+                let count = 0;
+                for(let i=0; i<n; i++) if(Math.random() < p) count++;
+                return count;
+            },
+            chisq: (k) => Random.gamma(k/2, 0.5),
+            t: (df) => {
+                const z = Random.normal(0, 1);
+                const v = Random.chisq(df);
+                return z / Math.sqrt(v/df);
+            }
+        };
+
+        const distConfig = {
+            normal: { params: [{name:'均值 (μ)', id:'p1', val:0}, {name:'标准差 (σ)', id:'p2', val:1}] },
+            exponential: { params: [{name:'率参数 (λ)', id:'p1', val:1}] },
+            uniform: { params: [{name:'最小值 (Min)', id:'p1', val:0}, {name:'最大值 (Max)', id:'p2', val:1}] },
+            gamma: { params: [{name:'形状 (α)', id:'p1', val:2}, {name:'速率 (β)', id:'p2', val:1}] },
+            beta: { params: [{name:'α', id:'p1', val:2}, {name:'β', id:'p2', val:5}] },
+            lognormal: { params: [{name:'对数均值', id:'p1', val:0}, {name:'对数标准差', id:'p2', val:0.5}] },
+            poisson: { params: [{name:'Lambda (λ)', id:'p1', val:5}] },
+            binomial: { params: [{name:'试验次数 (n)', id:'p1', val:20}, {name:'概率 (p)', id:'p2', val:0.5}] },
+            chisq: { params: [{name:'自由度 (k)', id:'p1', val:5}] },
+            t: { params: [{name:'自由度 (df)', id:'p1', val:10}] }
+        };
+
+        function updateDistParams() {
+            const dist = document.getElementById('distSelect').value;
+            const container = document.getElementById('distParams');
+            const config = distConfig[dist];
+            
+            let html = '';
+            config.params.forEach(p => {
+                html += `<label style="font-weight:normal; font-size:0.9em; margin-top:5px;">${p.name}</label>`;
+                html += `<input type="number" class="param-input" id="${p.id}" value="${p.val}" step="0.1">`;
+            });
+            container.innerHTML = html;
+        }
+
+        const Links = {
+            identity: (y) => y,
+            log: (y) => y > 0 ? Math.log(y) : NaN,
+            logit: (y) => (y > 0 && y < 1) ? Math.log(y/(1-y)) : NaN,
+            inverse: (y) => y !== 0 ? 1/y : NaN,
+            sqrt: (y) => y >= 0 ? Math.sqrt(y) : NaN,
+            square: (y) => y * y
+        };
+
+        function runSimulation() {
+            const dist = document.getElementById('distSelect').value;
+            const linkName = document.getElementById('linkSelect').value;
+            const N = parseInt(document.getElementById('sampleSize').value);
+            
+            // Get params
+            const p1 = parseFloat(document.getElementById('p1').value);
+            const p2 = document.getElementById('p2') ? parseFloat(document.getElementById('p2').value) : null;
+            
+            // Generate Data
+            const Y = [];
+            const gY = [];
+            const linkFn = Links[linkName];
+            
+            let invalidCount = 0;
+
+            for(let i=0; i<N; i++) {
+                let val;
+                switch(dist) {
+                    case 'normal': val = Random.normal(p1, p2); break;
+                    case 'exponential': val = Random.exponential(p1); break;
+                    case 'uniform': val = Random.uniform(p1, p2); break;
+                    case 'gamma': val = Random.gamma(p1, p2); break;
+                    case 'beta': val = Random.beta(p1, p2); break;
+                    case 'lognormal': val = Random.lognormal(p1, p2); break;
+                    case 'poisson': val = Random.poisson(p1); break;
+                    case 'binomial': val = Random.binomial(p1, p2); break; // Note: usually we model probability, but here we transform count
+                    case 'chisq': val = Random.chisq(p1); break;
+                    case 't': val = Random.t(p1); break;
+                }
+                
+                // For binomial GLM we usually model Y/n, but here let's just use raw value or proportion? 
+                // Let's stick to raw value for consistency unless it's beta/binomial proportion logic.
+                // Actually for binomial logit link, we usually need proportion.
+                // Let's normalize binomial to proportion for better logit link demo
+                if(dist === 'binomial' && linkName === 'logit') {
+                     val = val / p1; // p1 is n
+                     // Avoid 0 and 1 for logit
+                     if(val === 0) val = 0.001;
+                     if(val === 1) val = 0.999;
+                }
+
+                Y.push(val);
+                
+                const transformed = linkFn(val);
+                if(isNaN(transformed) || !isFinite(transformed)) {
+                    invalidCount++;
+                } else {
+                    gY.push(transformed);
+                }
+            }
+
+            drawHistogram('canvasY', Y, '原始数据 Y', '#3498db');
+            drawHistogram('canvasG', gY, `变换后 g(Y) (${linkName})`, '#9b59b6');
+            
+            // Stats
+            calcStats('statsY', Y);
+            calcStats('statsG', gY, invalidCount);
+        }
+
+        function drawHistogram(canvasId, data, label, color) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            
+            // Reset canvas size
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            const w = canvas.width;
+            const h = canvas.height;
+            const padding = 40;
+
+            if(data.length === 0) {
+                ctx.fillText("No valid data", w/2, h/2);
+                return;
+            }
+
+            const min = Math.min(...data);
+            const max = Math.max(...data);
+            const range = max - min;
+            
+            const bins = 30;
+            const binWidth = range / bins;
+            const counts = new Array(bins).fill(0);
+            
+            data.forEach(v => {
+                const idx = Math.min(Math.floor((v - min) / binWidth), bins-1);
+                counts[idx]++;
+            });
+            
+            const maxCount = Math.max(...counts);
+            
+            // Draw
+            ctx.clearRect(0,0,w,h);
+            
+            // Bars
+            const barW = (w - 2*padding) / bins;
+            ctx.fillStyle = color;
+            
+            counts.forEach((count, i) => {
+                const barH = (count / maxCount) * (h - 2*padding);
+                const x = padding + i * barW;
+                const y = h - padding - barH;
+                ctx.fillRect(x + 1, y, barW - 2, barH);
+            });
+            
+            // Axes
+            ctx.beginPath();
+            ctx.strokeStyle = '#333';
+            ctx.moveTo(padding, h - padding);
+            ctx.lineTo(w - padding, h - padding); // X
+            ctx.moveTo(padding, h - padding);
+            ctx.lineTo(padding, padding); // Y
+            ctx.stroke();
+            
+            // Labels
+            ctx.fillStyle = '#333';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(min.toFixed(2), padding, h - padding + 20);
+            ctx.fillText(max.toFixed(2), w - padding, h - padding + 20);
+            ctx.fillText(label, w/2, padding - 10);
+        }
+
+        function calcStats(elemId, data, invalid=0) {
+            if(data.length === 0) {
+                document.getElementById(elemId).innerHTML = "无有效数据";
+                return;
+            }
+            const sum = data.reduce((a,b)=>a+b,0);
+            const mean = sum / data.length;
+            const variance = data.reduce((a,b)=>a+(b-mean)**2,0) / data.length;
+            
+            let html = `均值: ${mean.toFixed(4)}<br>方差: ${variance.toFixed(4)}<br>样本数: ${data.length}`;
+            if(invalid > 0) html += `<br><span style="color:red">无效变换: ${invalid} (超出定义域)</span>`;
+            
+            document.getElementById(elemId).innerHTML = html;
+        }
+
+        // Init
+        updateDistParams();
+    </script>
+    </div>
+</body>
+</html>

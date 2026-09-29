@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>k-means 聚类：k 的选择与“类内平方和”肘部图</title>
+    <script src="vendor/chart.umd.min.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f6f9;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+        .container {
+            display: flex;
+            flex: 1;
+            gap: 20px;
+            overflow: hidden;
+        }
+        .sidebar {
+            width: 320px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .main-content {
+            flex: 1;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .control-group {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .control-group h3 {
+            margin: 0 0 10px 0;
+            font-size: 1rem;
+            color: #34495e;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+            color: #555;
+        }
+        input[type="range"], input[type="number"], select {
+            width: 100%;
+            margin-bottom: 5px;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 5px;
+            font-size: 0.9rem;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button.secondary {
+            background-color: #95a5a6;
+        }
+        button.secondary:hover {
+            background-color: #7f8c8d;
+        }
+        .value-display {
+            float: right;
+            font-weight: bold;
+            color: #3498db;
+        }
+        .canvas-wrapper {
+            flex: 1;
+            position: relative;
+            min-height: 300px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+        }
+        .chart-wrapper {
+            height: 250px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            padding: 10px;
+        }
+        .metrics-panel {
+            padding: 10px;
+            background: #eef2f7;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #e74c3c;
+        }
+        .note {
+            font-size: 0.85rem;
+            color: #666;
+            background: #fff3cd;
+            padding: 8px;
+            border-left: 4px solid #ffc107;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>k-means 聚类：k 的选择与“类内平方和”肘部图</h1>
+
+    <div class="container">
+        <div class="sidebar">
+            <div class="control-group">
+                <h3>1. 数据生成 (Data Gen)</h3>
+                <label>
+                    真实簇数量 (True K): <span id="trueK-val" class="value-display">3</span>
+                    <input type="range" id="trueK" min="1" max="6" step="1" value="3">
+                </label>
+                <label>
+                    簇分散度 (Spread): <span id="spread-val" class="value-display">1.0</span>
+                    <input type="range" id="spread" min="0.2" max="2.0" step="0.1" value="1.0">
+                </label>
+                <button onclick="generateData()">重新生成数据</button>
+            </div>
+
+            <div class="control-group">
+                <h3>2. 模型参数 (Model)</h3>
+                <label>
+                    聚类数 k: <span id="k-val" class="value-display">3</span>
+                    <input type="range" id="k" min="1" max="10" step="1" value="3">
+                </label>
+                <label>
+                    初始化方式:
+                    <select id="initMethod">
+                        <option value="random">Random (随机)</option>
+                        <option value="kmeans++">k-means++ (较优)</option>
+                    </select>
+                </label>
+                <button onclick="runKMeansCurrent()">运行 k-means (Run)</button>
+                <button class="secondary" onclick="calculateElbow()">生成肘部图 (Elbow Plot)</button>
+            </div>
+
+            <div class="note">
+                <strong>观察点：</strong><br>
+                1. 调整 k 值，观察聚类结果。<br>
+                2. 当 k < True K 时，发生“欠拟合”（多个簇合并）。<br>
+                3. 当 k > True K 时，发生“过分切割”。<br>
+                4. 点击“生成肘部图”，寻找 SSE 下降变缓的拐点（肘部）。<br>
+                5. 尝试“随机”初始化，多点几次运行，观察结果的不稳定性。
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="canvas-wrapper">
+                <canvas id="scatterCanvas"></canvas>
+            </div>
+            
+            <div class="metrics-panel">
+                当前 k=<span id="current-k-display">3</span>, 类内平方和 (SSE) = <span id="current-sse" class="metric-value">0.00</span>
+            </div>
+
+            <div class="chart-wrapper">
+                <canvas id="elbowChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let points = [];
+        let centroids = [];
+        let assignments = [];
+        let trueCentroids = [];
+        const canvas = document.getElementById('scatterCanvas');
+        const ctx = canvas.getContext('2d');
+        let elbowChartInstance = null;
+
+        // Params
+        let params = {
+            trueK: 3,
+            spread: 1.0,
+            k: 3,
+            initMethod: 'random'
+        };
+
+        // Inputs
+        const inputs = {
+            trueK: document.getElementById('trueK'),
+            spread: document.getElementById('spread'),
+            k: document.getElementById('k'),
+            initMethod: document.getElementById('initMethod')
+        };
+
+        // Listeners
+        inputs.trueK.addEventListener('input', (e) => {
+            params.trueK = parseInt(e.target.value);
+            document.getElementById('trueK-val').innerText = params.trueK;
+            generateData();
+        });
+        inputs.spread.addEventListener('input', (e) => {
+            params.spread = parseFloat(e.target.value);
+            document.getElementById('spread-val').innerText = params.spread;
+            generateData();
+        });
+        inputs.k.addEventListener('input', (e) => {
+            params.k = parseInt(e.target.value);
+            document.getElementById('k-val').innerText = params.k;
+            runKMeansCurrent();
+        });
+        inputs.initMethod.addEventListener('change', (e) => {
+            params.initMethod = e.target.value;
+            runKMeansCurrent();
+        });
+
+        // Utils
+        function randn_bm() {
+            let u = 0, v = 0;
+            while(u === 0) u = Math.random(); 
+            while(v === 0) v = Math.random();
+            return Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
+        }
+
+        function generateData() {
+            points = [];
+            trueCentroids = [];
+            const n_per_cluster = 50;
+            
+            // Generate True Centroids randomly in canvas space (normalized 0-100)
+            for(let i=0; i<params.trueK; i++) {
+                trueCentroids.push({
+                    x: 10 + Math.random() * 80,
+                    y: 10 + Math.random() * 80,
+                    color: `hsl(${i * 360 / params.trueK}, 70%, 50%)`
+                });
+            }
+
+            for(let i=0; i<params.trueK; i++) {
+                for(let j=0; j<n_per_cluster; j++) {
+                    points.push({
+                        x: trueCentroids[i].x + randn_bm() * 3 * params.spread,
+                        y: trueCentroids[i].y + randn_bm() * 3 * params.spread,
+                        trueLabel: i
+                    });
+                }
+            }
+            
+            // Reset charts
+            if(elbowChartInstance) {
+                elbowChartInstance.destroy();
+                elbowChartInstance = null;
+            }
+            
+            runKMeansCurrent();
+        }
+
+        // K-Means Algorithm
+        function distance(p1, p2) {
+            return (p1.x - p2.x)**2 + (p1.y - p2.y)**2;
+        }
+
+        function initCentroids(k, data, method) {
+            let cents = [];
+            if (method === 'random') {
+                // Pick k random points as initial centroids
+                const indices = new Set();
+                while(indices.size < k && indices.size < data.length) {
+                    indices.add(Math.floor(Math.random() * data.length));
+                }
+                indices.forEach(idx => cents.push({...data[idx]}));
+            } else if (method === 'kmeans++') {
+                // 1. Choose one center uniformly at random from among the data points.
+                cents.push({...data[Math.floor(Math.random() * data.length)]});
+                
+                // 2. For each data point x, compute D(x), the distance between x and the nearest center that has already been chosen.
+                while (cents.length < k) {
+                    let dists = data.map(p => {
+                        let minD = Infinity;
+                        cents.forEach(c => {
+                            let d = distance(p, c);
+                            if(d < minD) minD = d;
+                        });
+                        return minD;
+                    });
+                    
+                    // 3. Choose one new data point at random as a new center, using a weighted probability distribution where a point x is chosen with probability proportional to D(x)^2.
+                    let sumD = dists.reduce((a,b) => a+b, 0);
+                    let r = Math.random() * sumD;
+                    let cum = 0;
+                    let chosenIdx = -1;
+                    for(let i=0; i<dists.length; i++) {
+                        cum += dists[i];
+                        if (cum >= r) {
+                            chosenIdx = i;
+                            break;
+                        }
+                    }
+                    if (chosenIdx === -1) chosenIdx = dists.length - 1;
+                    cents.push({...data[chosenIdx]});
+                }
+            }
+            return cents;
+        }
+
+        function runKMeansAlgorithm(k, data, method) {
+            if (k <= 0) return { sse: 0, centroids: [], assignments: [] };
+            
+            // 1. Init
+            let currentCentroids = initCentroids(k, data, method);
+            let currentAssignments = new Array(data.length).fill(-1);
+            let converged = false;
+            let maxIter = 20; // Fast enough for UI
+            
+            for(let iter=0; iter<maxIter; iter++) {
+                let changed = false;
+                
+                // 2. Assign
+                let newAssignments = data.map(p => {
+                    let minDist = Infinity;
+                    let label = -1;
+                    currentCentroids.forEach((c, idx) => {
+                        let d = distance(p, c);
+                        if (d < minDist) {
+                            minDist = d;
+                            label = idx;
+                        }
+                    });
+                    return label;
+                });
+                
+                for(let i=0; i<data.length; i++) {
+                    if(newAssignments[i] !== currentAssignments[i]) {
+                        changed = true;
+                        break;
+                    }
+                }
+                currentAssignments = newAssignments;
+                
+                if (!changed) break;
+                
+                // 3. Update
+                let sums = Array(k).fill(0).map(() => ({x:0, y:0, count:0}));
+                data.forEach((p, i) => {
+                    let label = currentAssignments[i];
+                    sums[label].x += p.x;
+                    sums[label].y += p.y;
+                    sums[label].count++;
+                });
+                
+                currentCentroids = sums.map((s, i) => {
+                    if (s.count === 0) return currentCentroids[i]; // Keep old if empty (rare but possible)
+                    return { x: s.x / s.count, y: s.y / s.count };
+                });
+            }
+            
+            // Calculate SSE
+            let sse = 0;
+            data.forEach((p, i) => {
+                let label = currentAssignments[i];
+                sse += distance(p, currentCentroids[label]);
+            });
+            
+            return { sse, centroids: currentCentroids, assignments: currentAssignments };
+        }
+
+        function runKMeansCurrent() {
+            const result = runKMeansAlgorithm(params.k, points, params.initMethod);
+            centroids = result.centroids;
+            assignments = result.assignments;
+            
+            // Update UI
+            document.getElementById('current-k-display').innerText = params.k;
+            document.getElementById('current-sse').innerText = result.sse.toFixed(1);
+            
+            drawScatter();
+        }
+
+        function calculateElbow() {
+            const maxK = 10;
+            const sseData = [];
+            const kLabels = [];
+            
+            // For stability in Elbow plot, maybe use kmeans++ always or average of random?
+            // Let's use the currently selected method to show its behavior.
+            
+            for(let k=1; k<=maxK; k++) {
+                let bestSSE = Infinity;
+                // Run a few times to get a stable curve if using random, otherwise curve looks jagged
+                // But prompt says "different initialization comparison", so maybe we shouldn't hide instability?
+                // However, for an "Elbow Plot" usually we want the 'best' SSE for that k.
+                // Let's run 3 times and pick best to smooth it a bit.
+                for(let r=0; r<3; r++) {
+                    const res = runKMeansAlgorithm(k, points, params.initMethod);
+                    if (res.sse < bestSSE) bestSSE = res.sse;
+                }
+                sseData.push(bestSSE);
+                kLabels.push(k);
+            }
+            
+            drawElbowChart(kLabels, sseData);
+        }
+
+        function drawScatter() {
+            // Resize
+            const wrapper = canvas.parentElement;
+            canvas.width = wrapper.clientWidth;
+            canvas.height = wrapper.clientHeight;
+            
+            // Clear
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Coordinate mapping (0-100 to canvas)
+            // Add padding
+            const padding = 20;
+            const w = canvas.width - 2*padding;
+            const h = canvas.height - 2*padding;
+            
+            function toCX(x) { return padding + (x / 100) * w; }
+            function toCY(y) { return canvas.height - (padding + (y / 100) * h); }
+            
+            // Draw Points
+            points.forEach((p, i) => {
+                const label = assignments[i];
+                const cx = toCX(p.x);
+                const cy = toCY(p.y);
+                
+                ctx.beginPath();
+                ctx.arc(cx, cy, 4, 0, 2 * Math.PI);
+                
+                // Color based on assigned cluster
+                // Use HSL for distinct colors
+                const hue = (label * 137.508) % 360; // Golden angle approx
+                ctx.fillStyle = `hsl(${hue}, 70%, 60%)`;
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.stroke();
+            });
+            
+            // Draw Centroids
+            centroids.forEach((c, i) => {
+                const cx = toCX(c.x);
+                const cy = toCY(c.y);
+                
+                // X mark or large circle
+                ctx.beginPath();
+                ctx.arc(cx, cy, 8, 0, 2 * Math.PI);
+                ctx.fillStyle = 'black';
+                ctx.fill();
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.fillStyle = 'white';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('X', cx, cy);
+            });
+        }
+
+        function drawElbowChart(labels, data) {
+            const ctxChart = document.getElementById('elbowChart').getContext('2d');
+            
+            if (elbowChartInstance) {
+                elbowChartInstance.destroy();
+            }
+            
+            elbowChartInstance = new Chart(ctxChart, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '类内平方和 (SSE)',
+                        data: data,
+                        borderColor: '#e74c3c',
+                        backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#fff',
+                        pointBorderColor: '#e74c3c'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'SSE (Sum of Squared Errors)' }
+                        },
+                        x: {
+                            title: { display: true, text: 'Number of Clusters (k)' }
+                        }
+                    },
+                    plugins: {
+                        annotation: {
+                            // Can add annotation if needed
+                        }
+                    }
+                }
+            });
+        }
+
+        // Init
+        window.addEventListener('resize', drawScatter);
+        generateData(); // This triggers runKMeansCurrent inside
+
+    </script>
+  <script src="vendor/mathjax-loader.js"></script>
+  <script src="vendor/mathjax-tex-svg.js"></script>
+</body>
+</html>

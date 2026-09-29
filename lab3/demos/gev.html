@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GEV 分布交互实验</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #3498db;
+            --bg-color: #f5f7fa;
+            --panel-bg: #ffffff;
+            --text-color: #333;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 { margin-top: 0; color: var(--primary-color); }
+        h2 { font-size: 1.1em; color: var(--accent-color); margin-bottom: 10px; }
+        
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            max-width: 1400px;
+            width: 100%;
+        }
+
+        .control-panel {
+            flex: 1;
+            min-width: 300px;
+            background: var(--panel-bg);
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .charts-panel {
+            flex: 3;
+            min-width: 600px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .chart-card {
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .control-group {
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        input[type="range"] {
+            flex-grow: 1;
+            cursor: pointer;
+        }
+
+        .value-display {
+            width: 60px;
+            text-align: right;
+            font-family: monospace;
+            font-weight: bold;
+            color: var(--accent-color);
+        }
+
+        .info-box {
+            background-color: #e8f4fd;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid var(--accent-color);
+            margin-top: 20px;
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+
+        .formula-box {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: 'Times New Roman', Times, serif;
+            font-style: italic;
+            text-align: center;
+            margin: 10px 0;
+            border: 1px solid #eee;
+        }
+
+        canvas {
+            width: 100%;
+            height: 300px;
+        }
+        
+        .legend {
+            font-size: 0.85em;
+            color: #666;
+            text-align: center;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>GEV 三种类型与形状参数 &gamma;</h1>
+
+    <div class="container">
+        <!-- 控制面板 -->
+        <div class="control-panel">
+            <div class="control-group">
+                <label>形状参数 &gamma; (Shape)</label>
+                <div class="slider-container">
+                    <span>-0.5</span>
+                    <input type="range" id="gamma" min="-0.5" max="0.5" step="0.05" value="0" oninput="updateSimulation()">
+                    <span>0.5</span>
+                </div>
+                <div style="text-align: right; margin-top: 5px;">当前值: <span id="gamma-val" class="value-display">0</span></div>
+            </div>
+
+            <div class="control-group">
+                <label>位置参数 &alpha; (Location)</label>
+                <div class="slider-container">
+                    <span>-5</span>
+                    <input type="range" id="alpha" min="-5" max="5" step="0.1" value="0" oninput="updateSimulation()">
+                    <span>5</span>
+                </div>
+                <div style="text-align: right; margin-top: 5px;">当前值: <span id="alpha-val" class="value-display">0</span></div>
+            </div>
+
+            <div class="control-group">
+                <label>尺度参数 &beta; (Scale)</label>
+                <div class="slider-container">
+                    <span>0.1</span>
+                    <input type="range" id="beta" min="0.1" max="5" step="0.1" value="1" oninput="updateSimulation()">
+                    <span>5</span>
+                </div>
+                <div style="text-align: right; margin-top: 5px;">当前值: <span id="beta-val" class="value-display">1</span></div>
+            </div>
+
+            <div class="info-box">
+                <h3>当前分布类型: <span id="dist-type" style="color: #e74c3c;">Gumbel</span></h3>
+                <p id="dist-desc">
+                    当 &gamma; = 0 时，GEV 退化为 <strong>Gumbel 分布</strong>。<br>
+                    特点：尾部呈指数衰减（轻尾），无上下界。
+                </p>
+                <div class="formula-box" id="formula-display">
+                    F(x) = exp(-exp(-(x-&alpha;)/&beta;))
+                </div>
+            </div>
+            
+            <div class="info-box" style="margin-top: 15px; background-color: #fff8e1; border-left-color: #f1c40f;">
+                <strong>学习重点：</strong>
+                <ul style="padding-left: 20px; margin: 5px 0;">
+                    <li>观察 &gamma; 正负对尾部厚薄的影响。</li>
+                    <li>&gamma; > 0 (Fréchet): 重尾，有下界。</li>
+                    <li>&gamma; < 0 (Weibull): 短尾，有上界。</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- 可视化面板 -->
+        <div class="charts-panel">
+            <div class="chart-card">
+                <h2>1. 概率密度函数 (PDF)</h2>
+                <canvas id="chart-pdf"></canvas>
+                <div class="legend">蓝色实线: 当前 GEV 分布</div>
+            </div>
+
+            <div class="chart-card">
+                <h2>2. 累积分布函数 (CDF)</h2>
+                <canvas id="chart-cdf"></canvas>
+            </div>
+            
+            <div class="chart-card">
+                <h2>3. 尾部放大图 (Tail Zoom - PDF)</h2>
+                <p style="font-size: 0.9em; color: #666; margin-top:0;">展示高分位区间 (x 较大) 的密度形态，观察尾部衰减速度。</p>
+                <canvas id="chart-tail"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- GEV 数学函数 ---
+        function calculateGEV(x, alpha, beta, gamma) {
+            const z = (x - alpha) / beta;
+            let pdf = 0;
+            let cdf = 0;
+            
+            // 阈值处理，避免数值溢出
+            const EPSILON = 1e-6;
+
+            if (Math.abs(gamma) < EPSILON) {
+                // Gumbel Case (gamma -> 0)
+                const t = Math.exp(-z);
+                cdf = Math.exp(-t);
+                pdf = (1 / beta) * t * Math.exp(-t);
+            } else {
+                // Fréchet (gamma > 0) or Weibull (gamma < 0)
+                const arg = 1 + gamma * z;
+                
+                // 检查支撑集 (Support)
+                if (arg <= 0) {
+                    if (gamma > 0) { // Fréchet lower bound violation (x < alpha - beta/gamma)
+                        pdf = 0;
+                        cdf = 0;
+                    } else { // Weibull upper bound violation (x > alpha - beta/gamma)
+                        pdf = 0;
+                        cdf = 1;
+                    }
+                } else {
+                    const t = Math.pow(arg, -1 / gamma);
+                    cdf = Math.exp(-t);
+                    pdf = (1 / beta) * Math.pow(t, gamma + 1) * Math.exp(-t);
+                }
+            }
+            return { pdf, cdf };
+        }
+
+        // --- 绘图逻辑 ---
+        function updateSimulation() {
+            const gamma = parseFloat(document.getElementById('gamma').value);
+            const alpha = parseFloat(document.getElementById('alpha').value);
+            const beta = parseFloat(document.getElementById('beta').value);
+
+            // 更新显示值
+            document.getElementById('gamma-val').textContent = gamma.toFixed(2);
+            document.getElementById('alpha-val').textContent = alpha.toFixed(1);
+            document.getElementById('beta-val').textContent = beta.toFixed(1);
+
+            // 更新说明文字
+            updateDescription(gamma, alpha, beta);
+
+            // 生成绘图数据
+            // 自动确定 X 轴范围
+            // GEV 的中心大约在 alpha 附近，宽度与 beta 有关
+            // 粗略估计范围：[alpha - 5*beta, alpha + 10*beta] 对于重尾可能需要更宽
+            
+            let xMin = alpha - 6 * beta;
+            let xMax = alpha + 10 * beta;
+            
+            // 如果是 Weibull (gamma < 0)，有上界 alpha - beta/gamma
+            if (gamma < -0.01) {
+                const upperBound = alpha - beta / gamma;
+                xMax = Math.min(xMax, upperBound + 1*beta); // 稍微画出界一点点
+                xMin = Math.max(xMin, upperBound - 15*beta); // 往左多画点
+            }
+            // 如果是 Fréchet (gamma > 0)，有下界 alpha - beta/gamma
+            if (gamma > 0.01) {
+                const lowerBound = alpha - beta / gamma;
+                xMin = Math.max(xMin, lowerBound - 1*beta);
+                xMax = Math.max(xMax, lowerBound + 15*beta); // 往右多画点
+            }
+
+            const points = 500;
+            const step = (xMax - xMin) / points;
+            
+            const dataX = [];
+            const dataPDF = [];
+            const dataCDF = [];
+
+            for (let i = 0; i <= points; i++) {
+                const x = xMin + i * step;
+                const res = calculateGEV(x, alpha, beta, gamma);
+                dataX.push(x);
+                dataPDF.push(res.pdf);
+                dataCDF.push(res.cdf);
+            }
+
+            // 绘制 PDF 和 CDF
+            drawChart('chart-pdf', dataX, dataPDF, '概率密度函数 PDF', 'x', 'f(x)', '#3498db', true);
+            drawChart('chart-cdf', dataX, dataCDF, '累积分布函数 CDF', 'x', 'F(x)', '#2c3e50', false);
+
+            // 绘制尾部放大图
+            // 取右侧 20% 的区域或者基于分位点
+            // 我们取 CDF 从 0.8 到 0.999 的区域
+            // 需要反解 Quantile 或者简单的扫描
+            
+            let tailX = [];
+            let tailPDF = [];
+            
+            // 找到 CDF > 0.8 的起始索引
+            let startIdx = dataCDF.findIndex(p => p >= 0.75);
+            if (startIdx === -1) startIdx = Math.floor(points * 0.75);
+            
+            // 如果 gamma < 0 (Weibull)，尾部可能被截断，需要特殊处理
+            // 直接使用 dataX 的后半段即可，因为 xMax 已经根据 bound 调整过
+            
+            // 为了更好的“放大”效果，我们可以重新采样高分位区间
+            // 估计 x_0.8 和 x_0.999
+            let qStart = 0, qEnd = 0;
+            
+            // 简单的数值反函数 (Quantile function) 近似
+            // x_p = alpha + (beta/gamma) * ((-ln(p))^(-gamma) - 1)  (gamma != 0)
+            // x_p = alpha - beta * ln(-ln(p)) (gamma = 0)
+            
+            function getQuantile(p) {
+                if (Math.abs(gamma) < 1e-6) {
+                    return alpha - beta * Math.log(-Math.log(p));
+                } else {
+                    return alpha + (beta / gamma) * (Math.pow(-Math.log(p), -gamma) - 1);
+                }
+            }
+            
+            // 防止 p=1 导致无穷大
+            let xTailStart = getQuantile(0.80);
+            let xTailEnd = getQuantile(0.995); 
+            
+            // 如果是 Weibull，xTailEnd 不能超过上界
+            if (gamma < -0.01) {
+                const ub = alpha - beta / gamma;
+                if (xTailEnd > ub) xTailEnd = ub;
+            }
+            
+            // 重新采样 200 个点用于尾部图
+            const tailStep = (xTailEnd - xTailStart) / 200;
+            for(let i=0; i<=200; i++) {
+                const x = xTailStart + i * tailStep;
+                const res = calculateGEV(x, alpha, beta, gamma);
+                tailX.push(x);
+                tailPDF.push(res.pdf);
+            }
+            
+            drawChart('chart-tail', tailX, tailPDF, '尾部放大图 (Quantile 0.80 - 0.995)', 'x', 'f(x)', '#e74c3c', true);
+        }
+
+        function updateDescription(gamma, alpha, beta) {
+            const typeSpan = document.getElementById('dist-type');
+            const descP = document.getElementById('dist-desc');
+            const formDiv = document.getElementById('formula-display');
+
+            if (Math.abs(gamma) < 0.01) {
+                typeSpan.textContent = "Gumbel (I 型)";
+                typeSpan.style.color = "#27ae60"; // Green
+                descP.innerHTML = "<strong>Gumbel 分布</strong> (&gamma; &approx; 0)<br>尾部呈指数衰减（轻尾）。常用于模拟最大值的分布（如洪水水位、风速）。<br>定义域: (-&infin;, +&infin;)";
+                formDiv.innerHTML = "F(x) = exp[ -exp( -(x - &alpha;)/&beta; ) ]";
+            } else if (gamma > 0) {
+                typeSpan.textContent = "Fréchet (II 型)";
+                typeSpan.style.color = "#e74c3c"; // Red
+                descP.innerHTML = `<strong>Fréchet 分布</strong> (&gamma; = ${gamma.toFixed(2)} > 0)<br><strong>重尾分布</strong>，下降速度比指数慢（多项式衰减）。<br>有下界: x > ${ (alpha - beta/gamma).toFixed(2) }`;
+                formDiv.innerHTML = "F(x) = exp[ - (1 + &gamma;z)^(-1/&gamma;) ],  z = (x-&alpha;)/&beta;";
+            } else {
+                typeSpan.textContent = "Weibull (III 型)";
+                typeSpan.style.color = "#8e44ad"; // Purple
+                descP.innerHTML = `<strong>Weibull 分布</strong> (&gamma; = ${gamma.toFixed(2)} < 0)<br><strong>短尾分布</strong>，概率密度在有限处截断。<br>有上界: x < ${ (alpha - beta/gamma).toFixed(2) }`;
+                formDiv.innerHTML = "F(x) = exp[ - (1 + &gamma;z)^(-1/&gamma;) ],  z = (x-&alpha;)/&beta;";
+            }
+        }
+
+        // --- Canvas 绘图工具函数 ---
+        function drawChart(canvasId, xData, yData, title, xLabel, yLabel, color, fillArea) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            const container = canvas.parentElement;
+            
+            // 响应式尺寸
+            const width = container.clientWidth - 40;
+            const height = 300;
+            
+            // High DPI support
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            canvas.style.width = width + 'px';
+            canvas.style.height = height + 'px';
+            ctx.scale(dpr, dpr);
+            
+            ctx.clearRect(0, 0, width, height);
+            
+            const padding = { top: 40, right: 30, bottom: 40, left: 60 };
+            const plotW = width - padding.left - padding.right;
+            const plotH = height - padding.top - padding.bottom;
+            
+            // 确定范围
+            let minX = Math.min(...xData);
+            let maxX = Math.max(...xData);
+            let minY = Math.min(...yData);
+            let maxY = Math.max(...yData);
+            
+            // 稍微扩展 Y 轴范围
+            maxY = maxY * 1.1;
+            if (minY > 0) minY = 0; // PDF 通常从 0 开始
+            
+            const rangeX = maxX - minX;
+            const rangeY = maxY - minY;
+            
+            const mapX = (val) => padding.left + ((val - minX) / rangeX) * plotW;
+            const mapY = (val) => padding.top + plotH - ((val - minY) / rangeY) * plotH;
+            
+            // 绘制网格和轴
+            ctx.strokeStyle = '#eee';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            
+            // 简单的网格线
+            for(let i=0; i<=5; i++) {
+                // Horizontal
+                let y = padding.top + (i/5)*plotH;
+                ctx.moveTo(padding.left, y);
+                ctx.lineTo(width - padding.right, y);
+                
+                // Vertical
+                let x = padding.left + (i/5)*plotW;
+                ctx.moveTo(x, padding.top);
+                ctx.lineTo(x, height - padding.bottom);
+            }
+            ctx.stroke();
+            
+            // 绘制坐标轴
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(padding.left, padding.top);
+            ctx.lineTo(padding.left, height - padding.bottom);
+            ctx.lineTo(width - padding.right, height - padding.bottom);
+            ctx.stroke();
+            
+            // 绘制曲线
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2.5;
+            
+            for(let i=0; i<xData.length; i++) {
+                const px = mapX(xData[i]);
+                const py = mapY(yData[i]);
+                if (i===0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+            
+            // 填充区域 (如果是 PDF)
+            if (fillArea) {
+                ctx.fillStyle = color + '20'; // Hex + alpha
+                ctx.lineTo(mapX(xData[xData.length-1]), mapY(0));
+                ctx.lineTo(mapX(xData[0]), mapY(0));
+                ctx.closePath();
+                ctx.fill();
+            }
+            
+            // 绘制标签
+            ctx.fillStyle = '#333';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            
+            // Title
+            ctx.font = 'bold 14px Arial';
+            ctx.fillText(title, width/2, 20);
+            
+            // X Axis Labels
+            ctx.font = '11px Arial';
+            ctx.textBaseline = 'top';
+            for(let i=0; i<=5; i++) {
+                let val = minX + (rangeX * i / 5);
+                let x = padding.left + (i/5)*plotW;
+                ctx.fillText(val.toFixed(1), x, height - padding.bottom + 8);
+            }
+            ctx.fillText(xLabel, width/2, height - 15);
+            
+            // Y Axis Labels
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+            for(let i=0; i<=5; i++) {
+                let val = minY + (rangeY * i / 5);
+                let y = padding.top + plotH - (i/5)*plotH;
+                ctx.fillText(val.toFixed(2), padding.left - 8, y);
+            }
+            
+            // Save context to rotate text
+            ctx.save();
+            ctx.translate(15, height/2);
+            ctx.rotate(-Math.PI/2);
+            ctx.textAlign = 'center';
+            ctx.fillText(yLabel, 0, 0);
+            ctx.restore();
+        }
+
+        // 初始化
+        updateSimulation();
+        
+        // 窗口大小改变时重绘
+        window.addEventListener('resize', updateSimulation);
+
+    </script>
+</body>
+</html>

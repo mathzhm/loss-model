@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>时间序列分析与趋势去除方法演示 - 交互式</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; 
+            line-height: 1.6; 
+            color: #333;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .header { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            border-radius: 15px;
+            text-align: center;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .section { 
+            background: white;
+            padding: 30px;
+            margin: 25px 0;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border-left: 5px solid #667eea;
+        }
+        .method-card { 
+            background: #f8f9fa;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+            border-left: 4px solid #28a745;
+        }
+        .result-box { 
+            background: #e8f5e8;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 6px;
+            border-left: 4px solid #28a745;
+        }
+        .comparison-table { 
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+        }
+        .comparison-table th, .comparison-table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: center;
+        }
+        .comparison-table th { 
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+        }
+        .comparison-table tr:nth-child(even) { background: #f8f9fa; }
+        .image-container { text-align: center; margin: 20px 0; }
+        .image-container img { 
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        h1 { font-size: 2.5em; margin-bottom: 10px; }
+        h2 { color: #667eea; margin-bottom: 15px; font-size: 1.8em; }
+        h3 { color: #495057; margin-bottom: 10px; }
+        .highlight { color: #e83e8c; font-weight: 600; }
+        .success { color: #28a745; }
+        .info { color: #17a2b8; }
+        .form-group {
+            margin: 15px 0;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        .form-group input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .form-row {
+            display: flex;
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .form-row .form-group {
+            flex: 1;
+        }
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .chart-container {
+            width: 100%;
+            height: 400px;
+            margin: 20px 0;
+            position: relative;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        
+        canvas {
+            max-width: 100%;
+            max-height: 100%;
+        }
+    </style>
+    <script src="vendor/chart.umd.min.js"></script>
+    <script>
+        // 检查Chart是否加载成功
+        console.log('Chart loaded:', typeof Chart !== 'undefined');
+        
+        // 确保DOM加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded');
+        });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 时间序列分析与趋势去除方法演示</h1>
+            <p>基于模拟月度销售数据的完整分析报告 - 交互式</p>
+        </div>
+        
+        <div class="section">
+            <h2>🔍 数据生成参数设置</h2>
+            <div class="method-card">
+                <form id="dataForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="seed">随机种子</label>
+                            <input type="number" id="seed" value="42" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="n_points">数据点数</label>
+                            <input type="number" id="n_points" value="120" min="12" max="360">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="trend_type">趋势类型</label>
+                        <select id="trend_type" onchange="updateTrendParameters()">
+                            <option value="linear">线性增长</option>
+                            <option value="quadratic">非线性增长（二次）</option>
+                            <option value="none">无增长</option>
+                        </select>
+                    </div>
+                    
+                    <div id="trend_parameters">
+                        <div class="form-row" id="linear_parameters">
+                            <div class="form-group">
+                                <label for="trend_coef">斜率系数</label>
+                                <input type="number" id="trend_coef" value="0.5" step="0.1">
+                            </div>
+                            <div class="form-group">
+                                <label for="intercept_coef">截距系数</label>
+                                <input type="number" id="intercept_coef" value="0" step="0.1">
+                            </div>
+                        </div>
+                        
+                        <div class="form-row" id="quadratic_parameters">
+                            <div class="form-group">
+                                <label for="quadratic_coef">二次项系数</label>
+                                <input type="number" id="quadratic_coef" value="0.01" step="0.001">
+                            </div>
+                            <div class="form-group">
+                                <label for="linear_coef">线性项系数</label>
+                                <input type="number" id="linear_coef" value="0.5" step="0.1">
+                            </div>
+                            <div class="form-group">
+                                <label for="constant_coef">常数项系数</label>
+                                <input type="number" id="constant_coef" value="0" step="0.1">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="seasonal_strength">季节性强度</label>
+                            <input type="number" id="seasonal_strength" value="20" step="1">
+                        </div>
+                        <div class="form-group">
+                            <label for="seasonal_period">季节性周期</label>
+                            <input type="number" id="seasonal_period" value="12" min="2">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="noise_distribution">噪声分布类型</label>
+                        <select id="noise_distribution">
+                            <option value="normal">正态分布</option>
+                            <option value="t">t分布</option>
+                            <option value="chi2">卡方分布</option>
+                            <option value="uniform">均匀分布</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="noise_param1">噪声参数1（均值/位置）</label>
+                            <input type="number" id="noise_param1" value="0" step="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label for="noise_param2">噪声参数2（标准差/自由度/尺度）</label>
+                            <input type="number" id="noise_param2" value="5" step="0.1" min="0.1">
+                        </div>
+                    </div>
+                    
+                    <button type="button" class="btn" onclick="generateData()">生成数据并分析</button>
+                </form>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>📈 原始时间序列</h2>
+            <div class="chart-container">
+                <canvas id="originalChart"></canvas>
+            </div>
+            <div class="result-box" id="dataStats">
+                <p><strong>销售额统计特征：</strong></p>
+                <ul>
+                    <li>平均值：计算中...</li>
+                    <li>标准差：计算中...</li>
+                    <li>最小值：计算中...</li>
+                    <li>最大值：计算中...</li>
+                    <li>方差：计算中...</li>
+                </ul>
+            </div>
+            <div class="result-box" id="dataTable">
+                <p><strong>生成的数据（前20个点）：</strong></p>
+                <table class="comparison-table">
+                    <tr>
+                        <th>时间</th>
+                        <th>销售额</th>
+                    </tr>
+                    <tr><td colspan="2">计算中...</td></tr>
+                </table>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>⚙️ 时间序列分解</h2>
+            <div class="chart-container">
+                <canvas id="decompositionChart"></canvas>
+            </div>
+            <table class="comparison-table" id="decompositionTable">
+                <tr>
+                    <th>成分</th>
+                    <th>方差</th>
+                    <th>说明</th>
+                    <th>贡献度</th>
+                    <th>统计特征</th>
+                </tr>
+                <tr>
+                    <td>趋势成分</td>
+                    <td>计算中...</td>
+                    <td>长期变化方向，反映数据的整体增长趋势</td>
+                    <td>计算中...</td>
+                    <td>计算中...</td>
+                </tr>
+                <tr>
+                    <td>季节性成分</td>
+                    <td>计算中...</td>
+                    <td>周期性波动，振幅=计算中...</td>
+                    <td>计算中...</td>
+                    <td>正弦波形，周期=计算中...</td>
+                </tr>
+                <tr>
+                    <td>残差成分</td>
+                    <td>计算中...</td>
+                    <td>随机噪声，均值=计算中...</td>
+                    <td>计算中...</td>
+                    <td>计算中...</td>
+                </tr>
+            </table>
+        </div>
+        
+        <div class="section">
+            <h2>🔄 趋势去除方法比较</h2>
+            <div class="chart-container">
+                <canvas id="differencingChart"></canvas>
+            </div>
+            <table class="comparison-table" id="methodsTable">
+                <tr>
+                    <th>方法</th>
+                    <th>剩余方差</th>
+                    <th>方差减少量</th>
+                    <th>减少百分比</th>
+                    <th>效果评级</th>
+                </tr>
+                <tr>
+                    <td>原始数据</td>
+                    <td>计算中...</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>基准</td>
+                </tr>
+                <tr>
+                    <td>一阶差分</td>
+                    <td>计算中...</td>
+                    <td>计算中...</td>
+                    <td>计算中...</td>
+                    <td>计算中...</td>
+                </tr>
+                <tr>
+                    <td>季节性差分</td>
+                    <td>计算中...</td>
+                    <td>计算中...</td>
+                    <td>计算中...</td>
+                    <td>计算中...</td>
+                </tr>
+                <tr>
+                    <td>移动平均去趋势</td>
+                    <td>计算中...</td>
+                    <td>计算中...</td>
+                    <td>计算中...</td>
+                    <td>计算中...</td>
+                </tr>
+            </table>
+        </div>
+        
+        <div class="section">
+            <h2>💡 核心知识点总结</h2>
+            <div class="method-card">
+                <h3>📈 趋势去除方法</h3>
+                <ul>
+                    <li><span class="highlight">最小二乘法拟合趋势</span> - 通过回归分析拟合趋势线</li>
+                    <li><span class="highlight">差分法</span> - 一阶差分去除线性趋势，季节性差分去除周期性</li>
+                    <li><span class="highlight">移动平均法</span> - 平滑短期波动，揭示长期趋势</li>
+                    <li><span class="highlight">季节性均值法</span> - 计算季节性平均值来调整数据</li>
+                </ul>
+                
+                <h3>📊 方差稳定变换</h3>
+                <ul>
+                    <li><span class="highlight">对数变换</span> - 适用于指数增长的数据</li>
+                    <li><span class="highlight">Box-Cox变换</span> - 通用的方差稳定方法</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>🎯 结论与建议</h2>
+            <div class="result-box" id="conclusion">
+                <p>请点击"生成数据并分析"按钮开始分析</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 生成随机数的函数
+        function generateRandom(seed) {
+            // 简单的线性同余生成器
+            let m = 2147483647;
+            let a = 16807;
+            let c = 0;
+            let x = seed;
+            return function() {
+                x = (a * x + c) % m;
+                return x / m;
+            };
+        }
+        
+        // 生成标签，避免过多标签
+        function generateLabels(timeArray) {
+            let labels = [];
+            let step = Math.max(1, Math.floor(timeArray.length / 20));
+            for (let i = 0; i < timeArray.length; i += step) {
+                labels.push(timeArray[i]);
+            }
+            if (timeArray.length > 0 && labels[labels.length - 1] !== timeArray[timeArray.length - 1]) {
+                labels.push(timeArray[timeArray.length - 1]);
+            }
+            return labels;
+        }
+        
+        // 生成对应的数据点
+        function generateDataPoints(dataArray) {
+            let dataPoints = [];
+            let step = Math.max(1, Math.floor(dataArray.length / 20));
+            for (let i = 0; i < dataArray.length; i += step) {
+                dataPoints.push(dataArray[i]);
+            }
+            if (dataArray.length > 0 && dataPoints.length > 0 && dataPoints[dataPoints.length - 1] !== dataArray[dataArray.length - 1]) {
+                dataPoints.push(dataArray[dataArray.length - 1]);
+            }
+            return dataPoints;
+        }
+        
+        // 生成噪声的函数
+        function generateNoise(distribution, param1, param2, n, seed) {
+            let random = generateRandom(seed);
+            let noise = [];
+            
+            for (let i = 0; i < n; i++) {
+                switch(distribution) {
+                    case 'normal':
+                        // 正态分布 - Box-Muller变换
+                        let u1 = random();
+                        let u2 = random();
+                        let z0 = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+                        noise.push(param1 + z0 * param2);
+                        break;
+                    case 't':
+                        // t分布 - 使用卡方分布和正态分布的比值
+                        let df = param2;
+                        let chi2 = 0;
+                        for (let j = 0; j < df; j++) {
+                            let z = Math.sqrt(-2 * Math.log(random())) * Math.cos(2 * Math.PI * random());
+                            chi2 += z * z;
+                        }
+                        let t = (Math.sqrt(-2 * Math.log(random())) * Math.cos(2 * Math.PI * random())) / Math.sqrt(chi2 / df);
+                        noise.push(param1 + t * param2);
+                        break;
+                    case 'chi2':
+                        // 卡方分布 - 多个标准正态分布的平方和
+                        let df_chi2 = param2;
+                        let chi2_val = 0;
+                        for (let j = 0; j < df_chi2; j++) {
+                            let z = Math.sqrt(-2 * Math.log(random())) * Math.cos(2 * Math.PI * random());
+                            chi2_val += z * z;
+                        }
+                        noise.push(param1 + chi2_val);
+                        break;
+                    case 'uniform':
+                        // 均匀分布
+                        noise.push(param1 + random() * param2);
+                        break;
+                }
+            }
+            return noise;
+        }
+        
+        // 计算统计量
+        function calculateStats(data) {
+            let n = data.length;
+            let mean = data.reduce((sum, val) => sum + val, 0) / n;
+            let variance = data.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / (n - 1);
+            let std = Math.sqrt(variance);
+            let min = Math.min(...data);
+            let max = Math.max(...data);
+            
+            return { mean, std, min, max, variance };
+        }
+        
+        // 移动平均
+        function movingAverage(data, window) {
+            let result = [];
+            for (let i = 0; i < data.length; i++) {
+                let start = Math.max(0, i - Math.floor(window/2));
+                let end = Math.min(data.length, i + Math.ceil(window/2));
+                let sum = 0;
+                for (let j = start; j < end; j++) {
+                    sum += data[j];
+                }
+                result.push(sum / (end - start));
+            }
+            return result;
+        }
+        
+        // 一阶差分
+        function firstDifference(data) {
+            let result = [];
+            for (let i = 1; i < data.length; i++) {
+                result.push(data[i] - data[i-1]);
+            }
+            return result;
+        }
+        
+        // 季节性差分
+        function seasonalDifference(data, period) {
+            let result = [];
+            for (let i = period; i < data.length; i++) {
+                result.push(data[i] - data[i-period]);
+            }
+            return result;
+        }
+        
+        // 更新趋势参数显示
+        function updateTrendParameters() {
+            let trendType = document.getElementById('trend_type').value;
+            let linearParams = document.getElementById('linear_parameters');
+            let quadraticParams = document.getElementById('quadratic_parameters');
+            let trendParams = document.getElementById('trend_parameters');
+            
+            if (trendType === 'linear') {
+                linearParams.style.display = 'flex';
+                quadraticParams.style.display = 'none';
+                trendParams.style.display = 'block';
+            } else if (trendType === 'quadratic') {
+                linearParams.style.display = 'none';
+                quadraticParams.style.display = 'flex';
+                trendParams.style.display = 'block';
+            } else {
+                linearParams.style.display = 'none';
+                quadraticParams.style.display = 'none';
+                trendParams.style.display = 'none';
+            }
+        }
+        
+        // 生成数据并分析
+        function generateData() {
+            // 获取用户输入
+            let seed = parseInt(document.getElementById('seed').value);
+            let n_points = parseInt(document.getElementById('n_points').value);
+            let trend_type = document.getElementById('trend_type').value;
+            let seasonal_strength = parseFloat(document.getElementById('seasonal_strength').value);
+            let seasonal_period = parseInt(document.getElementById('seasonal_period').value);
+            let noise_distribution = document.getElementById('noise_distribution').value;
+            let noise_param1 = parseFloat(document.getElementById('noise_param1').value);
+            let noise_param2 = parseFloat(document.getElementById('noise_param2').value);
+            
+            // 生成时间序列数据
+            let time = Array.from({length: n_points}, (_, i) => i + 1);
+            let trend = [];
+            let seasonal = [];
+            
+            // 生成趋势成分
+            for (let t of time) {
+                switch(trend_type) {
+                    case 'linear':
+                        let trend_coef = parseFloat(document.getElementById('trend_coef').value);
+                        let intercept_coef = parseFloat(document.getElementById('intercept_coef').value);
+                        trend.push(trend_coef * t + intercept_coef);
+                        break;
+                    case 'quadratic':
+                        let quadratic_coef = parseFloat(document.getElementById('quadratic_coef').value);
+                        let linear_coef = parseFloat(document.getElementById('linear_coef').value);
+                        let constant_coef = parseFloat(document.getElementById('constant_coef').value);
+                        trend.push(quadratic_coef * t * t + linear_coef * t + constant_coef);
+                        break;
+                    case 'none':
+                        trend.push(0);
+                        break;
+                }
+            }
+            
+            // 生成季节性成分
+            for (let t of time) {
+                seasonal.push(seasonal_strength * Math.sin(2 * Math.PI * t / seasonal_period));
+            }
+            
+            // 生成噪声
+            let noise = generateNoise(noise_distribution, noise_param1, noise_param2, n_points, seed);
+            
+            // 合成数据
+            let sales = time.map((_, i) => trend[i] + seasonal[i] + noise[i]);
+            
+            // 计算统计量
+            let stats = calculateStats(sales);
+            
+            // 更新数据统计信息
+            document.getElementById('dataStats').innerHTML = `
+                <p><strong>销售额统计特征：</strong></p>
+                <ul>
+                    <li>平均值：${stats.mean.toFixed(2)}</li>
+                    <li>标准差：${stats.std.toFixed(2)}</li>
+                    <li>最小值：${stats.min.toFixed(2)}</li>
+                    <li>最大值：${stats.max.toFixed(2)}</li>
+                    <li>方差：${stats.variance.toFixed(2)}</li>
+                </ul>
+            `;
+            
+            // 更新数据表格
+            let tableHTML = `
+                <p><strong>生成的数据（前20个点）：</strong></p>
+                <table class="comparison-table">
+                    <tr>
+                        <th>时间</th>
+                        <th>销售额</th>
+                    </tr>
+            `;
+            
+            for (let i = 0; i < Math.min(20, sales.length); i++) {
+                tableHTML += `
+                    <tr>
+                        <td>${i+1}</td>
+                        <td>${sales[i].toFixed(2)}</td>
+                    </tr>
+                `;
+            }
+            
+            tableHTML += `</table>`;
+            document.getElementById('dataTable').innerHTML = tableHTML;
+            
+
+            
+            // 绘制原始时间序列图
+            try {
+                console.log('开始绘制原始图表');
+                console.log('数据长度:', sales.length);
+                console.log('前5个数据点:', sales.slice(0, 5));
+                
+                let canvas = document.getElementById('originalChart');
+                let ctx = canvas.getContext('2d');
+                
+                // 设置Canvas尺寸
+                let container = canvas.parentElement;
+                canvas.width = container.clientWidth - 20;
+                canvas.height = container.clientHeight - 20;
+                
+                console.log('Canvas尺寸:', canvas.width, 'x', canvas.height);
+                
+                // 清除画布
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // 绘制网格
+                ctx.strokeStyle = '#e0e0e0';
+                ctx.lineWidth = 1;
+                
+                // 计算数据范围
+                let minValue = Math.min(...sales);
+                let maxValue = Math.max(...sales);
+                let valueRange = maxValue - minValue;
+                
+                // 绘制数据线
+                ctx.beginPath();
+                ctx.strokeStyle = '#667eea';
+                ctx.lineWidth = 2;
+                
+                for (let i = 0; i < sales.length; i++) {
+                    let x = (i / (sales.length - 1)) * (canvas.width - 40) + 20;
+                    let y = canvas.height - 20 - ((sales[i] - minValue) / valueRange) * (canvas.height - 40);
+                    
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+                ctx.stroke();
+                
+                // 绘制标题
+                ctx.fillStyle = '#333';
+                ctx.font = '16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('原始时间序列数据', canvas.width / 2, 20);
+                
+                console.log('原始图表绘制成功');
+            } catch (error) {
+                console.error('原始图表绘制错误:', error);
+            }
+            
+            // 绘制分解图
+            try {
+                console.log('开始绘制分解图表');
+                
+                let canvas = document.getElementById('decompositionChart');
+                let ctx = canvas.getContext('2d');
+                
+                // 设置Canvas尺寸
+                let container = canvas.parentElement;
+                canvas.width = container.clientWidth - 20;
+                canvas.height = container.clientHeight - 20;
+                
+                console.log('Canvas尺寸:', canvas.width, 'x', canvas.height);
+                
+                // 清除画布
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // 计算数据范围
+                let allData = [...trend, ...seasonal, ...noise];
+                let minValue = Math.min(...allData);
+                let maxValue = Math.max(...allData);
+                let valueRange = maxValue - minValue;
+                
+                // 绘制趋势成分
+                ctx.beginPath();
+                ctx.strokeStyle = '#e83e8c';
+                ctx.lineWidth = 2;
+                
+                for (let i = 0; i < trend.length; i++) {
+                    let x = (i / (trend.length - 1)) * (canvas.width - 40) + 20;
+                    let y = canvas.height - 20 - ((trend[i] - minValue) / valueRange) * (canvas.height - 40);
+                    
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+                ctx.stroke();
+                
+                // 绘制季节性成分
+                ctx.beginPath();
+                ctx.strokeStyle = '#28a745';
+                ctx.lineWidth = 2;
+                
+                for (let i = 0; i < seasonal.length; i++) {
+                    let x = (i / (seasonal.length - 1)) * (canvas.width - 40) + 20;
+                    let y = canvas.height - 20 - ((seasonal[i] - minValue) / valueRange) * (canvas.height - 40);
+                    
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+                ctx.stroke();
+                
+                // 绘制噪声成分
+                ctx.beginPath();
+                ctx.strokeStyle = '#17a2b8';
+                ctx.lineWidth = 2;
+                
+                for (let i = 0; i < noise.length; i++) {
+                    let x = (i / (noise.length - 1)) * (canvas.width - 40) + 20;
+                    let y = canvas.height - 20 - ((noise[i] - minValue) / valueRange) * (canvas.height - 40);
+                    
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+                ctx.stroke();
+                
+                // 绘制图例
+                ctx.fillStyle = '#333';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'left';
+                
+                ctx.fillStyle = '#e83e8c';
+                ctx.fillRect(20, 20, 10, 10);
+                ctx.fillStyle = '#333';
+                ctx.fillText('趋势成分', 35, 30);
+                
+                ctx.fillStyle = '#28a745';
+                ctx.fillRect(120, 20, 10, 10);
+                ctx.fillStyle = '#333';
+                ctx.fillText('季节性成分', 135, 30);
+                
+                ctx.fillStyle = '#17a2b8';
+                ctx.fillRect(220, 20, 10, 10);
+                ctx.fillStyle = '#333';
+                ctx.fillText('噪声成分', 235, 30);
+                
+                // 绘制标题
+                ctx.fillStyle = '#333';
+                ctx.font = '16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('时间序列分解', canvas.width / 2, 20);
+                
+                console.log('分解图表绘制成功');
+            } catch (error) {
+                console.error('分解图表绘制错误:', error);
+            }
+            
+            // 计算各成分的方差
+            let trend_stats = calculateStats(trend);
+            let seasonal_stats = calculateStats(seasonal);
+            let noise_stats = calculateStats(noise);
+            let total_variance = stats.variance;
+            
+            let trend_contribution = (trend_stats.variance / total_variance * 100).toFixed(1);
+            let seasonal_contribution = (seasonal_stats.variance / total_variance * 100).toFixed(1);
+            let noise_contribution = (noise_stats.variance / total_variance * 100).toFixed(1);
+            
+            // 获取趋势参数用于显示
+            let trendParams = '';
+            if (trend_type === 'linear') {
+                let trend_coef = parseFloat(document.getElementById('trend_coef').value);
+                let intercept_coef = parseFloat(document.getElementById('intercept_coef').value);
+                trendParams = `线性增长: ${trend_coef.toFixed(2)}t + ${intercept_coef.toFixed(2)}`;
+            } else if (trend_type === 'quadratic') {
+                let quadratic_coef = parseFloat(document.getElementById('quadratic_coef').value);
+                let linear_coef = parseFloat(document.getElementById('linear_coef').value);
+                let constant_coef = parseFloat(document.getElementById('constant_coef').value);
+                trendParams = `二次增长: ${quadratic_coef.toFixed(3)}t² + ${linear_coef.toFixed(2)}t + ${constant_coef.toFixed(2)}`;
+            } else {
+                trendParams = '无增长';
+            }
+            
+            // 更新分解表格
+            document.getElementById('decompositionTable').innerHTML = `
+                <tr>
+                    <th>成分</th>
+                    <th>方差</th>
+                    <th>说明</th>
+                    <th>贡献度</th>
+                    <th>统计特征</th>
+                </tr>
+                <tr>
+                    <td>趋势成分</td>
+                    <td>${trend_stats.variance.toFixed(2)}</td>
+                    <td>长期变化方向，反映数据的整体增长趋势</td>
+                    <td>${trend_contribution}%</td>
+                    <td>${trendParams}</td>
+                </tr>
+                <tr>
+                    <td>季节性成分</td>
+                    <td>${seasonal_stats.variance.toFixed(2)}</td>
+                    <td>周期性波动，振幅=${seasonal_strength}</td>
+                    <td>${seasonal_contribution}%</td>
+                    <td>正弦波形，周期=${seasonal_period}个月</td>
+                </tr>
+                <tr>
+                    <td>残差成分</td>
+                    <td>${noise_stats.variance.toFixed(2)}</td>
+                    <td>随机噪声，均值=${noise_param1}</td>
+                    <td>${noise_contribution}%</td>
+                    <td>${noise_distribution === 'normal' ? '正态分布' : noise_distribution === 't' ? 't分布' : noise_distribution === 'chi2' ? '卡方分布' : '均匀分布'}</td>
+                </tr>
+            `;
+            
+            // 计算趋势去除方法的效果
+            let first_diff = firstDifference(sales);
+            let seasonal_diff = seasonalDifference(sales, seasonal_period);
+            let ma = movingAverage(sales, 12);
+            let detrended = sales.map((val, i) => val - ma[i]);
+            
+            let first_diff_stats = calculateStats(first_diff);
+            let seasonal_diff_stats = calculateStats(seasonal_diff);
+            let detrended_stats = calculateStats(detrended);
+            
+            let first_diff_reduction = ((total_variance - first_diff_stats.variance) / total_variance * 100).toFixed(1);
+            let seasonal_diff_reduction = ((total_variance - seasonal_diff_stats.variance) / total_variance * 100).toFixed(1);
+            let detrended_reduction = ((total_variance - detrended_stats.variance) / total_variance * 100).toFixed(1);
+            
+            // 绘制差分比较图
+            try {
+                console.log('开始绘制差分比较图表');
+                
+                let canvas = document.getElementById('differencingChart');
+                let ctx = canvas.getContext('2d');
+                
+                // 设置Canvas尺寸
+                let container = canvas.parentElement;
+                canvas.width = container.clientWidth - 20;
+                canvas.height = container.clientHeight - 20;
+                
+                console.log('Canvas尺寸:', canvas.width, 'x', canvas.height);
+                
+                // 清除画布
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // 生成差分数据的时间标签
+                let diffTime = Array.from({length: first_diff.length}, (_, i) => i + 2);
+                
+                // 计算数据范围
+                let allData = [...first_diff, ...seasonal_diff.slice(0, first_diff.length), ...detrended.slice(0, first_diff.length)];
+                let minValue = Math.min(...allData);
+                let maxValue = Math.max(...allData);
+                let valueRange = maxValue - minValue;
+                
+                // 绘制一阶差分
+                ctx.beginPath();
+                ctx.strokeStyle = '#e83e8c';
+                ctx.lineWidth = 2;
+                
+                for (let i = 0; i < first_diff.length; i++) {
+                    let x = (i / (first_diff.length - 1)) * (canvas.width - 40) + 20;
+                    let y = canvas.height - 20 - ((first_diff[i] - minValue) / valueRange) * (canvas.height - 40);
+                    
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+                ctx.stroke();
+                
+                // 绘制季节性差分
+                ctx.beginPath();
+                ctx.strokeStyle = '#28a745';
+                ctx.lineWidth = 2;
+                
+                let seasonalDiffData = seasonal_diff.slice(0, first_diff.length);
+                for (let i = 0; i < seasonalDiffData.length; i++) {
+                    let x = (i / (seasonalDiffData.length - 1)) * (canvas.width - 40) + 20;
+                    let y = canvas.height - 20 - ((seasonalDiffData[i] - minValue) / valueRange) * (canvas.height - 40);
+                    
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+                ctx.stroke();
+                
+                // 绘制移动平均去趋势
+                ctx.beginPath();
+                ctx.strokeStyle = '#17a2b8';
+                ctx.lineWidth = 2;
+                
+                let detrendedData = detrended.slice(0, first_diff.length);
+                for (let i = 0; i < detrendedData.length; i++) {
+                    let x = (i / (detrendedData.length - 1)) * (canvas.width - 40) + 20;
+                    let y = canvas.height - 20 - ((detrendedData[i] - minValue) / valueRange) * (canvas.height - 40);
+                    
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+                ctx.stroke();
+                
+                // 绘制图例
+                ctx.fillStyle = '#333';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'left';
+                
+                ctx.fillStyle = '#e83e8c';
+                ctx.fillRect(20, 20, 10, 10);
+                ctx.fillStyle = '#333';
+                ctx.fillText('一阶差分', 35, 30);
+                
+                ctx.fillStyle = '#28a745';
+                ctx.fillRect(120, 20, 10, 10);
+                ctx.fillStyle = '#333';
+                ctx.fillText('季节性差分', 135, 30);
+                
+                ctx.fillStyle = '#17a2b8';
+                ctx.fillRect(220, 20, 10, 10);
+                ctx.fillStyle = '#333';
+                ctx.fillText('移动平均去趋势', 235, 30);
+                
+                // 绘制标题
+                ctx.fillStyle = '#333';
+                ctx.font = '16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('趋势去除方法比较', canvas.width / 2, 20);
+                
+                console.log('差分比较图表绘制成功');
+            } catch (error) {
+                console.error('差分比较图表绘制错误:', error);
+            }
+            
+            // 更新方法比较表格
+            document.getElementById('methodsTable').innerHTML = `
+                <tr>
+                    <th>方法</th>
+                    <th>剩余方差</th>
+                    <th>方差减少量</th>
+                    <th>减少百分比</th>
+                    <th>效果评级</th>
+                </tr>
+                <tr>
+                    <td>原始数据</td>
+                    <td>${total_variance.toFixed(2)}</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>基准</td>
+                </tr>
+                <tr>
+                    <td>一阶差分</td>
+                    <td>${first_diff_stats.variance.toFixed(2)}</td>
+                    <td>${(total_variance - first_diff_stats.variance).toFixed(2)}</td>
+                    <td>${first_diff_reduction}%</td>
+                    <td>${parseFloat(first_diff_reduction) > 80 ? '优秀' : parseFloat(first_diff_reduction) > 50 ? '良好' : '一般'}</td>
+                </tr>
+                <tr>
+                    <td>季节性差分</td>
+                    <td>${seasonal_diff_stats.variance.toFixed(2)}</td>
+                    <td>${(total_variance - seasonal_diff_stats.variance).toFixed(2)}</td>
+                    <td>${seasonal_diff_reduction}%</td>
+                    <td>${parseFloat(seasonal_diff_reduction) > 80 ? '优秀' : parseFloat(seasonal_diff_reduction) > 50 ? '良好' : '一般'}</td>
+                </tr>
+                <tr>
+                    <td>移动平均去趋势</td>
+                    <td>${detrended_stats.variance.toFixed(2)}</td>
+                    <td>${(total_variance - detrended_stats.variance).toFixed(2)}</td>
+                    <td>${detrended_reduction}%</td>
+                    <td>${parseFloat(detrended_reduction) > 80 ? '优秀' : parseFloat(detrended_reduction) > 50 ? '良好' : '一般'}</td>
+                </tr>
+            `;
+            
+            // 更新结论
+            document.getElementById('conclusion').innerHTML = `
+                <p>本演示完整展示了时间序列分析的核心技术：</p>
+                <ol>
+                    <li>时间序列分解帮助我们理解数据的组成结构</li>
+                    <li>差分法在去除线性趋势和季节性方面表现${parseFloat(first_diff_reduction) > 80 || parseFloat(seasonal_diff_reduction) > 80 ? '优秀' : '良好'}</li>
+                    <li>移动平均法适合平滑噪声并提取长期趋势</li>
+                    <li>不同方法适用于不同的数据特征和分析目标</li>
+                </ol>
+                <p class="success">💡 实践建议：根据数据的特性和分析目标选择合适的方法组合</p>
+            `;
+        }
+        
+        // 初始化页面时生成默认数据
+        window.onload = function() {
+            updateTrendParameters();
+            generateData();
+        };
+    </script>
+</body>
+</html>

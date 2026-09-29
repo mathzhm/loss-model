@@ -1,0 +1,190 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>学习地图 · LOSS LAB V2</title>
+<link rel="stylesheet" href="style.css">
+<script>
+try{
+  var t=localStorage.getItem('v2theme');
+  if(t) document.documentElement.dataset.theme=t;
+}catch(e){}
+</script>
+<style>
+  .page-h{margin:30px 0 6px;font-size:24px;font-weight:800;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .page-sub{color:var(--ink2);font-size:14px}
+  .ov{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:11px;margin:20px 0 24px}
+  .ov .card{padding:16px 18px;display:flex;flex-direction:column;gap:3px}
+  .ov .lab{font-size:12px;color:var(--muted);letter-spacing:.5px}
+  .ov .val{font-family:Consolas,monospace;font-size:26px;font-weight:800;color:var(--navy2)}
+  .ov .val small{font-size:13px;color:var(--muted);font-weight:400}
+  .resume{display:flex;align-items:center;gap:14px;padding:16px 20px;margin-bottom:24px;flex-wrap:wrap}
+  .resume .r-txt{flex:1;min-width:200px}
+  .resume .r-lab{font-size:11.5px;color:var(--muted);letter-spacing:1px}
+  .resume .r-name{font-weight:700;font-size:15.5px}
+  .chap-p{padding:15px 20px;margin-bottom:11px;cursor:pointer;transition:border-color .15s}
+  .chap-p:hover{border-color:var(--navy2)}
+  .chap-p .cp-top{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+  .chap-p .cp-top .nm{font-weight:700;font-size:14.5px}
+  .chap-p .cp-top .st{margin-left:auto;font-size:12px;color:var(--muted);font-family:Consolas,monospace;white-space:nowrap}
+  .pbar{height:8px;border-radius:8px;background:var(--surface2);overflow:hidden}
+  .pbar i{display:block;height:100%;border-radius:8px;transition:width .5s}
+  .pbar i.q{background:var(--navy2)}
+  .pbar i.v{background:color-mix(in srgb,var(--navy2) 40%, var(--surface2))}
+  .legend{display:flex;gap:16px;margin:14px 2px 26px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+  .legend .dot{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:baseline}
+  .empty-hint{padding:8px 2px;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<script src="nav.js"></script>
+
+<main class="wrap">
+  <h1 class="page-h">🗺️ 学习地图
+    <span style="margin-left:auto;display:flex;gap:9px">
+      <button class="btn" id="exportBtn" title="把本账号的学习记录存为文件，交给老师汇总">⬇ 导出学习记录</button>
+      <button class="btn" id="importBtn" title="从之前导出的备份文件恢复进度（合并到当前账号）">⬆ 导入备份</button>
+      <input type="file" id="importFile" accept=".json" style="display:none">
+      <button class="btn" onclick="document.getElementById('acctBtn').click()">切换账号</button>
+    </span>
+  </h1>
+  <p class="page-sub" id="subLine">数据保存在本机浏览器（localStorage），无需登录</p>
+
+  <div class="ov" id="ov"></div>
+
+  <div id="resumeBox"></div>
+
+  <div class="legend">
+    <span><span class="dot" style="background:var(--navy2)"></span>自测完成（计入已学）</span>
+    <span><span class="dot" style="background:color-mix(in srgb,var(--navy2) 40%, var(--surface2))"></span>看过讲解（浅色）</span>
+  </div>
+
+  <div id="chaps"></div>
+
+  <h2 style="font-size:18px;font-weight:800;margin:30px 0 12px">知识点学习明细</h2>
+  <div class="card" style="overflow:auto">
+    <table id="detail" style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr id="dHead" style="text-align:left;color:var(--muted);font-size:11.5px;letter-spacing:1px"></tr></thead>
+      <tbody id="dBody"></tbody>
+    </table>
+  </div>
+  <div class="foot">LOSS LAB · 英国精算师 IFoA CS2</div>
+</main>
+
+<script src="course.js"></script>
+<script>
+const PROG = V2.prog();
+const KPS = COURSE.chapters.flatMap(c=>c.kps.map(k=>({c,k})));
+const visited = k=>PROG[k.id]&&PROG[k.id].v;
+const quizzed = k=>PROG[k.id]&&PROG[k.id].s!=null;
+
+/* ---------- 总览 ---------- */
+const nV = KPS.filter(x=>visited(x.k)).length;
+const nQ = KPS.filter(x=>quizzed(x.k)).length;
+const nWrong = V2.wrong().length;
+const sVals = KPS.map(x=>quizzed(x.k)?PROG[x.k.id].s:0);
+const sumS = sVals.reduce((a,b)=>a+b,0);
+document.getElementById('ov').innerHTML = `
+  <div class="card"><span class="lab">总进度（看过讲解）</span><span class="val">${nV}<small> / ${KPS.length}</small></span></div>
+  <div class="card"><span class="lab">自测完成</span><span class="val">${nQ}<small> / ${KPS.length}</small></span></div>
+  <div class="card"><span class="lab">自测累计答对</span><span class="val">${sumS}<small> / ${KPS.reduce((s,x)=>s+x.k.quiz.length,0)} 题</small></span></div>
+  <div class="card"><span class="lab">待攻克错题</span><span class="val" style="${nWrong?'color:var(--brick)':''}">${nWrong}<small> 道</small></span></div>`;
+
+/* ---------- 继续学习 ---------- */
+const next = KPS.find(x=>!visited(x.k));
+document.getElementById('resumeBox').innerHTML = next ? `
+  <div class="card resume">
+    <span style="font-size:24px">🎯</span>
+    <div class="r-txt"><div class="r-lab">下一个要学的知识点</div><div class="r-name">${next.c.no} · ${next.k.icon||''} ${next.k.name}</div></div>
+    <a class="btn primary" href="learn.html?ch=${next.c.id}&kp=${next.k.id}">继续学习 →</a>
+  </div>`
+  : `<div class="card resume"><span style="font-size:24px">🏆</span><div class="r-txt"><div class="r-name">全部 52 个知识点都学过了！</div></div><a class="btn" href="arena.html">去竞技场巩固 →</a></div>`;
+
+/* ---------- 分章进度 ---------- */
+document.getElementById('chaps').innerHTML = COURSE.chapters.map(c=>{
+  const v=c.kps.filter(visited).length, q=c.kps.filter(quizzed).length;
+  const vp=Math.round(v/c.kps.length*100), qp=Math.round(q/c.kps.length*100);
+  return `<div class="card chap-p" onclick="location.href='index.html#ch${c.id}'">
+    <div class="cp-top">
+      <span class="no" style="font-family:Consolas,monospace;font-size:11px;font-weight:700;color:#fff;border-radius:6px;padding:2px 8px;background:${c.color}">${c.no}</span>
+      <span class="nm">${c.icon} ${c.name}</span>
+      <span class="st">看过 ${v}/${c.kps.length} · 自测 ${q}/${c.kps.length}</span>
+    </div>
+    <div class="pbar">
+      <i class="v" style="width:${vp}%;display:inline-block;float:left"></i><i class="q" style="width:${qp}%"></i>
+    </div>
+  </div>`;
+}).join('');
+/* ---------- 知识点学习明细 ---------- */
+const STEP_COLS=[['video','讲解视频'],['fig','图解'],['hook','直觉'],['chain','链条'],['demo','演示'],['quiz','自测']];
+document.getElementById('dHead').innerHTML =
+  '<th style="padding:10px 12px">章节</th><th>知识点</th>'+STEP_COLS.map(c=>`<th style="padding:10px 10px">${c[1]}</th>`).join('')+'<th>错题</th>';
+document.getElementById('dBody').innerHTML = KPS.map(({c,k})=>{
+  const st=V3.stepOf(k.id);
+  const p=V3.progOf(k.id);
+  const vid = typeof st.video==='number' ? `${Math.floor(st.video/60)}′${st.video%60}″` : (st.video?'✓':'—');
+  const mark=v=>v?'✅':'—';
+  const quiz = st.quiz ? `${st.quiz.s}/${st.quiz.n}` : (p.s!=null?`${p.s} 分`:'—');
+  const nw = V3.wrong().filter(w=>w.kp===k.id).length;
+  return `<tr style="border-top:1px solid var(--line)">
+    <td style="padding:8px 12px;white-space:nowrap">${c.no}</td>
+    <td>${k.icon||''} ${k.name}</td>
+    <td style="white-space:nowrap">${vid}</td>
+    <td>${mark(st.fig)}</td><td>${mark(st.hook)}</td><td>${mark(st.chain)}</td><td>${mark(st.demo)}</td>
+    <td style="white-space:nowrap">${quiz}</td>
+    <td style="text-align:center">${nw||'—'}</td>
+  </tr>`;
+}).join('');
+
+/* ---------- 导出学习记录 ---------- */
+document.getElementById('exportBtn').onclick=()=>{
+  const cur=V3.cur();
+  if(!cur){ alert('请先在右上角创建学习账号'); return; }
+  const json=V3.exportData();
+  const blob=new Blob([json],{type:'application/json'});
+  const a=document.createElement('a');
+  const d=new Date();
+  const ds=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  a.href=URL.createObjectURL(blob);
+  a.download=`LOSSLAB_${cur}_${ds}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  try{localStorage.setItem('v3lastExport_'+cur, Date.now())}catch(e){}
+  paintBackupLine();
+};
+
+/* ---------- 导入备份（合并恢复） ---------- */
+document.getElementById('importBtn').onclick=()=>document.getElementById('importFile').click();
+document.getElementById('importFile').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f)return;
+  f.text().then(txt=>{
+    if(V3.importData(txt)){
+      alert('备份导入成功，学习进度已恢复并合并到当前账号。');
+      location.reload();
+    }else{
+      alert('文件格式不对——请选择从「导出学习记录」保存的 JSON 文件。');
+    }
+  });
+  e.target.value='';
+});
+
+/* ---------- 备份提醒 ---------- */
+function paintBackupLine(){
+  const cur=V3.cur(); if(!cur)return;
+  const last=+((()=>{try{return localStorage.getItem('v3lastExport_'+cur)||0}catch(e){return 0}})());
+  const hasData=Object.keys(V3.prog()).length>0 || V3.wrong().length>0;
+  const days=last?Math.floor((Date.now()-last)/86400000):null;
+  let msg;
+  if(!hasData) msg='数据保存在本机浏览器——开始学习后，记得定期导出备份。';
+  else if(!last) msg='⚠️ 你已有学习记录但从未导出过备份——建议立即点击「⬇ 导出学习记录」存一份，以防误清浏览器数据。';
+  else if(days>7) msg=`⚠️ 距上次备份已 ${days} 天，建议重新导出一份。`;
+  else msg=`数据保存在本机 · 上次备份：${days===0?'今天':days+' 天前'}`;
+  document.getElementById('subLine').innerHTML=msg;
+}
+paintBackupLine();
+
+/* 未建账号时提示 */
+if(!V3.cur()) document.getElementById('subLine').innerHTML =
+  '你还没有学习账号——点击右上角 <b>＋ 创建账号</b> 开始记录学习情况';
+</script>

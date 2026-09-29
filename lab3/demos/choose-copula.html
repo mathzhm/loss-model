@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Copula 选择与参数调优 - 尾部依赖可视化</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #3498db;
+            --bg-color: #f5f7fa;
+            --panel-bg: #ffffff;
+            --text-color: #333;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 { margin-top: 0; color: var(--primary-color); }
+        
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            max-width: 1400px;
+            width: 100%;
+        }
+
+        .control-panel {
+            flex: 1;
+            min-width: 300px;
+            background: var(--panel-bg);
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .charts-panel {
+            flex: 3;
+            min-width: 600px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .chart-container {
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .control-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; }
+        input[type="range"], select, input[type="number"] { width: 100%; padding: 8px; box-sizing: border-box; }
+        
+        .value-display { font-size: 0.9em; color: #666; margin-top: 5px; display: block; }
+
+        .explanation {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e8f4f8;
+            border-left: 4px solid var(--accent-color);
+            border-radius: 4px;
+            font-size: 0.95em;
+            line-height: 1.6;
+        }
+
+        canvas { width: 100%; height: 500px; background: #fff; }
+
+        .stats-box {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 10px;
+            padding: 10px;
+            background: #f9f9f9;
+            border-radius: 4px;
+        }
+        .stat-item { text-align: center; }
+        .stat-val { font-size: 1.2em; font-weight: bold; color: var(--accent-color); }
+        .stat-label { font-size: 0.85em; color: #7f8c8d; }
+
+        /* Highlight corners */
+        .corner-marker {
+            position: absolute;
+            border: 2px dashed rgba(255, 0, 0, 0.5);
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Copula 选型与尾部依赖 (Tail Dependence)</h1>
+
+    <div class="container">
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <div class="control-group">
+                <label for="copulaType">Copula 类型</label>
+                <select id="copulaType" onchange="updateControls()">
+                    <option value="independence">Independence (独立)</option>
+                    <option value="gaussian">Gaussian (高斯)</option>
+                    <option value="t">Student's t (t分布)</option>
+                    <option value="gumbel">Gumbel (极值/上尾)</option>
+                    <option value="clayton">Clayton (下尾)</option>
+                    <option value="frank">Frank (无尾部依赖)</option>
+                </select>
+            </div>
+
+            <!-- Parameters Section (Dynamic) -->
+            <div id="paramsSection">
+                <!-- Injected via JS -->
+            </div>
+
+            <div class="control-group">
+                <label for="sampleSize">模拟点数 (m)</label>
+                <input type="range" id="sampleSize" min="500" max="5000" step="500" value="2000" oninput="updateSimulation()">
+                <span class="value-display">m = <span id="val_m">2000</span></span>
+            </div>
+
+            <div class="explanation" id="eduText">
+                <!-- Educational text -->
+            </div>
+        </div>
+
+        <!-- Charts Panel -->
+        <div class="charts-panel">
+            <div class="chart-container">
+                <h3>(U, V) 散点图 - [0,1]² 空间</h3>
+                <canvas id="scatterCanvas"></canvas>
+                <div class="stats-box">
+                    <div class="stat-item">
+                        <div class="stat-val" id="lambdaL">0.00</div>
+                        <div class="stat-label">下尾依赖 (Lower Tail)</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-val" id="rhoSpearman">0.00</div>
+                        <div class="stat-label">Spearman 相关系数</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-val" id="lambdaU">0.00</div>
+                        <div class="stat-label">上尾依赖 (Upper Tail)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Statistical Utilities ---
+
+        const PI = Math.PI;
+
+        // Standard Normal CDF (Phi)
+        function stdNormalCDF(x) {
+            var t = 1 / (1 + 0.2316419 * Math.abs(x));
+            var d = 0.3989423 * Math.exp(-x * x / 2);
+            var prob = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+            if (x > 0) prob = 1 - prob;
+            return prob;
+        }
+
+        // Inverse Normal CDF (Probit) - Acklam's algorithm approximation
+        function invNormalCDF(p) {
+            if (p <= 0) return -8; // Clamp
+            if (p >= 1) return 8;
+            var a1 = -3.969683028665376e+01, a2 = 2.209460984245205e+02,
+                a3 = -2.759285104469687e+02, a4 = 1.383577518672690e+02,
+                a5 = -3.066479806614716e+01, a6 = 2.506628277459239e+00;
+            var b1 = -5.447609879822406e+01, b2 = 1.615858368580409e+02,
+                b3 = -1.556989798598866e+02, b4 = 6.680131188771972e+01,
+                b5 = -1.328068155288572e+01;
+            var c1 = -7.784894002430293e-03, c2 = -3.223964580411365e-01,
+                c3 = -2.400758277161838e+00, c4 = -2.549732539343734e+00,
+                c5 = 4.374664141464968e+00, c6 = 2.938163982698783e+00;
+            var d1 = 7.784695709041462e-03, d2 = 3.224671290700398e-01,
+                d3 = 2.445134137142996e+00, d4 = 3.754408661907416e+00;
+            var q, t, x;
+            if (p < 0.02425) {
+                q = Math.sqrt(-2 * Math.log(p));
+                x = (((((c1 * q + c2) * q + c3) * q + c4) * q + c5) * q + c6) /
+                    ((((d1 * q + d2) * q + d3) * q + d4) * q + 1);
+            } else if (p > 1 - 0.02425) {
+                q = Math.sqrt(-2 * Math.log(1 - p));
+                x = -(((((c1 * q + c2) * q + c3) * q + c4) * q + c5) * q + c6) /
+                    ((((d1 * q + d2) * q + d3) * q + d4) * q + 1);
+            } else {
+                q = p - 0.5;
+                let r = q * q;
+                x = (((((a1 * r + a2) * r + a3) * r + a4) * r + a5) * r + a6) * q /
+                    (((((b1 * r + b2) * r + b3) * r + b4) * r + b5) * r + 1);
+            }
+            return x;
+        }
+
+        // Student's t CDF (approx)
+        function tCDF(x, v) {
+            // Using integration of PDF or beta incomplete function. 
+            // For JS simplicity, we can use a numerical integration or approximation.
+            // But actually we need t-CDF to transform t-variables to U[0,1].
+            // A simple way is to use the property: F_t(x) = 1 - 0.5 * I_{v/(v+x^2)}(v/2, 0.5) for x > 0.
+            // Let's implement regularized beta function.
+            
+            if (v > 1000) return stdNormalCDF(x); // Approx for large v
+
+            let xt = x;
+            let prob = 0;
+            let a = v/2;
+            let b = 0.5;
+            let z = v / (v + xt*xt);
+            let beta = ibeta(z, a, b);
+            
+            if (xt > 0) prob = 1 - 0.5 * beta;
+            else prob = 0.5 * beta;
+            return prob;
+        }
+
+        // Incomplete Beta Function I_x(a,b)
+        function ibeta(x, a, b) {
+            if (x == 0) return 0;
+            if (x == 1) return 1;
+            // Symmetry
+            if (x > (a+1)/(a+b+2)) return 1 - ibeta(1-x, b, a);
+            
+            // Cont fraction approximation
+            let lbeta = lngamma(a) + lngamma(b) - lngamma(a+b);
+            let front = Math.exp(a * Math.log(x) + b * Math.log(1-x) - lbeta) / a;
+            
+            // Lentz's method for continued fraction
+            let m = 1;
+            let EPS = 1e-8;
+            let f = 1;
+            let C = 1;
+            let D = 0;
+            
+            for(let i=1; i<=200; i++) {
+                let numer;
+                let m2 = Math.floor((i-1)/2);
+                if (i % 2 == 0) {
+                    numer = m2 * (b - m2) * x / ((a + 2*m2 - 1) * (a + 2*m2));
+                } else {
+                    numer = -(a + m2) * (a + b + m2) * x / ((a + 2*m2) * (a + 2*m2 + 1));
+                }
+                
+                D = 1 + numer * D;
+                if (Math.abs(D) < 1e-30) D = 1e-30;
+                C = 1 + numer / C;
+                if (Math.abs(C) < 1e-30) C = 1e-30;
+                D = 1/D;
+                let delta = C * D;
+                f *= delta;
+                if (Math.abs(delta - 1) < EPS) break;
+            }
+            return front * f;
+        }
+
+        function lngamma(z) {
+            var g = 7;
+            var C = [0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313, -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+            if (z < 0.5) return Math.log(Math.PI / Math.sin(Math.PI * z)) - lngamma(1 - z);
+            z -= 1;
+            var x = C[0];
+            for (var i = 1; i < C.length; i++) x += C[i] / (z + i);
+            var t = z + g + 0.5;
+            return 0.5 * Math.log(2 * Math.PI) + (z + 0.5) * Math.log(t) - t + Math.log(x);
+        }
+
+        // Random Generators
+        function randn() {
+            let u = 0, v = 0;
+            while(u === 0) u = Math.random();
+            while(v === 0) v = Math.random();
+            return Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
+        }
+
+        // Gamma Generator (Marsaglia & Tsang) k >= 1
+        function randGamma(k, theta=1) {
+            if (k < 1) {
+                return randGamma(1 + k, theta) * Math.pow(Math.random(), 1 / k);
+            }
+            let d = k - 1 / 3;
+            let c = 1 / Math.sqrt(9 * d);
+            while (true) {
+                let x = randn();
+                let v = 1 + c * x;
+                while (v <= 0) {
+                    x = randn();
+                    v = 1 + c * x;
+                }
+                v = v * v * v;
+                let u = Math.random();
+                if (u < 1 - 0.0331 * x * x * x * x) return d * v * theta;
+                if (Math.log(u) < 0.5 * x * x + d * (1 - v + Math.log(v))) return d * v * theta;
+            }
+        }
+
+        // Positive Stable Generator St(alpha, 1) - Chambers, Mallows, Stuck
+        function randStable(alpha) {
+            let theta = (Math.random() - 0.5) * Math.PI; // -pi/2 to pi/2
+            let w = -Math.log(Math.random()); // Exp(1)
+            let b = Math.atan(Math.tan(Math.PI * alpha / 2)); // beta=1 => tan(...)
+            // For beta=1, simplified:
+            // S = (sin(alpha(theta + pi/2)) / (cos(theta))^(1/alpha)) * (cos(theta - alpha(theta+pi/2))/W)^((1-alpha)/alpha)
+            
+            let num = Math.sin(alpha * (theta + Math.PI/2));
+            let den = Math.pow(Math.cos(theta), 1/alpha);
+            let factor2 = Math.pow( Math.cos(theta - alpha * (theta + Math.PI/2)) / w, (1-alpha)/alpha );
+            
+            return (num / den) * factor2;
+        }
+
+        // --- Copula Simulation Logic ---
+
+        const Copulas = {
+            independence: {
+                name: "Independence",
+                params: [],
+                generate: (m) => {
+                    let data = [];
+                    for(let i=0; i<m; i++) data.push({x: Math.random(), y: Math.random()});
+                    return data;
+                },
+                desc: "变量之间完全独立，散点均匀分布在 [0,1]² 区域。"
+            },
+            gaussian: {
+                name: "Gaussian",
+                params: [{id: 'rho', label: 'Correlation (ρ)', min: -0.99, max: 0.99, step: 0.01, val: 0.7}],
+                generate: (m, p) => {
+                    let rho = parseFloat(p.rho);
+                    let data = [];
+                    for(let i=0; i<m; i++) {
+                        let z1 = randn();
+                        let z2 = rho * z1 + Math.sqrt(1 - rho*rho) * randn();
+                        data.push({x: stdNormalCDF(z1), y: stdNormalCDF(z2)});
+                    }
+                    return data;
+                },
+                desc: "高斯 Copula：经典的线性相关结构。除非 ρ=1，否则<b>没有尾部依赖</b>（极端情况下依然独立）。"
+            },
+            t: {
+                name: "Student's t",
+                params: [
+                    {id: 'rho', label: 'Correlation (ρ)', min: -0.99, max: 0.99, step: 0.01, val: 0.5},
+                    {id: 'nu', label: 'DoF (ν)', min: 1, max: 20, step: 1, val: 3}
+                ],
+                generate: (m, p) => {
+                    let rho = parseFloat(p.rho);
+                    let nu = parseFloat(p.nu);
+                    let data = [];
+                    for(let i=0; i<m; i++) {
+                        let z1 = randn();
+                        let z2 = rho * z1 + Math.sqrt(1 - rho*rho) * randn();
+                        let w = randGamma(nu/2, 2); // Chi-squared(nu)
+                        let s = Math.sqrt(w / nu);
+                        let t1 = z1 / s;
+                        let t2 = z2 / s;
+                        data.push({x: tCDF(t1, nu), y: tCDF(t2, nu)});
+                    }
+                    return data;
+                },
+                desc: "t-Copula：比高斯 Copula 尾部更厚。<b>ν 越小，尾部依赖越强</b>（角落越密集）。当 ν→∞ 时收敛于高斯 Copula。"
+            },
+            gumbel: {
+                name: "Gumbel",
+                params: [{id: 'alpha', label: 'Parameter (α)', min: 1.05, max: 10, step: 0.1, val: 2.0}],
+                generate: (m, p) => {
+                    let alpha = parseFloat(p.alpha); // theta in many texts
+                    let data = [];
+                    let invAlpha = 1/alpha;
+                    // Scale factor for Stable to ensure unit scale in Laplace transform
+                    // If S ~ St(invAlpha, 1, 1, 0) standard, we need to scale it.
+                    // Nolan (2020) or standard texts: M = (cos(pi*invAlpha/2))^(1/invAlpha) * S
+                    let cosPart = Math.cos(Math.PI * invAlpha / 2);
+                    let scale = Math.pow(cosPart, 1/invAlpha); // Actually it is power alpha in some texts? 
+                    // Let's derive: E[exp(-t*k*S)] = exp(-(tk)^a / cos...) = exp(-t^a * (k^a/cos...))
+                    // We want k^a / cos = 1 => k^a = cos => k = cos^(1/a).
+                    // Here a = invAlpha. So scale = cos^(1/invAlpha). Correct.
+                    
+                    for(let i=0; i<m; i++) {
+                        // Method: Marshall-Olkin mixture using Stable
+                        let S = randStable(invAlpha) * scale;
+                        let e1 = -Math.log(Math.random());
+                        let e2 = -Math.log(Math.random());
+                        // Generator phi(t) = (-ln t)^alpha. Inverse phi^-1(x) = exp(-x^(1/alpha))
+                        // U = phi^-1(E1/S), V = phi^-1(E2/S)
+                        // U = exp(-(E1/S)^invAlpha)
+                        let u = Math.exp(-Math.pow(e1/S, invAlpha));
+                        let v = Math.exp(-Math.pow(e2/S, invAlpha));
+                        data.push({x: u, y: v});
+                    }
+                    return data;
+                },
+                desc: "Gumbel Copula：<b>上尾依赖</b>（Upper Tail Dependence）。右上角非常“粘”，容易同时出现极端大值。常用于模拟两个市场同时崩盘或巨灾风险。"
+            },
+            clayton: {
+                name: "Clayton",
+                params: [{id: 'alpha', label: 'Parameter (α)', min: 0.1, max: 10, step: 0.1, val: 2.0}],
+                generate: (m, p) => {
+                    let alpha = parseFloat(p.alpha); // theta
+                    let data = [];
+                    for(let i=0; i<m; i++) {
+                        // Method: Gamma mixture
+                        // M ~ Gamma(1/alpha, 1)
+                        let M = randGamma(1/alpha, 1);
+                        let e1 = -Math.log(Math.random());
+                        let e2 = -Math.log(Math.random());
+                        // U = (1 + E1/M)^(-1/alpha)
+                        let u = Math.pow(1 + e1/M, -1/alpha);
+                        let v = Math.pow(1 + e2/M, -1/alpha);
+                        data.push({x: u, y: v});
+                    }
+                    return data;
+                },
+                desc: "Clayton Copula：<b>下尾依赖</b>（Lower Tail Dependence）。左下角非常“粘”，容易同时出现极端小值。适合描述熊市中的相关性增强。"
+            },
+            frank: {
+                name: "Frank",
+                params: [{id: 'alpha', label: 'Parameter (α)', min: 0.1, max: 20, step: 0.1, val: 5.0}],
+                generate: (m, p) => {
+                    let alpha = parseFloat(p.alpha); // theta
+                    let data = [];
+                    for(let i=0; i<m; i++) {
+                        // Conditional sampling
+                        // v = -1/alpha * ln(1 + t*(1-exp(-alpha)) / (t*(exp(-alpha*u)-1) - exp(-alpha*u)) ?
+                        // Formula: v = -1/alpha * ln( 1 + (t(1-e^-a)) / (t(e^-au - 1) - e^-au) )? Wait.
+                        // Correct conditional inverse:
+                        // v = -1/alpha * ln( 1 + (t(e^-a - 1)) / ( e^-au(1-t) + t ) ) ? 
+                        // Let's use the one derived earlier: B = 1 + t(K) / (A(1-t) + t)
+                        // v = -1/alpha * ln( 1 + t(exp(-alpha)-1) / (exp(-alpha*u)*(1-t) + t) )
+                        
+                        let u = Math.random();
+                        let t = Math.random();
+                        
+                        let num = t * (Math.exp(-alpha) - 1);
+                        let den = Math.exp(-alpha * u) * (1 - t) + t;
+                        let arg = 1 + num / den;
+                        let v = -1/alpha * Math.log(arg);
+                        
+                        data.push({x: u, y: v});
+                    }
+                    return data;
+                },
+                desc: "Frank Copula：整体相关性强，但<b>没有尾部依赖</b>（两端不粘）。分布比较对称，类似高斯但尾部性质略有不同。"
+            }
+        };
+
+        // --- UI & Drawing ---
+
+        let currentData = [];
+
+        function updateControls() {
+            const type = document.getElementById('copulaType').value;
+            const config = Copulas[type];
+            const container = document.getElementById('paramsSection');
+            container.innerHTML = '';
+
+            config.params.forEach(p => {
+                const div = document.createElement('div');
+                div.className = 'control-group';
+                div.innerHTML = `
+                    <label>${p.label}</label>
+                    <input type="range" id="param_${p.id}" 
+                           min="${p.min}" max="${p.max}" step="${p.step}" value="${p.val}" 
+                           oninput="updateVal('${p.id}', this.value); updateSimulation();">
+                    <span class="value-display">${p.id} = <span id="disp_${p.id}">${p.val}</span></span>
+                `;
+                container.appendChild(div);
+            });
+
+            document.getElementById('eduText').innerHTML = config.desc;
+            updateSimulation();
+        }
+
+        function updateVal(id, val) {
+            document.getElementById(`disp_${id}`).innerText = val;
+        }
+
+        function updateSimulation() {
+            const type = document.getElementById('copulaType').value;
+            const m = parseInt(document.getElementById('sampleSize').value);
+            document.getElementById('val_m').innerText = m;
+
+            const config = Copulas[type];
+            const params = {};
+            config.params.forEach(p => {
+                params[p.id] = document.getElementById(`param_${p.id}`).value;
+            });
+
+            currentData = config.generate(m, params);
+            drawScatter();
+            calcStats();
+        }
+
+        function drawScatter() {
+            const canvas = document.getElementById('scatterCanvas');
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width = canvas.offsetWidth;
+            const h = canvas.height = canvas.offsetHeight;
+            
+            ctx.clearRect(0,0,w,h);
+            
+            // Grid
+            ctx.strokeStyle = '#eee';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for(let i=0.1; i<1; i+=0.1) {
+                let x = i*w;
+                let y = i*h;
+                ctx.moveTo(x, 0); ctx.lineTo(x, h);
+                ctx.moveTo(0, y); ctx.lineTo(w, y);
+            }
+            ctx.stroke();
+
+            // Highlight corners (Tail Dependence Areas)
+            ctx.fillStyle = 'rgba(231, 76, 60, 0.1)';
+            // Lower Tail [0, 0.1]
+            ctx.fillRect(0, h - 0.1*h, 0.1*w, 0.1*h);
+            // Upper Tail [0.9, 1.0]
+            ctx.fillRect(0.9*w, 0, 0.1*w, 0.1*h);
+
+            // Labels for corners
+            ctx.fillStyle = '#e74c3c';
+            ctx.font = '12px sans-serif';
+            ctx.fillText("下尾区域", 10, h - 10);
+            ctx.fillText("上尾区域", w - 60, 20);
+
+            // Points
+            ctx.fillStyle = 'rgba(52, 152, 219, 0.6)';
+            for(let p of currentData) {
+                // x in [0,1], y in [0,1]
+                // Canvas y is inverted
+                let cx = p.x * w;
+                let cy = (1 - p.y) * h;
+                ctx.beginPath();
+                ctx.arc(cx, cy, 2, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+
+        function calcStats() {
+            const n = currentData.length;
+            if(n === 0) return;
+
+            // Empirical Tail Dependence
+            // Lower: P(V < u | U < u) as u -> 0. Let's use u=0.1
+            let u_thresh = 0.1;
+            let lowerCount = 0;
+            let lowerBase = 0;
+            
+            let v_thresh = 0.9;
+            let upperCount = 0;
+            let upperBase = 0;
+
+            currentData.forEach(p => {
+                if(p.x < u_thresh) {
+                    lowerBase++;
+                    if(p.y < u_thresh) lowerCount++;
+                }
+                if(p.x > v_thresh) {
+                    upperBase++;
+                    if(p.y > v_thresh) upperCount++;
+                }
+            });
+
+            let lambdaL = lowerBase > 0 ? (lowerCount / lowerBase) : 0;
+            let lambdaU = upperBase > 0 ? (upperCount / upperBase) : 0;
+
+            document.getElementById('lambdaL').innerText = lambdaL.toFixed(3);
+            document.getElementById('lambdaU').innerText = lambdaU.toFixed(3);
+
+            // Spearman Rho (approx)
+            // standard formula: 12/n(n^2-1) * sum(R_i - R_j)^2 ...
+            // Simplified: Pearson of ranks.
+            // Let's just calculate Pearson of U, V (which is approx Spearman/0.99? No).
+            // Actually Spearman is corr(Rank(U), Rank(V)).
+            // Since U, V are already uniform (ranks normalized), Pearson(U, V) is very close to Spearman.
+            // Let's calculate Pearson(U, V).
+            
+            let sumX=0, sumY=0, sumXY=0, sumX2=0, sumY2=0;
+            for(let p of currentData) {
+                sumX += p.x;
+                sumY += p.y;
+                sumXY += p.x * p.y;
+                sumX2 += p.x * p.x;
+                sumY2 += p.y * p.y;
+            }
+            let cov = (sumXY - sumX*sumY/n);
+            let varX = (sumX2 - sumX*sumX/n);
+            let varY = (sumY2 - sumY*sumY/n);
+            let rho = cov / Math.sqrt(varX * varY);
+            
+            document.getElementById('rhoSpearman').innerText = rho.toFixed(3);
+        }
+
+        // Init
+        updateControls();
+        window.addEventListener('resize', drawScatter);
+
+    </script>
+</body>
+</html>

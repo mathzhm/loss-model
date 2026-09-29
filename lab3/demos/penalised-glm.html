@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Penalised GLM: Ridge vs LASSO</title>
+    
+    <script src="vendor/tailwind.js"></script>
+    <script src="vendor/chart.umd.min.js"></script>
+    <script src="vendor/chartjs-plugin-annotation.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; }
+        .canvas-container { position: relative; height: 350px; width: 100%; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 10px; margin-bottom: 20px; }
+        .control-panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .slider-label { display: flex; justify-content: space-between; font-size: 0.9em; margin-bottom: 2px; }
+        .coef-card { font-family: monospace; font-size: 0.9em; padding: 2px 6px; border-radius: 4px; margin: 2px; display: inline-block; }
+        .coef-zero { background-color: #f3f4f6; color: #9ca3af; }
+        .coef-nonzero { background-color: #dbeafe; color: #1e40af; font-weight: bold; }
+        .nav-tab { cursor: pointer; padding: 8px 16px; border-bottom: 2px solid transparent; color: #64748b; font-weight: 600; }
+        .nav-tab.active { border-bottom-color: #2563eb; color: #2563eb; }
+    </style>
+</head>
+<body class="p-6">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-6">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">Penalised GLM: Ridge vs LASSO</h1>
+            <p class="text-gray-600">
+                本实验对比两种正则化方法：Ridge (\(\ell_2\)) 与 LASSO (\(\ell_1\))，展示惩罚强度 \(\lambda\) 对模型系数 \(\beta\) 的影响。
+                <br>核心观察：LASSO 能将系数压缩至 0 (变量选择)，而 Ridge 仅做整体收缩 (Shrinkage)。
+            </p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Controls -->
+            <div class="lg:col-span-4 space-y-6">
+                
+                <!-- Model Type -->
+                <div class="control-panel">
+                    <h3 class="text-lg font-semibold mb-3 text-gray-700">1. 模型选择 (Model)</h3>
+                    <div class="flex space-x-4 border-b mb-4">
+                        <div id="tab_ridge" class="nav-tab active" onclick="switchModel('ridge')">Ridge (\(\ell_2\))</div>
+                        <div id="tab_lasso" class="nav-tab" onclick="switchModel('lasso')">LASSO (\(\ell_1\))</div>
+                    </div>
+                    <p class="text-sm text-gray-500 mb-2" id="model_desc">
+                        Ridge minimizes: \(\sum (y - X\beta)^2 + \lambda \sum \beta_j^2\)
+                    </p>
+                </div>
+
+                <!-- Data Gen -->
+                <div class="control-panel">
+                    <h3 class="text-lg font-semibold mb-3 text-gray-700">2. 数据生成 (Data Gen)</h3>
+                    
+                    <div class="mb-4">
+                        <div class="slider-label"><span>特征相关性 (Correlation \(\rho\))</span><span id="disp_corr">0.5</span></div>
+                        <input type="range" id="corr" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" min="0" max="0.95" step="0.05" value="0.5" oninput="updateUI(); runSimulation();">
+                    </div>
+
+                    <div class="mb-4">
+                        <div class="slider-label"><span>噪声水平 (Noise \(\sigma\))</span><span id="disp_noise">1.0</span></div>
+                        <input type="range" id="noise" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" min="0.1" max="5.0" step="0.1" value="1.0" oninput="updateUI(); runSimulation();">
+                    </div>
+
+                    <button onclick="runSimulation()" class="w-full bg-blue-100 hover:bg-blue-200 text-blue-800 font-semibold py-1 px-3 rounded text-sm transition">
+                        重新生成数据 (Regenerate)
+                    </button>
+
+                    <div class="mt-4 text-xs text-gray-500">
+                        <p>真实模型 (True Model): 10 Features</p>
+                        <ul class="list-disc pl-4 mt-1">
+                            <li>3 Significant: \(\beta_{1,2,3} = [3, -2, 1.5]\)</li>
+                            <li>7 Noise: \(\beta_{4..10} = 0\)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Lambda Control -->
+                <div class="control-panel">
+                    <h3 class="text-lg font-semibold mb-3 text-gray-700">3. 惩罚强度 (Penalty \(\lambda\))</h3>
+                    
+                    <div class="mb-4">
+                        <div class="slider-label"><span>Log Lambda</span><span id="disp_lambda_log">-2.0</span></div>
+                        <input type="range" id="lambda_slider" class="w-full h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer" min="-4" max="4" step="0.1" value="-2" oninput="updateLambdaUI(); updateCurrentModel();">
+                        <div class="text-xs text-right text-gray-500 mt-1">Current \(\lambda \approx\) <span id="disp_lambda_val" class="font-bold">0.01</span></div>
+                    </div>
+
+                    <div class="mt-4">
+                        <h4 class="text-sm font-semibold text-gray-600 mb-2">当前系数 (Coefficients)</h4>
+                        <div id="coef_display" class="flex flex-wrap"></div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Visuals -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Coefficient Path -->
+                <div class="canvas-container">
+                    <h4 class="text-center font-semibold text-gray-600 mb-2">系数收缩路径 (Coefficient Path)</h4>
+                    <canvas id="pathChart"></canvas>
+                </div>
+
+                <!-- Validation Error -->
+                <div class="canvas-container" style="height: 250px;">
+                    <h4 class="text-center font-semibold text-gray-600 mb-2">验证集误差与模型选择 (Validation Error & AIC/BIC)</h4>
+                    <canvas id="errorChart"></canvas>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Math Utils ---
+        function matMul(A, B) {
+            const rA = A.length, cA = A[0].length, rB = B.length, cB = B[0].length;
+            if (cA !== rB) throw "Matrix dimension mismatch";
+            const C = Array(rA).fill(0).map(() => Array(cB).fill(0));
+            for (let i = 0; i < rA; i++)
+                for (let j = 0; j < cB; j++)
+                    for (let k = 0; k < cA; k++)
+                        C[i][j] += A[i][k] * B[k][j];
+            return C;
+        }
+
+        function transpose(A) { return A[0].map((_, c) => A.map(r => r[c])); }
+
+        function matInv(A) {
+            const n = A.length;
+            const M = A.map((r, i) => [...r, ...Array(n).fill(0).map((_, j) => i === j ? 1 : 0)]);
+            for (let i = 0; i < n; i++) {
+                let pivot = M[i][i];
+                if (Math.abs(pivot) < 1e-10) pivot = 1e-10; 
+                for (let j = 0; j < 2 * n; j++) M[i][j] /= pivot;
+                for (let k = 0; k < n; k++) {
+                    if (k !== i) {
+                        const f = M[k][i];
+                        for (let j = 0; j < 2 * n; j++) M[k][j] -= f * M[i][j];
+                    }
+                }
+            }
+            return M.map(r => r.slice(n));
+        }
+
+        function matVecMul(A, v) {
+            return A.map(row => row.reduce((sum, val, i) => sum + val * v[i], 0));
+        }
+
+        function softThreshold(z, gamma) {
+            if (z > gamma) return z - gamma;
+            if (z < -gamma) return z + gamma;
+            return 0;
+        }
+
+        function randn() {
+            let u = 0, v = 0;
+            while(u === 0) u = Math.random();
+            while(v === 0) v = Math.random();
+            return Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
+        }
+
+        // --- Data & Solvers ---
+        let currentModelType = 'ridge';
+        let X = [], y = [], X_val = [], y_val = [];
+        let beta_true = [3, -2, 1.5, 0, 0, 0, 0, 0, 0, 0]; // 10 Features
+        let n_features = 10;
+        let lambdaValues = []; // Log scale
+        let paths = []; // Array of {lambda, betas, mse, df}
+
+        function switchModel(type) {
+            currentModelType = type;
+            document.getElementById('tab_ridge').className = type === 'ridge' ? 'nav-tab active' : 'nav-tab';
+            document.getElementById('tab_lasso').className = type === 'lasso' ? 'nav-tab active' : 'nav-tab';
+            
+            const desc = type === 'ridge' 
+                ? 'Ridge minimizes: \\(\\sum (y - X\\beta)^2 + \\lambda \\sum \\beta_j^2\\) (L2 Penalty)'
+                : 'LASSO minimizes: \\(\\sum (y - X\\beta)^2 + \\lambda \\sum |\\beta_j|\\) (L1 Penalty)';
+            document.getElementById('model_desc').innerHTML = desc;
+            if(window.MathJax) MathJax.Hub.Queue(["Typeset", MathJax.Hub, "model_desc"]);
+
+            calculatePath(); // Recalculate for new model type
+        }
+
+        function generateData() {
+            const N_train = 50;
+            const N_val = 50;
+            const rho = parseFloat(document.getElementById('corr').value);
+            const sigma = parseFloat(document.getElementById('noise').value);
+
+            // Covariance matrix for X: Sigma_ij = rho^|i-j|
+            // Simplified generation: x_j = sqrt(1-rho)*z_j + sqrt(rho)*z_common
+            // This generates equicorrelated features (compound symmetry), easier.
+            // Or AR(1): x_j = rho*x_{j-1} + sqrt(1-rho^2)*eps. Let's use AR(1) structure.
+
+            function genBatch(n) {
+                const batchX = [];
+                const batchY = [];
+                for(let i=0; i<n; i++) {
+                    const row = [];
+                    // AR(1) Correlation
+                    let prev = randn();
+                    row.push(prev);
+                    for(let j=1; j<n_features; j++) {
+                        const curr = rho * prev + Math.sqrt(1 - rho*rho) * randn();
+                        row.push(curr);
+                        prev = curr;
+                    }
+                    // Y = X*beta + noise
+                    let y_val = 0;
+                    for(let j=0; j<n_features; j++) y_val += row[j] * beta_true[j];
+                    y_val += randn() * sigma;
+                    
+                    batchX.push(row);
+                    batchY.push(y_val);
+                }
+                return [batchX, batchY];
+            }
+
+            [X, y] = genBatch(N_train);
+            [X_val, y_val] = genBatch(N_val);
+
+            // Standardize X and center y (intercept handling)
+            // For simplicity, we assume centered data or fit intercept separately.
+            // Let's standardise X (mean 0, std 1) and center y.
+            standardize(X, y);
+            standardize(X_val, y_val); // Use train params? ideally yes, but for demo independent is ok or reuse stats.
+            // Actually reusing train stats is correct. Let's keep it simple: just center/scale each independently for visualization stability.
+        }
+
+        function standardize(dataX, dataY) {
+            // Center Y
+            const meanY = dataY.reduce((a,b)=>a+b,0)/dataY.length;
+            for(let i=0; i<dataY.length; i++) dataY[i] -= meanY;
+
+            // Standardize columns of X
+            const n = dataX.length;
+            for(let j=0; j<n_features; j++) {
+                const col = dataX.map(r => r[j]);
+                const mean = col.reduce((a,b)=>a+b,0)/n;
+                const variance = col.reduce((a,b)=>a+(b-mean)**2,0)/n; // population var for scaling
+                const std = Math.sqrt(variance) || 1;
+                
+                for(let i=0; i<n; i++) {
+                    dataX[i][j] = (dataX[i][j] - mean) / std;
+                }
+            }
+        }
+
+        function solveRidge(lambda) {
+            // beta = (X'X + lambda*I)^-1 X'y
+            // Precompute X'X and X'y could be faster, but N is small.
+            const XT = transpose(X);
+            const XTX = matMul(XT, X);
+            const XTy = matVecMul(XT, y);
+            
+            // Add lambda to diag
+            for(let i=0; i<n_features; i++) XTX[i][i] += lambda;
+            
+            const inv = matInv(XTX);
+            const beta = matVecMul(inv, XTy);
+
+            // DF = tr(X(X'X + lambda I)^-1 X') = tr((X'X + lambda I)^-1 X'X)
+            // = sum( eigen / (eigen + lambda) )
+            // Simplify: Approx DF
+            // Let's compute trace of Hat matrix part: tr(inv * (XTX_original))
+            // XTX currently has lambda added. recover original:
+            for(let i=0; i<n_features; i++) XTX[i][i] -= lambda;
+            const Hat = matMul(inv, XTX);
+            let df = 0;
+            for(let i=0; i<n_features; i++) df += Hat[i][i];
+
+            return { beta, df };
+        }
+
+        function solveLasso(lambda) {
+            // Coordinate Descent
+            // Minimize 0.5/N * RSS + lambda * |beta|
+            // Note: Scikit-learn uses 1/(2N) convention.
+            // Standard form: RSS + lambda * |beta|. 
+            // Let's use RSS + lambda * |beta|.
+            // Update rule for beta_j:
+            // r_j = y - sum_{k!=j} x_k beta_k
+            // z_j = x_j^T r_j
+            // beta_j = S(z_j, lambda) / (x_j^T x_j)
+            // Since X standardized, x_j^T x_j = N (approx) or 1 depending on scaling.
+            // We standardized to variance 1. So sum(x^2) = N.
+            
+            const N = X.length;
+            let beta = Array(n_features).fill(0); // Start from 0 or OLS
+            
+            // Precompute column norms
+            const XT = transpose(X);
+            const colNorms = XT.map(col => col.reduce((a,b)=>a+b*b,0)); // Should be N
+            
+            let maxIter = 100;
+            for(let iter=0; iter<maxIter; iter++) {
+                let maxChange = 0;
+                for(let j=0; j<n_features; j++) {
+                    // Compute residual without j
+                    // res = y - X*beta + X_j*beta_j = current_res + X_j*beta_j
+                    // Faster: z_j = X_j' * (y - y_pred + X_j*beta_j)
+                    // Let's calculate simple residual
+                    
+                    // Simple implementation (not optimized):
+                    let dot = 0;
+                    for(let i=0; i<N; i++) {
+                        let pred_others = 0;
+                        for(let k=0; k<n_features; k++) if(k!==j) pred_others += X[i][k]*beta[k];
+                        dot += X[i][j] * (y[i] - pred_others);
+                    }
+                    
+                    const old_bj = beta[j];
+                    // Soft threshold
+                    // Factor depends on objective def. 
+                    // If objective is sum(residuals^2) + lambda*|beta|
+                    // Then threshold is lambda/2. Denominator is sum(x_j^2).
+                    // beta_j = S(dot, lambda/2) / colNorms[j]
+                    
+                    // We want consistent lambda scale with Ridge.
+                    // Ridge: RSS + lambda beta^2. Lasso: RSS + lambda |beta|.
+                    // Threshold should be lambda/2.
+                    
+                    beta[j] = softThreshold(dot, lambda/2) / colNorms[j];
+                    
+                    maxChange = Math.max(maxChange, Math.abs(beta[j] - old_bj));
+                }
+                if(maxChange < 1e-4) break;
+            }
+
+            // DF = number of non-zero coefs
+            const df = beta.filter(b => Math.abs(b) > 1e-4).length;
+
+            return { beta, df };
+        }
+
+        function calculatePath() {
+            // Lambda range: exp(-4) to exp(4)
+            lambdaValues = [];
+            paths = [];
+            
+            for(let logL = -4; logL <= 6; logL += 0.2) {
+                const lam = Math.exp(logL);
+                lambdaValues.push(logL); // store log
+                
+                let res;
+                if(currentModelType === 'ridge') res = solveRidge(lam);
+                else res = solveLasso(lam);
+                
+                // Calc Validation MSE
+                let sse = 0;
+                for(let i=0; i<X_val.length; i++) {
+                    let pred = 0;
+                    for(let j=0; j<n_features; j++) pred += X_val[i][j] * res.beta[j];
+                    sse += (y_val[i] - pred)**2;
+                }
+                const mse = sse / X_val.length;
+
+                // AIC/BIC (Approximation)
+                // AIC = N*ln(MSE) + 2*df
+                // BIC = N*ln(MSE) + ln(N)*df
+                const N = X_val.length; // Use val size or train size? Usually train size for likelihood.
+                // Let's use MSE on VAL for "Prediction Error", but for AIC/BIC logic we usually use training RSS.
+                // Let's stick to showing Validation MSE as primary metric, and maybe overlay AIC/BIC calculated on Train RSS?
+                // The prompt asks for "Validation Error vs Lambda; AIC/BIC selection points".
+                // I will plot Validation Error curve. 
+                // And I will calculate AIC based on TRAIN RSS to see if it matches Val min.
+                
+                // Train RSS
+                let train_sse = 0;
+                for(let i=0; i<X.length; i++) {
+                    let pred = 0;
+                    for(let j=0; j<n_features; j++) pred += X[i][j] * res.beta[j];
+                    train_sse += (y[i] - pred)**2;
+                }
+                const train_mse = train_sse / X.length;
+                const aic = X.length * Math.log(train_mse) + 2 * res.df;
+                
+                paths.push({
+                    lambda: lam,
+                    logLambda: logL,
+                    beta: res.beta,
+                    mse: mse, // Val MSE
+                    aic: aic,
+                    df: res.df
+                });
+            }
+            
+            drawPathChart();
+            drawErrorChart();
+            updateLambdaUI();
+            updateCurrentModel();
+        }
+
+        // --- UI & Charts ---
+        let pathChart = null;
+        let errorChart = null;
+
+        function updateUI() {
+            document.getElementById('disp_corr').innerText = document.getElementById('corr').value;
+            document.getElementById('disp_noise').innerText = document.getElementById('noise').value;
+        }
+
+        function updateLambdaUI() {
+            const val = parseFloat(document.getElementById('lambda_slider').value);
+            document.getElementById('disp_lambda_log').innerText = val.toFixed(1);
+            document.getElementById('disp_lambda_val').innerText = Math.exp(val).toFixed(2);
+        }
+
+        function updateCurrentModel() {
+            const logL = parseFloat(document.getElementById('lambda_slider').value);
+            // Find closest calculated point
+            const idx = paths.findIndex(p => p.logLambda >= logL);
+            const p = (idx === -1) ? paths[paths.length-1] : paths[idx];
+            
+            // Display Coefs
+            const container = document.getElementById('coef_display');
+            container.innerHTML = '';
+            p.beta.forEach((b, i) => {
+                const isZero = Math.abs(b) < 0.05;
+                const isTrueSignal = i < 3; // First 3 are signal
+                const el = document.createElement('span');
+                el.className = `coef-card ${isZero ? 'coef-zero' : 'coef-nonzero'}`;
+                el.innerText = `β${i+1}:${b.toFixed(2)}`;
+                if(isTrueSignal) el.style.border = "1px solid #2563eb"; // Highlight signal vars
+                container.appendChild(el);
+            });
+
+            // Update chart lines
+            updateChartAnnotations(logL);
+        }
+
+        function drawPathChart() {
+            const ctx = document.getElementById('pathChart').getContext('2d');
+            const labels = lambdaValues.map(v => v.toFixed(1));
+            
+            const datasets = [];
+            for(let j=0; j<n_features; j++) {
+                const data = paths.map(p => p.beta[j]);
+                const isSignal = j < 3;
+                datasets.push({
+                    label: `β${j+1}`,
+                    data: data,
+                    borderColor: isSignal ? `rgba(37, 99, 235, ${1 - j*0.2})` : `rgba(156, 163, 175, 0.4)`, // Blue for signal, Gray for noise
+                    borderWidth: isSignal ? 2 : 1,
+                    pointRadius: 0,
+                    fill: false
+                });
+            }
+
+            if(pathChart) pathChart.destroy();
+            pathChart = new Chart(ctx, {
+                type: 'line',
+                data: { labels: labels, datasets: datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { title: {display:true, text:'Log Lambda'} },
+                        y: { title: {display:true, text:'Coefficient Value'} }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        annotation: {
+                            annotations: {
+                                line1: {
+                                    type: 'line',
+                                    xMin: 0, xMax: 0,
+                                    borderColor: 'purple', borderWidth: 2
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function drawErrorChart() {
+            const ctx = document.getElementById('errorChart').getContext('2d');
+            const labels = lambdaValues.map(v => v.toFixed(1));
+            const mseData = paths.map(p => p.mse);
+            const aicData = paths.map(p => p.aic); // Scale issues? AIC is absolute. MSE is small.
+            // Normalize for visualization? Or just plot MSE. 
+            // Let's plot Val MSE on left axis.
+            
+            // Find Min MSE
+            let minMSE = Infinity, minIdx = 0;
+            mseData.forEach((v, i) => { if(v < minMSE) { minMSE = v; minIdx = i; } });
+            
+            if(errorChart) errorChart.destroy();
+            errorChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Validation MSE',
+                            data: mseData,
+                            borderColor: 'red',
+                            backgroundColor: 'red',
+                            yAxisID: 'y',
+                            pointRadius: 0,
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'AIC (Train)',
+                            data: aicData,
+                            borderColor: 'green',
+                            borderDash: [5,5],
+                            yAxisID: 'y1',
+                            pointRadius: 0,
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { title: {display:true, text:'Log Lambda'} },
+                        y: { 
+                            title: {display:true, text:'MSE'},
+                            position: 'left'
+                        },
+                        y1: {
+                            title: {display:true, text:'AIC'},
+                            position: 'right',
+                            grid: { drawOnChartArea: false }
+                        }
+                    },
+                    plugins: {
+                        annotation: {
+                            annotations: {
+                                line1: {
+                                    type: 'line',
+                                    xMin: 0, xMax: 0,
+                                    borderColor: 'purple', borderWidth: 2
+                                },
+                                pointMin: {
+                                    type: 'point',
+                                    xValue: lambdaValues[minIdx],
+                                    yValue: minMSE,
+                                    backgroundColor: 'red',
+                                    radius: 5
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateChartAnnotations(logL) {
+            // Map logL to index roughly
+            // x-axis is labels array indices effectively in Chart.js if labels are strings
+            // But we can use index interpolation or just value matching if x-axis is linear?
+            // Chart.js category scale uses index. 
+            // lambdaValues = -4, -3.8, ... 6.  Step 0.2.
+            // Index = (logL - (-4)) / 0.2
+            const idx = (logL - (-4)) / 0.2;
+            
+            if(pathChart) {
+                pathChart.options.plugins.annotation.annotations.line1.xMin = idx;
+                pathChart.options.plugins.annotation.annotations.line1.xMax = idx;
+                pathChart.update('none');
+            }
+            if(errorChart) {
+                errorChart.options.plugins.annotation.annotations.line1.xMin = idx;
+                errorChart.options.plugins.annotation.annotations.line1.xMax = idx;
+                errorChart.update('none');
+            }
+        }
+
+        // Init
+        window.onload = function() {
+            updateUI();
+            updateLambdaUI();
+            runSimulation();
+        };
+
+        function runSimulation() {
+            generateData();
+            calculatePath();
+        }
+
+    </script>
+  <script src="vendor/mathjax-loader.js"></script>
+  <script src="vendor/mathjax-tex-svg.js"></script>
+</body>
+</html>

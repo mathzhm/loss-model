@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>再保险类型教育网页</title>
+    <script src="vendor/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+            padding: 40px 0;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .card h2 {
+            color: #4a5568;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+            padding-left: 15px;
+        }
+        
+        .input-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .input-field {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .input-field label {
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #4a5568;
+        }
+        
+        .input-field input {
+            padding: 10px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+        
+        .input-field input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+        
+        .btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .result {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border-left: 4px solid #48bb78;
+        }
+        
+        .chart-container {
+            height: 300px;
+            margin-top: 20px;
+            position: relative;
+        }
+        
+        .chart-container canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+        
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        .comparison-table th, .comparison-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .comparison-table th {
+            background: #f7fafc;
+            font-weight: 600;
+        }
+        
+        .highlight {
+            background: #fff5f5;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #f56565;
+        }
+        
+        .concept-section h3 {
+            color: #2d3748;
+            margin: 25px 0 15px 0;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        
+        .concept-section h4 {
+            color: #4a5568;
+            margin: 20px 0 10px 0;
+        }
+        
+        .concept-section h5 {
+            color: #718096;
+            margin: 15px 0 8px 0;
+        }
+        
+        .concept-details {
+            background: #f7fafc;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-left: 3px solid #667eea;
+        }
+        
+        .concept-details ul {
+            margin-left: 20px;
+        }
+        
+        .concept-details li {
+            margin: 5px 0;
+            line-height: 1.5;
+        }
+        
+        .relationship-diagram {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+        }
+        
+        .diagram-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .diagram-level-1,
+        .diagram-level-2,
+        .diagram-level-3,
+        .diagram-level-4 {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            flex-wrap: wrap;
+        }
+        
+        .diagram-node {
+            padding: 15px 20px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            min-width: 120px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .diagram-node:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .diagram-node.main {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 1.1em;
+        }
+        
+        .diagram-node.proportional {
+            background: #bee3f8;
+            color: #2b6cb0;
+            border: 2px solid #90cdf4;
+        }
+        
+        .diagram-node.non-proportional {
+            background: #fed7d7;
+            color: #c53030;
+            border: 2px solid #fc8181;
+        }
+        
+        .diagram-node.quota {
+            background: #c6f6d5;
+            color: #276749;
+            border: 2px solid #68d391;
+        }
+        
+        .diagram-node.surplus {
+            background: #fefcbf;
+            color: #744210;
+            border: 2px solid #faf089;
+        }
+        
+        .diagram-node.xol {
+            background: #e9d8fd;
+            color: #6b46c1;
+            border: 2px solid #d6bcfa;
+        }
+        
+        .diagram-node.stoploss {
+            background: #fed7d7;
+            color: #c53030;
+            border: 2px solid #fc8181;
+        }
+        
+        .diagram-node.perloss {
+            background: #d6bcfa;
+            color: #553c9a;
+            border: 2px solid #b794f4;
+        }
+        
+        .diagram-node.perpayment {
+            background: #b2f5ea;
+            color: #234e52;
+            border: 2px solid #81e6d9;
+        }
+        
+        .diagram-connector {
+            width: 2px;
+            height: 30px;
+            background: linear-gradient(to bottom, #667eea, #764ba2);
+            position: relative;
+        }
+        
+        .diagram-connector::before {
+            content: '';
+            position: absolute;
+            top: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 10px;
+            height: 10px;
+            background: #667eea;
+            border-radius: 50%;
+        }
+        
+        .diagram-connector::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 10px;
+            height: 10px;
+            background: #764ba2;
+            border-radius: 50%;
+        }
+        
+        .charts-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        @media (max-width: 768px) {
+            .charts-row {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .input-group {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>再保险类型教育平台</h1>
+            <p>深入理解比例再保险与非比例再保险的核心概念</p>
+        </div>
+        
+        <!-- 概念说明部分 -->
+        <div class="card">
+            <h2>再保险基本概念</h2>
+            <div class="concept-section">
+                <h3>再保险 (Reinsurance)</h3>
+                <p>再保险是保险人将其承担的保险业务，以承保形式部分转移给其他保险人的行为。原保险人通过再保险来分散风险、稳定经营。</p>
+                
+                <h3>比例再保险 (Proportional Reinsurance)</h3>
+                <p>比例再保险是指原保险人与再保险人按约定比例分摊保费和赔款的再保险方式。</p>
+                <div class="concept-details">
+                    <h4>成数再保险 (Quota Share)</h4>
+                    <ul>
+                        <li>按固定比例分摊所有业务的保费和赔款</li>
+                        <li>简单易行，操作方便</li>
+                        <li>适用于新公司或新业务的风险分散</li>
+                    </ul>
+                    
+                    <h4>溢额再保险 (Surplus)</h4>
+                    <ul>
+                        <li>原保险人先确定自留额，超过部分按比例分给再保险人</li>
+                        <li>灵活性高，可根据风险状况调整自留额</li>
+                        <li>适用于风险质量差异较大的业务</li>
+                    </ul>
+                </div>
+                
+                <h3>非比例再保险 (Non-Proportional Reinsurance)</h3>
+                <p>非比例再保险是以赔款金额为基础计算再保险责任，不按比例分摊保费。</p>
+                
+                <h4>超赔再保险 (Excess of Loss, XOL)</h4>
+                <div class="concept-details">
+                    <h5>Per Loss vs Per Payment 区别</h5>
+                    <ul>
+                        <li><strong>Per Loss</strong>: 每次损失事件都计算，无论是否超过免赔额</li>
+                        <li><strong>Per Payment</strong>: 只在损失超过免赔额且实际支付时才计算</li>
+                        <li>Per Payment 通常比 Per Loss 的赔付条件更严格</li>
+                    </ul>
+                </div>
+                
+                <h4>止损再保险 (Stop Loss)</h4>
+                <div class="concept-details">
+                    <ul>
+                        <li>以年度累计赔款为基础计算再保险责任</li>
+                        <li>设定触发点(Attachment Point)和赔偿限额</li>
+                        <li>主要用于保护保险人的年度经营稳定性</li>
+                        <li>适用于巨灾风险或业务波动较大的情况</li>
+                    </ul>
+                </div>
+                
+                <h3>再保险类型关系图</h3>
+                <div class="relationship-diagram">
+                    <div class="diagram-container">
+                        <div class="diagram-level-1">
+                            <div class="diagram-node main">再保险 (Reinsurance)</div>
+                        </div>
+                        <div class="diagram-connector"></div>
+                        <div class="diagram-level-2">
+                            <div class="diagram-node proportional">比例再保险<br>(Proportional)</div>
+                            <div class="diagram-node non-proportional">非比例再保险<br>(Non-Proportional)</div>
+                        </div>
+                        <div class="diagram-connector"></div>
+                        <div class="diagram-level-3">
+                            <div class="diagram-node quota">成数再保险<br>(Quota Share)</div>
+                            <div class="diagram-node surplus">溢额再保险<br>(Surplus)</div>
+                            <div class="diagram-node xol">超赔再保险<br>(Excess of Loss)</div>
+                            <div class="diagram-node stoploss">止损再保险<br>(Stop Loss)</div>
+                        </div>
+                        <div class="diagram-connector"></div>
+                        <div class="diagram-level-4">
+                            <div class="diagram-node perloss">Per Loss</div>
+                            <div class="diagram-node perpayment">Per Payment</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 比例再保险部分 -->
+        <div class="card">
+            <h2>比例再保险 (Proportional Reinsurance)</h2>
+            
+            <div class="input-group">
+                <div class="input-field">
+                    <label for="totalLoss">总损失金额 (万元)</label>
+                    <input type="number" id="totalLoss" value="1000" min="0">
+                </div>
+                <div class="input-field">
+                    <label for="retention">自留额 (万元)</label>
+                    <input type="number" id="retention" value="200" min="0">
+                </div>
+                <div class="input-field">
+                    <label for="quotaShareRatio">成数再保险比例 (%)</label>
+                    <input type="number" id="quotaShareRatio" value="30" min="0" max="100">
+                </div>
+            </div>
+            
+            <div class="highlight">
+                <h4>比例再保险计算公式</h4>
+                <p><strong>成数再保险计算公式：</strong></p>
+                <p>再保险人赔款 = 总赔款 × 分保比例</p>
+                <p>原保险人赔款 = 总赔款 × (1 - 分保比例)</p>
+                
+                <p><strong>溢额再保险计算公式：</strong></p>
+                <p>溢额部分 = 总赔款 - 自留额</p>
+                <p>再保险人赔款 = 溢额部分 × 分保比例</p>
+                <p>原保险人赔款 = 自留额 + (溢额部分 × (1 - 分保比例))</p>
+            </div>
+            
+            <button class="btn" onclick="calculateProportional()">计算赔款分摊</button>
+            
+            <div id="proportionalResult" class="result" style="display: none;">
+                <h3>计算结果</h3>
+                <div id="quotaShareResult"></div>
+                <div id="surplusResult"></div>
+                
+                <div class="charts-row">
+                    <div class="chart-container">
+                        <canvas id="proportionalChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="proportionalPieChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="charts-row">
+                    <div class="chart-container">
+                        <canvas id="riskTransferChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="proportionalSplitChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="comparisonRadarChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- XOL再保险部分 -->
+        <div class="card">
+            <h2>超赔再保险 (Excess of Loss, XOL)</h2>
+            
+            <div class="highlight">
+                <h4>"Per Loss" vs "Per Payment" 区别</h4>
+                <p><strong>Per Loss:</strong> 每次损失事件都计算，无论是否超过免赔额</p>
+                <p><strong>Per Payment:</strong> 只在损失超过免赔额且实际支付时才计算</p>
+            </div>
+            
+            <div class="input-group">
+                <div class="input-field">
+                    <label for="lossEvents">损失事件列表 (万元，逗号分隔)</label>
+                    <input type="text" id="lossEvents" value="50,150,80,300,25">
+                </div>
+                <div class="input-field">
+                    <label for="deductible">免赔额 (万元)</label>
+                    <input type="number" id="deductible" value="100" min="0">
+                </div>
+                <div class="input-field">
+                    <label for="policyLimit">保单限额 (万元)</label>
+                    <input type="number" id="policyLimit" value="500" min="0">
+                </div>
+            </div>
+            
+            <div class="highlight">
+                <h4>超赔再保险计算公式</h4>
+                <p><strong>Per Loss模式计算公式：</strong></p>
+                <p>再保险赔付 = min(max(损失金额 - 免赔额, 0), 保单限额)</p>
+                <p>原保险人承担 = 损失金额 - 再保险赔付</p>
+                
+                <p><strong>Per Payment模式计算公式：</strong></p>
+                <p>如果损失金额 > 免赔额：</p>
+                <p>再保险赔付 = min(损失金额 - 免赔额, 保单限额)</p>
+                <p>原保险人承担 = 损失金额 - 再保险赔付</p>
+                <p>否则：再保险赔付 = 0，原保险人承担 = 损失金额</p>
+            </div>
+            
+            <button class="btn" onclick="calculateXOL()">分析XOL再保险</button>
+            
+            <div id="xolResult" class="result" style="display: none;">
+                <h3>XOL分析结果</h3>
+                <div id="xolComparison"></div>
+                
+                <div class="charts-row">
+                    <div class="chart-container">
+                        <canvas id="xolChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="xolPieChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="charts-row">
+                    <div class="chart-container">
+                        <canvas id="xolThresholdChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="xolSplitChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="xolComparisonRadarChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 止损再保险部分 -->
+        <div class="card">
+            <h2>止损再保险 (Stop Loss)</h2>
+            
+            <div class="input-group">
+                <div class="input-field">
+                    <label for="annualLosses">年度损失列表 (万元，逗号分隔)</label>
+                    <input type="text" id="annualLosses" value="800,1200,950,1800,600">
+                </div>
+                <div class="input-field">
+                    <label for="attachmentPoint">触发点 (万元)</label>
+                    <input type="number" id="attachmentPoint" value="1000" min="0">
+                </div>
+                <div class="input-field">
+                    <label for="stopLossLimit">止损限额 (万元)</label>
+                    <input type="number" id="stopLossLimit" value="2000" min="0">
+                </div>
+            </div>
+            
+            <div class="highlight">
+                <h4>止损再保险计算公式</h4>
+                <p><strong>止损再保险计算公式：</strong></p>
+                <p>如果年度累计损失 > 触发点：</p>
+                <p>再保险赔付 = min(年度累计损失 - 触发点, 止损限额)</p>
+                <p>原保险人承担 = 年度累计损失 - 再保险赔付</p>
+                <p>否则：再保险赔付 = 0，原保险人承担 = 年度累计损失</p>
+            </div>
+            
+            <button class="btn" onclick="calculateStopLoss()">计算止损再保险</button>
+            
+            <div id="stopLossResult" class="result" style="display: none;">
+                <h3>止损再保险分析</h3>
+                <div id="stopLossAnalysis"></div>
+                
+                <div class="charts-row">
+                    <div class="chart-container">
+                        <canvas id="stopLossChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="stopLossPieChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="charts-row">
+                    <div class="chart-container">
+                        <canvas id="stopLossTriggerChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="stopLossSplitChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="stopLossComparisonRadarChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 比例再保险计算
+        function calculateProportional() {
+            const totalLoss = parseFloat(document.getElementById('totalLoss').value);
+            const retention = parseFloat(document.getElementById('retention').value);
+            const quotaShareRatio = parseFloat(document.getElementById('quotaShareRatio').value) / 100;
+            
+            // 成数再保险计算
+            const quotaShareReinsurance = totalLoss * quotaShareRatio;
+            const quotaShareRetained = totalLoss * (1 - quotaShareRatio);
+            
+            // 溢额再保险计算
+            const excessAmount = Math.max(0, totalLoss - retention);
+            const surplusReinsurance = excessAmount > 0 ? excessAmount : 0;
+            const surplusRetained = Math.min(totalLoss, retention);
+            
+            // 显示结果
+            document.getElementById('proportionalResult').style.display = 'block';
+            document.getElementById('quotaShareResult').innerHTML = `
+                <h4>成数再保险 (Quota Share)</h4>
+                <p>再保险人承担: ${quotaShareReinsurance.toFixed(2)} 万元 (${(quotaShareRatio*100).toFixed(1)}%)</p>
+                <p>原保险人自留: ${quotaShareRetained.toFixed(2)} 万元 (${((1-quotaShareRatio)*100).toFixed(1)}%)</p>
+            `;
+            
+            document.getElementById('surplusResult').innerHTML = `
+                <h4>溢额再保险 (Surplus)</h4>
+                <p>再保险人承担: ${surplusReinsurance.toFixed(2)} 万元</p>
+                <p>原保险人自留: ${surplusRetained.toFixed(2)} 万元</p>
+                <p>超额部分: ${excessAmount.toFixed(2)} 万元</p>
+            `;
+            
+            // 更新图表
+            updateProportionalChart(totalLoss, quotaShareReinsurance, quotaShareRetained, 
+                                  surplusReinsurance, surplusRetained);
+        }
+        
+        // XOL再保险计算
+        function calculateXOL() {
+            const lossEvents = document.getElementById('lossEvents').value.split(',').map(x => parseFloat(x.trim()));
+            const deductible = parseFloat(document.getElementById('deductible').value);
+            const policyLimit = parseFloat(document.getElementById('policyLimit').value);
+            
+            let perLossTotal = 0;
+            let perPaymentTotal = 0;
+            const perLossDetails = [];
+            const perPaymentDetails = [];
+            
+            lossEvents.forEach((loss, index) => {
+                // Per Loss 计算
+                const perLossReinsurance = Math.min(Math.max(0, loss - deductible), policyLimit);
+                perLossTotal += perLossReinsurance;
+                perLossDetails.push({
+                    loss: loss,
+                    reinsurance: perLossReinsurance,
+                    retained: loss - perLossReinsurance
+                });
+                
+                // Per Payment 计算 (只在损失超过免赔额时计算)
+                if (loss > deductible) {
+                    const perPaymentReinsurance = Math.min(loss - deductible, policyLimit);
+                    perPaymentTotal += perPaymentReinsurance;
+                    perPaymentDetails.push({
+                        loss: loss,
+                        reinsurance: perPaymentReinsurance,
+                        retained: loss - perPaymentReinsurance
+                    });
+                }
+            });
+            
+            document.getElementById('xolResult').style.display = 'block';
+            document.getElementById('xolComparison').innerHTML = `
+                <table class="comparison-table">
+                    <tr>
+                        <th>指标</th>
+                        <th>Per Loss</th>
+                        <th>Per Payment</th>
+                    </tr>
+                    <tr>
+                        <td>再保险赔付总额</td>
+                        <td>${perLossTotal.toFixed(2)} 万元</td>
+                        <td>${perPaymentTotal.toFixed(2)} 万元</td>
+                    </tr>
+                    <tr>
+                        <td>涉及损失事件数</td>
+                        <td>${lossEvents.length} 次</td>
+                        <td>${perPaymentDetails.length} 次</td>
+                    </tr>
+                    <tr>
+                        <td>平均每次赔付</td>
+                        <td>${(perLossTotal/lossEvents.length).toFixed(2)} 万元</td>
+                        <td>${perPaymentDetails.length > 0 ? (perPaymentTotal/perPaymentDetails.length).toFixed(2) : 0} 万元</td>
+                    </tr>
+                </table>
+            `;
+            
+            updateXOLChart(perLossDetails, perPaymentDetails);
+        }
+        
+        // 止损再保险计算
+        function calculateStopLoss() {
+            const annualLosses = document.getElementById('annualLosses').value.split(',').map(x => parseFloat(x.trim()));
+            const attachmentPoint = parseFloat(document.getElementById('attachmentPoint').value);
+            const stopLossLimit = parseFloat(document.getElementById('stopLossLimit').value);
+            
+            const results = annualLosses.map(loss => {
+                const reinsurancePayment = loss > attachmentPoint ? 
+                    Math.min(loss - attachmentPoint, stopLossLimit) : 0;
+                const retainedLoss = loss - reinsurancePayment;
+                const triggered = loss > attachmentPoint;
+                
+                return {
+                    year: `第${annualLosses.indexOf(loss) + 1}年`,
+                    totalLoss: loss,
+                    reinsurance: reinsurancePayment,
+                    retained: retainedLoss,
+                    triggered: triggered
+                };
+            });
+            
+            document.getElementById('stopLossResult').style.display = 'block';
+            
+            let analysisHTML = '<h4>年度分析结果</h4><table class="comparison-table"><tr><th>年度</th><th>总损失</th><th>再保险赔付</th><th>自留损失</th><th>是否触发</th></tr>';
+            
+            results.forEach(result => {
+                analysisHTML += `
+                    <tr>
+                        <td>${result.year}</td>
+                        <td>${result.totalLoss.toFixed(2)}</td>
+                        <td>${result.reinsurance.toFixed(2)}</td>
+                        <td>${result.retained.toFixed(2)}</td>
+                        <td style="color: ${result.triggered ? '#e53e3e' : '#38a169'}">${result.triggered ? '是' : '否'}</td>
+                    </tr>
+                `;
+            });
+            
+            analysisHTML += '</table>';
+            
+            const totalReinsurance = results.reduce((sum, result) => sum + result.reinsurance, 0);
+            const triggerYears = results.filter(result => result.triggered).length;
+            
+            analysisHTML += `
+                <div style="margin-top: 20px;">
+                    <p><strong>统计摘要:</strong></p>
+                    <p>• 再保险赔付总额: ${totalReinsurance.toFixed(2)} 万元</p>
+                    <p>• 触发止损再保险的年份: ${triggerYears} 年</p>
+                    <p>• 触发概率: ${((triggerYears/annualLosses.length)*100).toFixed(1)}%</p>
+                </div>
+            `;
+            
+            document.getElementById('stopLossAnalysis').innerHTML = analysisHTML;
+            updateStopLossChart(results);
+        }
+        
+        // 图表更新函数
+        function updateProportionalChart(totalLoss, quotaShareReinsurance, quotaShareRetained, surplusReinsurance, surplusRetained) {
+            const ctx = document.getElementById('proportionalChart').getContext('2d');
+            
+            if (window.proportionalChart) {
+                window.proportionalChart.destroy();
+            }
+            
+            window.proportionalChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['成数再保险', '溢额再保险'],
+                    datasets: [
+                        {
+                            label: '再保险人承担',
+                            data: [quotaShareReinsurance, surplusReinsurance],
+                            backgroundColor: '#e53e3e'
+                        },
+                        {
+                            label: '原保险人自留',
+                            data: [quotaShareRetained, surplusRetained],
+                            backgroundColor: '#38a169'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: '比例再保险赔款分摊对比'
+                        }
+                    },
+                    scales: {
+                        x: {
+                            stacked: true
+                        },
+                        y: {
+                            stacked: true,
+                            title: {
+                                display: true,
+                                text: '金额 (万元)'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // 新增饼图 - 成数再保险比例分布
+            const pieCtx = document.getElementById('proportionalPieChart').getContext('2d');
+            if (window.proportionalPieChart) {
+                window.proportionalPieChart.destroy();
+            }
+            
+            window.proportionalPieChart = new Chart(pieCtx, {
+                type: 'pie',
+                data: {
+                    labels: ['再保险人承担', '原保险人自留'],
+                    datasets: [{
+                        data: [quotaShareReinsurance, quotaShareRetained],
+                        backgroundColor: ['#e53e3e', '#38a169'],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: '成数再保险赔款比例'
+                        },
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+            
+            // 新增风险转移效果图
+            const riskCtx = document.getElementById('riskTransferChart').getContext('2d');
+            if (window.riskTransferChart) {
+                window.riskTransferChart.destroy();
+            }
+            
+            window.riskTransferChart = new Chart(riskCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['风险转移给再保险人', '原保险人承担风险'],
+                    datasets: [{
+                        data: [(quotaShareReinsurance + surplusReinsurance) / totalLoss * 100, 
+                              (quotaShareRetained + surplusRetained) / totalLoss * 100],
+                        backgroundColor: ['#3182ce', '#e53e3e'],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: '风险转移效果分析 (%)'
+                        },
+                        legend: {
+                            position: 'bottom'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ' + context.raw.toFixed(1) + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // 新增比例再保险分摊图
+            const splitCtx = document.getElementById('proportionalSplitChart').getContext('2d');
+            if (window.proportionalSplitChart) {
+                window.proportionalSplitChart.destroy();
+            }
+            
+            window.proportionalSplitChart = new Chart(splitCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['成数再保险', '溢额再保险'],
+                    datasets: [
+                        {
+                            label: '再保险人分摊比例 (%)',
+                            data: [
+                                (quotaShareReinsurance / totalLoss * 100),
+                                (surplusReinsurance / totalLoss * 100)
+                            ],
+                            backgroundColor: '#3182ce',
+                            borderWidth: 1
+                        },
+                        {
+                            label: '原保险人分摊比例 (%)',
+                            data: [
+                                (quotaShareRetained / totalLoss * 100),
+                                (surplusRetained / totalLoss * 100)
+                            ],
+                            backgroundColor: '#e53e3e',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: '比例再保险分摊比例对比'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            title: {
+                                display: true,
+                                text: '分摊比例 (%)'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // 新增雷达图对比
+            const radarCtx = document.getElementById('comparisonRadarChart').getContext('2d');
+            if (window.comparisonRadarChart) {
+                window.comparisonRadarChart.destroy();
+            }
+            
+            window.comparisonRadarChart = new Chart(radarCtx, {
+                type: 'radar',
+                data: {
+                    labels: ['风险分散效果', '操作复杂度', '灵活性', '成本效益', '稳定性'],
+                    datasets: [
+                        {
+                            label: '成数再保险',
+                            data: [85, 70, 60, 75, 80],
+                            backgroundColor: 'rgba(49, 130, 206, 0.2)',
+                            borderColor: '#3182ce',
+                            borderWidth: 2
+                        },
+                        {
+                            label: '溢额再保险',
+                            data: [90, 50, 85, 65, 75],
+                            backgroundColor: 'rgba(229, 62, 62, 0.2)',
+                            borderColor: '#e53e3e',
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: '比例再保险类型特性对比'
+                        },
+                        legend: {
+                            position: 'bottom'
+                        }
+                    },
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                stepSize: 20
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updateXOLChart(perLossDetails, perPaymentDetails) {
+            const ctx = document.getElementById('xolChart').getContext('2d');
+            
+            if (window.xolChart) {
+                window.xolChart.destroy();
+            }
+            
+            const labels = perLossDetails.map((_, index) => `损失${index + 1}`);
+            
+            window.xolChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Per Loss - 再保险',
+                            data: perLossDetails.map(d => d.reinsurance),
+                            backgroundColor: '#e53e3e'
+                        },
+                        {
+                            label: 'Per Payment - 再保险',
+                            data: perPaymentDetails.map(d => d.reinsurance),
+                            backgroundColor: '#3182ce'
+                        },
+                        {
+                            label: '自留损失',
+                            data: perLossDetails.map(d => d.retained),
+                            backgroundColor: '#38a169'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'XOL再保险 Per Loss vs Per Payment 对比'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            title: {
+                                display: true,
+                                text: '金额 (万元)'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // 新增XOL饼图 - 赔付比例分析
+            const pieCtx = document.getElementById('xolPieChart').getContext('2d');
+            if (window.xolPieChart) {
+                window.xolPieChart.destroy();
+            }
+            
+            const perLossTotal = perLossDetails.reduce((sum, d) => sum + d.reinsurance, 0);
+            const perPaymentTotal = perPaymentDetails.reduce((sum, d) => sum + d.reinsurance, 0);
+            const retainedTotal = perLossDetails.reduce((sum, d) => sum + d.retained, 0);
+            const totalLoss = perLossTotal + retainedTotal;
+            
+            window.xolPieChart = new Chart(pieCtx, {
+                type: 'pie',
+                data: {
+                    labels: ['Per Loss赔付', 'Per Payment赔付', '自留损失'],
+                    datasets: [{
+                        data: [perLossTotal, perPaymentTotal, retainedTotal],
+                        backgroundColor: ['#e53e3e', '#3182ce', '#38a169'],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'XOL赔付总额分布'
+                        },
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+            
+            // 新增阈值分析图
+            const thresholdCtx = document.getElementById('xolThresholdChart').getContext('2d');
+            if (window.xolThresholdChart) {
+                window.xolThresholdChart.destroy();
+            }
+            
+            const deductible = parseFloat(document.getElementById('deductible').value);
+            const losses = perLossDetails.map(d => d.loss);
+            const aboveThreshold = losses.filter(loss => loss > deductible).length;
+            const belowThreshold = losses.length - aboveThreshold;
+            
+            window.xolThresholdChart = new Chart(thresholdCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: [`超过免赔额 (${deductible}万)`, '未超过免赔额'],
+                    datasets: [{
+                        data: [aboveThreshold, belowThreshold],
+                        backgroundColor: ['#e53e3e', '#38a169'],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `损失事件阈值分析 (免赔额: ${deductible}万)`
+                        },
+                        legend: {
+                            position: 'bottom'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const total = aboveThreshold + belowThreshold;
+                                    const percentage = (context.raw / total * 100).toFixed(1);
+                                    return `${context.label}: ${context.raw}次 (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updateStopLossChart(results) {
+            const ctx = document.getElementById('stopLossChart').getContext('2d');
+            
+            if (window.stopLossChart) {
+                window.stopLossChart.destroy();
+            }
+            
+            window.stopLossChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: results.map(r => r.year),
+                    datasets: [
+                        {
+                            label: '总损失',
+                            data: results.map(r => r.totalLoss),
+                            borderColor: '#e53e3e',
+                            backgroundColor: 'rgba(229, 62, 62, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        },
+                        {
+                            label: '触发点',
+                            data: results.map(() => parseFloat(document.getElementById('attachmentPoint').value)),
+                            borderColor: '#3182ce',
+                            borderDash: [5, 5],
+                            fill: false
+                        },
+                        {
+                            label: '再保险赔付',
+                            data: results.map(r => r.reinsurance),
+                            borderColor: '#38a169',
+                            backgroundColor: 'rgba(56, 161, 105, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: '止损再保险年度损失分析'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            title: {
+                                display: true,
+                                text: '金额 (万元)'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // 新增止损再保险饼图
+            const pieCtx = document.getElementById('stopLossPieChart').getContext('2d');
+            if (window.stopLossPieChart) {
+                window.stopLossPieChart.destroy();
+            }
+            
+            const totalReinsurance = results.reduce((sum, r) => sum + r.reinsurance, 0);
+            const totalRetained = results.reduce((sum, r) => sum + r.retained, 0);
+            const totalLoss = results.reduce((sum, r) => sum + r.totalLoss, 0);
+            
+            window.stopLossPieChart = new Chart(pieCtx, {
+                type: 'pie',
+                data: {
+                    labels: ['再保险赔付总额', '自留损失总额'],
+                    datasets: [{
+                        data: [totalReinsurance, totalRetained],
+                        backgroundColor: ['#38a169', '#e53e3e'],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: '止损再保险赔付比例'
+                        },
+                        legend: {
+                            position: 'bottom'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const percentage = (context.raw / totalLoss * 100).toFixed(1);
+                                    return `${context.label}: ${context.raw.toFixed(1)}万 (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // 新增触发条件分析图
+            const triggerCtx = document.getElementById('stopLossTriggerChart').getContext('2d');
+            if (window.stopLossTriggerChart) {
+                window.stopLossTriggerChart.destroy();
+            }
+            
+            const triggeredYears = results.filter(r => r.triggered).length;
+            const nonTriggeredYears = results.length - triggeredYears;
+            
+            window.stopLossTriggerChart = new Chart(triggerCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: [`触发止损再保险 (${triggeredYears}年)`, `未触发 (${nonTriggeredYears}年)`],
+                    datasets: [{
+                        data: [triggeredYears, nonTriggeredYears],
+                        backgroundColor: ['#e53e3e', '#38a169'],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: '止损再保险触发频率分析'
+                        },
+                        legend: {
+                            position: 'bottom'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const percentage = (context.raw / results.length * 100).toFixed(1);
+                                    return `${context.label}: ${context.raw}年 (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // 新增止损再保险分摊图
+            const stopLossSplitCtx = document.getElementById('stopLossSplitChart').getContext('2d');
+            if (window.stopLossSplitChart) {
+                window.stopLossSplitChart.destroy();
+            }
+            
+            window.stopLossSplitChart = new Chart(stopLossSplitCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['再保险赔付', '原保险人承担'],
+                    datasets: [{
+                        label: '分摊比例 (%)',
+                        data: [
+                            (totalReinsurance / totalLoss * 100),
+                            (totalRetained / totalLoss * 100)
+                        ],
+                        backgroundColor: ['#3182ce', '#e53e3e'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: '止损再保险分摊比例'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            title: {
+                                display: true,
+                                text: '分摊比例 (%)'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // 新增止损再保险雷达图对比
+            const stopLossRadarCtx = document.getElementById('stopLossComparisonRadarChart').getContext('2d');
+            if (window.stopLossComparisonRadarChart) {
+                window.stopLossComparisonRadarChart.destroy();
+            }
+            
+            window.stopLossComparisonRadarChart = new Chart(stopLossRadarCtx, {
+                type: 'radar',
+                data: {
+                    labels: ['风险保护效果', '成本控制', '操作复杂度', '稳定性', '灵活性'],
+                    datasets: [
+                        {
+                            label: '止损再保险',
+                            data: [90, 75, 60, 85, 70],
+                            backgroundColor: 'rgba(49, 130, 206, 0.2)',
+                            borderColor: '#3182ce',
+                            borderWidth: 2
+                        },
+                        {
+                            label: '传统再保险',
+                            data: [70, 85, 80, 75, 85],
+                            backgroundColor: 'rgba(229, 62, 62, 0.2)',
+                            borderColor: '#e53e3e',
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: '止损再保险与传统再保险对比'
+                        },
+                        legend: {
+                            position: 'bottom'
+                        }
+                    },
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                stepSize: 20
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 页面加载时初始化计算
+        window.onload = function() {
+            // 等待Chart.js完全加载
+            if (typeof Chart === 'undefined') {
+                setTimeout(window.onload, 100);
+                return;
+            }
+            
+            // 先显示结果区域
+            document.getElementById('proportionalResult').style.display = 'block';
+            document.getElementById('xolResult').style.display = 'block';
+            document.getElementById('stopLossResult').style.display = 'block';
+            
+            // 然后进行计算
+            calculateProportional();
+            calculateXOL();
+            calculateStopLoss();
+        };
+    </script>
+</body>
+</html>

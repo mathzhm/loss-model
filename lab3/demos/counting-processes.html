@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>计数过程可视化</title>
+    <link rel="stylesheet" href="styles-counting.css">
+    <script src="vendor/chart.umd.min.js"></script>
+    </head>
+<body>
+    <div class="container">
+        <h1>计数过程可视化</h1>
+        
+        <div class="section">
+            <h2>1. 泊松过程间隔时间分布</h2>
+            <div class="chart-container">
+                <canvas id="poissonChart"></canvas>
+            </div>
+            <div class="controls">
+                <label for="lambda">λ (发生率):</label>
+                <input type="range" id="lambda" min="0.1" max="5" step="0.1" value="1">
+                <span id="lambdaValue">1</span>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>2. 非齐次泊松过程强度函数</h2>
+            <div class="chart-container">
+                <canvas id="nonHomogeneousChart"></canvas>
+            </div>
+            <div class="controls">
+                <select id="intensityFunction">
+                    <option value="sin">正弦函数</option>
+                    <option value="linear">线性增长</option>
+                    <option value="quadratic">二次函数</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>3. 事件发生过程</h2>
+            <div class="animation-container">
+                <canvas id="eventChart"></canvas>
+            </div>
+            <div class="controls">
+                <button id="startAnimation">开始模拟</button>
+                <button id="resetAnimation">重置</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script-counting.js"></script>
+<script src="vendor/mathjax-loader.js"></script>
+<script src="vendor/mathjax-tex-svg.js"></script>
+</body>
+</html>

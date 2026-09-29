@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>错题本 · LOSS LAB V2</title>
+<link rel="stylesheet" href="style.css">
+<script>
+try{
+  var t=localStorage.getItem('v2theme');
+  if(t) document.documentElement.dataset.theme=t;
+}catch(e){}
+</script>
+<style>
+  .page-h{margin:30px 0 6px;font-size:24px;font-weight:800}
+  .page-sub{color:var(--ink2);font-size:14px}
+  .toolbar{display:flex;gap:9px;align-items:center;margin:18px 0 16px;flex-wrap:wrap}
+  .toolbar select{
+    border:1.5px solid var(--line);background:var(--surface);color:var(--ink);
+    border-radius:10px;padding:8px 12px;font-size:13.5px;font-family:inherit;
+  }
+  .toolbar .spacer{flex:1}
+  .toolbar .count{font-size:13px;color:var(--muted)}
+  .witem{margin-bottom:12px;padding:17px 20px}
+  .wmeta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:9px}
+  .wmeta .tag{font-size:11.5px;background:var(--surface2);color:var(--ink2);border-radius:6px;padding:2.5px 8px}
+  .wmeta .kp{font-size:12.5px;color:var(--muted)}
+  .wq{font-size:14.5px;font-weight:700;line-height:1.6}
+  .wopts{display:grid;gap:7px;margin-top:11px}
+  .wwhy{margin-top:10px;padding:10px 14px;border-radius:9px;background:var(--surface2);font-size:13px;color:var(--ink2)}
+  .wfoot{display:flex;gap:10px;margin-top:12px;align-items:center}
+  .wfoot .res{font-size:12.5px;color:var(--muted)}
+  .empty{padding:60px 20px;text-align:center;color:var(--muted)}
+  .empty .big{font-size:44px;margin-bottom:12px}
+  .empty p{margin-bottom:18px}
+</style>
+</head>
+<body>
+<script src="nav.js"></script>
+
+<main class="wrap">
+  <h1 class="page-h">📕 错题本</h1>
+  <p class="page-sub">学习页与竞技场答错的题会自动收进来；重做答对即移出。</p>
+
+  <div class="toolbar">
+    <select id="chFilter"><option value="">全部章节</option></select>
+    <span class="count" id="count"></span>
+    <span class="spacer"></span>
+    <button class="btn" id="clearAll">清空错题本</button>
+  </div>
+
+  <div id="list"></div>
+  <div class="foot">LOSS LAB · 英国精算师 IFoA CS2 · Risk Modelling &amp; Survival Analysis</div>
+</main>
+
+<script src="course.js"></script>
+<script>
+const chFilter=document.getElementById('chFilter');
+chFilter.innerHTML += COURSE.chapters.map(c=>`<option value="${c.id}">${c.no} ${c.name}</option>`).join('');
+chFilter.onchange=render;
+
+document.getElementById('clearAll').onclick=()=>{
+  if(!V2.wrong().length)return;
+  if(confirm('确定清空全部错题记录？此操作不可恢复。')){ try{localStorage.removeItem('v2wrong')}catch(e){}; render(); }
+};
+
+let redoState=null;   /* {kp,qi} 正在重做的题 */
+
+function render(){
+  const all=V2.wrong();
+  const f=chFilter.value;
+  const items=f?[...all].reverse().filter(x=>String(x.ch)===f):[...all].reverse();
+  document.getElementById('count').textContent=all.length?`共 ${all.length} 道错题`:'暂无错题';
+  const list=document.getElementById('list');
+
+  if(!items.length){
+    list.innerHTML=`<div class="card empty"><div class="big">🎉</div><p>错题本是空的——去竞技场或知识点自测里刷几题吧。</p><a class="btn primary" href="arena.html">进竞技场 →</a></div>`;
+    return;
+  }
+
+  list.innerHTML=items.map((x,i)=>{
+    const redoing = redoState && redoState.kp===x.kp && redoState.qi===x.qi;
+    return `<div class="card witem">
+      <div class="wmeta">
+        <span class="tag">${x.chNo}</span><span class="kp">${x.kpName}</span>
+        <span class="tag">${new Date(x.t).toLocaleDateString('zh-CN')}</span>
+      </div>
+      <div class="wq">Q${x.qi+1} · ${x.q}</div>
+      ${redoing?`
+        <div class="wopts">${x.opts.map((o,j)=>`<button class="opt" data-kp="${x.kp}" data-qi="${x.qi}" data-i="${j}">${String.fromCharCode(65+j)}. ${o}</button>`).join('')}</div>
+        <div class="wwhy" id="rw" style="display:none"></div>`
+      :`
+        <div class="wopts" style="grid-template-columns:1fr 1fr">
+          <div class="opt wrong" style="cursor:default">你的答案：${String.fromCharCode(65+x.my)}. ${x.opts[x.my]}</div>
+          <div class="opt correct" style="cursor:default">正确答案：${String.fromCharCode(65+x.ans)}. ${x.opts[x.ans]}</div>
+        </div>
+        ${x.why?`<div class="wwhy">${x.why}</div>`:''}
+        <div class="wfoot">
+          <button class="btn" data-redo="${x.kp}|${x.qi}">🔁 重做这道</button>
+          <a class="btn" href="learn.html?ch=${x.ch}&kp=${x.kp}">回知识点 →</a>
+          <span class="res">重做答对后自动移出错题本</span>
+        </div>`}
+    </div>`;
+  }).join('');
+}
+
+/* 事件委托：重做 / 重做答题 */
+document.getElementById('list').addEventListener('click',e=>{
+  const rb=e.target.closest('[data-redo]');
+  if(rb){ const [kp,qi]=rb.dataset.redo.split('|'); redoState={kp,qi:+qi}; render(); return; }
+  const o=e.target.closest('.opt[data-i]');
+  if(o&&redoState){
+    const pick=+o.dataset.i, x=V2.wrong().find(w=>w.kp===redoState.kp&&w.qi===redoState.qi);
+    if(!x)return;
+    o.parentElement.querySelectorAll('.opt').forEach((b,j)=>{ b.disabled=true; if(j===x.ans)b.classList.add('correct'); else if(j===pick)b.classList.add('wrong'); });
+    const w=document.getElementById('rw');
+    w.style.display='block';
+    if(pick===x.ans){
+      w.innerHTML='✅ 答对了！已移出错题本。';
+      V2.removeWrong(x.kp,x.qi);
+      redoState=null;
+      setTimeout(render,900);
+    }else{
+      w.innerHTML=`❌ 还是错了——正确答案是 ${'ABCD'[x.ans]}。${x.why}`;
+    }
+  }
+});
+render();
+</script>
+</body>
+</html>

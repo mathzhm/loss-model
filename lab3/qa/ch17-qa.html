@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CS2-17 Copula 练习题库</title>
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},svg:{fontCache:'global'}};</script>
+<script id="MathJax-script" async src="../demos/vendor/mathjax-tex-svg.js"></script>
+<style>
+*{box-sizing:border-box}body{font-family:-apple-system,"Segoe UI","Microsoft YaHei",Arial,sans-serif;margin:0;background:#eef4f4;color:#1f3333;line-height:1.6}
+header{background:linear-gradient(135deg,#0e6b6b,#0a4747);color:#fff;padding:24px 20px;text-align:center}
+header h1{margin:0 0 6px;font-size:22px}header p{margin:0;opacity:.85;font-size:14px}
+.container{max-width:900px;margin:0 auto;padding:20px}
+.toolbar,.picker,.card{background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.toolbar{padding:16px 18px;margin-bottom:18px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.toolbar .label{font-weight:600;margin-right:4px}
+button{cursor:pointer;border:none;border-radius:8px;padding:8px 14px;font-size:14px;background:#0a4747;color:#fff}
+button:hover{opacity:.88}button.ghost{background:#e3eeee;color:#245}
+select{padding:8px 10px;border-radius:8px;border:1px solid #c5dada;font-size:14px}
+.picker{padding:16px 18px;margin-bottom:18px}.picker h3{margin:0 0 12px;font-size:15px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1.5px solid #bcd6d6;background:#fff;color:#245;border-radius:20px;padding:6px 14px;cursor:pointer;font-size:14px;user-select:none}
+.chip.active{background:#0e6b6b;color:#fff;border-color:#0e6b6b}
+.chip.exam::after{content:" ★";color:#f0a500}.chip.active.exam::after{color:#ffe08a}
+.count{margin:12px 0 0;font-size:13px;color:#678}
+.card{padding:18px 20px;margin-bottom:16px}
+.qhead{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.qnum{background:#0e6b6b;color:#fff;border-radius:8px;padding:3px 10px;font-weight:700;font-size:14px}
+.badge{background:#fdecc8;color:#8a5a00;border-radius:6px;padding:2px 8px;font-size:12px}
+.qbody{font-size:15px}
+.answer{margin-top:14px;padding:14px 16px;background:#eef7f5;border-left:4px solid #17997f;border-radius:6px;display:none}
+.answer.show{display:block}.answer .atitle{font-weight:700;color:#0e6b6b;margin-bottom:6px}
+.toggle-ans{margin-top:12px;background:#17997f;font-size:13px;padding:6px 12px}
+.empty{text-align:center;color:#889;padding:40px 0}footer{text-align:center;color:#99a;font-size:12px;padding:20px}
+table.tbl{border-collapse:collapse;margin:8px 0;font-size:13px}
+table.tbl th,table.tbl td{border:1px solid #cdd;padding:4px 10px;text-align:center}table.tbl th{background:#e9f2f2}
+</style></head>
+<body>
+<header><h1>CS2-17 Copula · 练习题库</h1><p>Copulas — Practice Questions（★ 为考试风格题 Exam style）</p></header>
+<div class="container">
+<div class="toolbar"><span class="label">操作：</span>
+<button onclick="selectAll(true)" class="ghost">全选</button>
+<button onclick="selectAll(false)" class="ghost">清空</button>
+<button onclick="randomPick()" class="ghost">随机抽题</button>
+<select id="randCount"><option value="3">随机 3 题</option><option value="4">随机 4 题</option><option value="5">随机 5 题</option></select>
+<span style="flex:1"></span>
+<button onclick="toggleAllAns(true)" class="ghost">展开全部答案</button>
+<button onclick="toggleAllAns(false)" class="ghost">收起全部答案</button></div>
+<div class="picker"><h3>选择题目（点击标签选/取消）</h3><div class="chips" id="chips"></div><p class="count" id="count"></p></div>
+<div id="quiz"></div></div>
+<footer>题目内容摘自 IFE/ActEd CS2-17 (2019) 教材，仅供个人学习使用。</footer>
+<script>
+const questions=[
+{id:"17.1",exam:false,q:`用文字列出 copula 函数为正确刻画联合分布性质所必须满足的三条技术性质。`,
+a:`① copula 是其输入的增函数；② 若除某一个之外所有边际 CDF 都等于 1，则 copula 等于该边际 CDF 的值；③ copula 总是返回一个有效概率（介于 0 与 1 之间）。`},
+{id:"17.2",exam:true,q:`某投资者从同一行业不同公司购买三只 5 年期债券，各债券首年违约概率为 10%。<br>(i) 用参数 $\\alpha=2$ 的 Gumbel copula 计算三只债券在首年全部违约的概率。 [3]<br>(ii) 讨论 Gumbel copula 在此情形下的适用性。 [3]`,
+a:`<b>(i)</b> 设 $u_i=P(T_i<1)=0.1$。用 Gumbel copula（多维）：
+
+$$C(u_1,u_2,u_3)=\\exp\\!\\Big[-\\big(3(-\\ln0.1)^2\\big)^{1/2}\\Big]=0.0185\\ (1.85\\%)$$
+<b>(ii)</b> Gumbel copula 具有上尾相依（程度由单一参数调节），但无下尾相依。故只有当我们认为三项投资在临近 5 年期末时行为相似、而在早期不相似时才合适。但实际未必如此：若一只债券早期违约，可能预示行业或经济问题，其他投资也可能早期违约。若认为同业投资关联更紧密（受相同系统性与操作风险影响），则应选用同时具上、下尾相依的 copula，如 Student's t copula。`},
+{id:"17.3",exam:true,q:`对 Clayton copula：<br>(i) 判断生成元 $\\psi(t)=\\dfrac{1}{\\alpha}(t^{-\\alpha}-1)$ 是否有效。 [3]<br>(ii) 求逆生成元。 [1]<br>(iii) 推导二元 Clayton copula 函数。 [3]`,
+a:`<b>(i)</b> $\\psi(0)=\\lim_{t\\to0}\\tfrac1\\alpha(t^{-\\alpha}-1)=\\infty$；$\\psi(1)=\\tfrac1\\alpha(1-1)=0$；在 $0<t<1$ 内 $t^{-\\alpha}$ 递减，故 $\\psi$ 递减。生成元有效。<br>
+<b>(ii)</b> 由 $x=\\tfrac1\\alpha(t^{-\\alpha}-1)$ 反解：$t=(1+\\alpha x)^{-1/\\alpha}$。<br>
+<b>(iii)</b> $C(u,v)=\\psi^{-1}\\big(\\psi(u)+\\psi(v)\\big)=\\Big(1+\\alpha\\big[\\tfrac1\\alpha(u^{-\\alpha}-1)+\\tfrac1\\alpha(v^{-\\alpha}-1)\\big]\\Big)^{-1/\\alpha}=(u^{-\\alpha}+v^{-\\alpha}-1)^{-1/\\alpha}$`},
+{id:"17.4",exam:true,q:`对 Frank copula：<br>(i) 判断生成元 $\\psi(t)=-\\ln\\!\\Big(\\dfrac{e^{-\\alpha t}-1}{e^{-\\alpha}-1}\\Big)$ 是否有效。 [3]<br>(ii) 求逆生成元。 [1]<br>(iii) 推导 Frank copula 函数。 [3]`,
+a:`<b>(i)</b> $\\psi(0)=\\infty$，$\\psi(1)=-\\ln1=0$；在 $0<t<1$ 内 $\\dfrac{e^{-\\alpha t}-1}{e^{-\\alpha}-1}$ 递增，故 $\\psi$ 递减。有效。<br>
+<b>(ii)</b> 反解 $x=-\\ln\\!\\big(\\tfrac{e^{-\\alpha t}-1}{e^{-\\alpha}-1}\\big)$ 得 $t=-\\tfrac1\\alpha\\ln\\!\\big[1+e^{-x}(e^{-\\alpha}-1)\\big]$。<br>
+<b>(iii)</b> $C(u,v)=\\psi^{-1}(\\psi(u)+\\psi(v))=-\\dfrac1\\alpha\\ln\\!\\Big(1+\\dfrac{(e^{-\\alpha u}-1)(e^{-\\alpha v}-1)}{e^{-\\alpha}-1}\\Big)$`},
+{id:"17.5",exam:true,q:`(i) 求 Clayton copula 在参数 $\\alpha>0$ 时的下、上尾相依系数。 [4]<br>(ii) 评论参数 $\\alpha$ 如何影响 Clayton copula 的下尾相依程度。 [1]`,
+a:`<b>(i)</b> 下尾：$\\lambda_L=\\lim_{u\\to0}\\dfrac{C(u,u)}{u}=\\lim_{u\\to0}\\dfrac{(2u^{-\\alpha}-1)^{-1/\\alpha}}{u}=2^{-1/\\alpha}$。<br>
+上尾：$\\lambda_U=\\lim_{u\\to1}\\dfrac{1-2u+C(u,u)}{1-u}$，用洛必达法则化简得 $\\lambda_U=0$。<br>
+<b>(ii)</b> $\\alpha$ 增大时 $1/\\alpha$ 减小，$2^{-1/\\alpha}$ 增大，故 $\\alpha$ 越大下尾相依程度越高。`},
+{id:"17.6",exam:true,q:`求 Gumbel copula 在参数 $\\alpha>0$ 时的下尾相依系数。 [4]`,
+a:`Gumbel copula $C(u,v)=\\exp\\!\\big[-((-\\ln u)^\\alpha+(-\\ln v)^\\alpha)^{1/\\alpha}\\big]$。令 $u=v$：
+
+$$C(u,u)=\\exp\\!\\big[-2^{1/\\alpha}(-\\ln u)\\big]=u^{2^{1/\\alpha}}$$
+下尾相依系数：
+
+$$\\lambda_L=\\lim_{u\\to0}\\frac{C(u,u)}{u}=\\lim_{u\\to0}u^{2^{1/\\alpha}-1}=0$$
+（因 $\\alpha>0\\Rightarrow 2^{1/\\alpha}>1$，指数为正。）故 Gumbel copula 无下尾相依。`},
+{id:"17.7",exam:true,q:`设 $X,Y$ 表示两位 40 岁已婚者的未来寿命，已知 $P(X\\leq25)=0.17831$、$P(Y\\leq25)=0.11086$。<br>(i) 用下列 copula 计算两人都在 65 岁前死亡的联合概率：(a) Gumbel（$\\alpha=5$）；(b) Clayton（$\\alpha=5$）；(c) Frank（$\\alpha=5$）。 [6]<br>(ii) 评论结果并说明你认为哪个 copula 最适合建模联合寿命。 [3]`,
+a:`$u=0.17831,\\ v=0.11086$。<br>
+<b>(i)(a) Gumbel：</b>$C=\\exp\\!\\big[-((-\\ln u)^5+(-\\ln v)^5)^{1/5}\\big]=0.0986$。<br>
+<b>(b) Clayton：</b>$C=(u^{-5}+v^{-5}-1)^{-1/5}=0.1089$。<br>
+<b>(c) Frank：</b>$C=-\\tfrac15\\ln\\!\\big(1+\\tfrac{(e^{-5u}-1)(e^{-5v}-1)}{e^{-5}-1}\\big)=0.0583$。<br>
+<b>(ii)</b> Clayton 给出最高的联合早死概率，因其具下尾相依：若一人早死，则另一人也很可能早死。Gumbel 给出最低概率，因其具上尾相依（一人长寿则另一人也可能长寿）。研究也表明夫妻一方去世可能诱发另一方去世（"心碎综合征"），据此可选全程正相依的 copula，如共单调（最小）copula。注意三者虽都用 $\\alpha=5$，但参数对各 copula 影响不同，结果不可直接比较。`},
+{id:"17.8",exam:false,q:`考察身高与体重是否有关联，收集了若干对数据：(172cm,68kg),(182cm,70kg),(158cm,75kg),(150cm,60kg),(174cm,65kg)。计算此数据集的 Spearman's rho。`,
+a:`按身高升序排名并对应体重排名：
+<table class="tbl"><tr><th>身高</th><th>身高排名</th><th>体重</th><th>体重排名</th><th>$d_i$</th><th>$d_i^2$</th></tr>
+<tr><td>150</td><td>1</td><td>60</td><td>1</td><td>0</td><td>0</td></tr>
+<tr><td>158</td><td>2</td><td>75</td><td>5</td><td>-3</td><td>9</td></tr>
+<tr><td>172</td><td>3</td><td>68</td><td>3</td><td>0</td><td>0</td></tr>
+<tr><td>174</td><td>4</td><td>65</td><td>2</td><td>2</td><td>4</td></tr>
+<tr><td>182</td><td>5</td><td>70</td><td>4</td><td>1</td><td>1</td></tr></table>
+$\\sum d_i^2=14$，$T=5$：
+
+$$\\rho_S=1-\\frac{6\\sum d_i^2}{T(T^2-1)}=1-\\frac{6\\times14}{5\\times24}=0.3$$`}
+];
+let selected=new Set();
+function renderChips(){const b=document.getElementById('chips');b.innerHTML='';questions.forEach(q=>{const c=document.createElement('span');c.className='chip'+(q.exam?' exam':'')+(selected.has(q.id)?' active':'');c.textContent='Q '+q.id;c.onclick=()=>{selected.has(q.id)?selected.delete(q.id):selected.add(q.id);renderChips();renderQuiz();};b.appendChild(c);});document.getElementById('count').textContent=`已选 ${selected.size} / ${questions.length} 题（★ 表示 Exam style 考试风格题）`;}
+function renderQuiz(){const z=document.getElementById('quiz');z.innerHTML='';const l=questions.filter(q=>selected.has(q.id));if(!l.length){z.innerHTML='<div class="card empty">还没有选择题目，请在上方点击标签选择。</div>';return;}l.forEach(q=>{const c=document.createElement('div');c.className='card';c.innerHTML=`<div class="qhead"><span class="qnum">Q ${q.id}</span>${q.exam?'<span class="badge">★ Exam style</span>':''}</div><div class="qbody">${q.q}</div><button class="toggle-ans">显示答案</button><div class="answer"><div class="atitle">解答 Solution</div>${q.a}</div>`;const b=c.querySelector('.toggle-ans'),a=c.querySelector('.answer');b.onclick=()=>{a.classList.toggle('show');b.textContent=a.classList.contains('show')?'隐藏答案':'显示答案';};z.appendChild(c);});if(window.MathJax&&MathJax.typesetPromise)MathJax.typesetPromise([z]);}
+function selectAll(v){selected=v?new Set(questions.map(q=>q.id)):new Set();renderChips();renderQuiz();}
+function randomPick(){const n=parseInt(document.getElementById('randCount').value);const p=[...questions.map(q=>q.id)];for(let i=p.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[p[i],p[j]]=[p[j],p[i]];}selected=new Set(p.slice(0,n));renderChips();renderQuiz();}
+function toggleAllAns(s){document.querySelectorAll('.card').forEach(c=>{const a=c.querySelector('.answer'),b=c.querySelector('.toggle-ans');if(!a)return;if(s){a.classList.add('show');if(b)b.textContent='隐藏答案';}else{a.classList.remove('show');if(b)b.textContent='显示答案';}});}
+renderChips();renderQuiz();
+</script></body></html>

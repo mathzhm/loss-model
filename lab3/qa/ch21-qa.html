@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CS2-21 机器学习 练习题库</title>
+<script>window.MathJax={tex:{inlineMath:[['$','$'],['\\(','\\)']],displayMath:[['$$','$$'],['\\[','\\]']]},svg:{fontCache:'global'}};</script>
+<script id="MathJax-script" async src="../demos/vendor/mathjax-tex-svg.js"></script>
+<style>
+*{box-sizing:border-box}body{font-family:-apple-system,"Segoe UI","Microsoft YaHei",Arial,sans-serif;margin:0;background:#f1eef7;color:#2a2338;line-height:1.6}
+header{background:linear-gradient(135deg,#6a3fa0,#3d1f6e);color:#fff;padding:24px 20px;text-align:center}
+header h1{margin:0 0 6px;font-size:22px}header p{margin:0;opacity:.85;font-size:14px}
+.container{max-width:900px;margin:0 auto;padding:20px}
+.toolbar,.picker,.card{background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.toolbar{padding:16px 18px;margin-bottom:18px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.toolbar .label{font-weight:600;margin-right:4px}
+button{cursor:pointer;border:none;border-radius:8px;padding:8px 14px;font-size:14px;background:#3d1f6e;color:#fff}
+button:hover{opacity:.88}button.ghost{background:#ece5f5;color:#4e2c85}
+select{padding:8px 10px;border-radius:8px;border:1px solid #d3c6e6;font-size:14px}
+.picker{padding:16px 18px;margin-bottom:18px}.picker h3{margin:0 0 12px;font-size:15px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1.5px solid #cdbce6;background:#fff;color:#4e2c85;border-radius:20px;padding:6px 14px;cursor:pointer;font-size:14px;user-select:none}
+.chip.active{background:#6a3fa0;color:#fff;border-color:#6a3fa0}
+.chip.exam::after{content:" ★";color:#f0a500}.chip.active.exam::after{color:#ffe08a}
+.count{margin:12px 0 0;font-size:13px;color:#667}
+.card{padding:18px 20px;margin-bottom:16px}
+.qhead{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.qnum{background:#6a3fa0;color:#fff;border-radius:8px;padding:3px 10px;font-weight:700;font-size:14px}
+.badge{background:#e6dcf5;color:#5a2f96;border-radius:6px;padding:2px 8px;font-size:12px}
+.qbody{font-size:15px}
+.answer{margin-top:14px;padding:14px 16px;background:#f4effb;border-left:4px solid #855bc0;border-radius:6px;display:none}
+.answer.show{display:block}.answer .atitle{font-weight:700;color:#6a3fa0;margin-bottom:6px}
+.toggle-ans{margin-top:12px;background:#855bc0;font-size:13px;padding:6px 12px}
+.empty{text-align:center;color:#889;padding:40px 0}footer{text-align:center;color:#99a;font-size:12px;padding:20px}
+table.tbl{border-collapse:collapse;margin:8px 0;font-size:13px}
+table.tbl th,table.tbl td{border:1px solid #d6c9ea;padding:4px 10px;text-align:center}table.tbl th{background:#efe8f8}
+</style></head>
+<body>
+<header><h1>CS2-21 机器学习 · 练习题库</h1><p>Machine Learning — Practice Questions（★ 为考试风格题 Exam style）</p></header>
+<div class="container">
+<div class="toolbar"><span class="label">操作：</span>
+<button onclick="selectAll(true)" class="ghost">全选</button>
+<button onclick="selectAll(false)" class="ghost">清空</button>
+<button onclick="randomPick()" class="ghost">随机抽题</button>
+<select id="randCount"><option value="3">随机 3 题</option><option value="4">随机 4 题</option><option value="5">随机 5 题</option></select>
+<span style="flex:1"></span>
+<button onclick="toggleAllAns(true)" class="ghost">展开全部答案</button>
+<button onclick="toggleAllAns(false)" class="ghost">收起全部答案</button></div>
+<div class="picker"><h3>选择题目（点击标签选/取消）</h3><div class="chips" id="chips"></div><p class="count" id="count"></p></div>
+<div id="quiz"></div></div>
+<footer>题目内容摘自 IFE/ActEd CS2-21 (2019) 教材，仅供个人学习使用。</footer>
+<script>
+const questions=[
+{id:"21.1",exam:false,q:`(i) 解释机器学习中监督学习与无监督学习的区别。<br>(ii) 判断下列各应用属于监督/无监督/混合，并建议合适算法：(a) 据所学专业、学位等级、性别预测毕业生 40 岁时薪资；(b) 将车险保单持有人按经验相似分入不同地理区域；(c) 为订阅电影频道的用户推荐影片。<br>(iii) 解释术语：(a) 超参数；(b) CART；(c) 贪婪分裂；(d) 聚类。`,
+a:`<b>(i)</b> 监督学习中目标输出（labels）事先给定，算法尽量准确重现；无监督学习中目标输出不事先给定，算法以合理方式分配标签或分类。<br>
+<b>(ii)</b> (a) 监督学习——多元回归；(b) 无监督学习——k-means 聚类；(c) 监督+无监督混合或强化学习。<br>
+<b>(iii)</b> (a) 超参数：模型外部变量，由用户依经验事先设定（非从数据估计），如 k-means 的簇数。(b) CART：分类与回归树的缩写，即决策树。(c) 贪婪分裂：每步只选当前最有效分裂点，不考虑对后续的影响。(d) 聚类：将数据分为若干同质组，可用 k-means 实现。`},
+{id:"21.2",exam:false,q:`样本 $x_1,\\ldots,x_n$ 取自 $N(\\mu,\\sigma_0^2)$，$\\sigma_0$ 已知，$\\mu$ 未知但相信接近 100，用惩罚对数似然估计 $\\mu$。<br>(i) 解释此法原理。<br>(ii) 说明为何 $\\lambda(\\mu-100)^2$ 适合作惩罚函数。<br>(iii) 证明 $\\hat\\mu=\\big(\\tfrac{n}{\\sigma_0^2}\\bar x+200\\lambda\\big)\\big/\\big(\\tfrac{n}{\\sigma_0^2}+2\\lambda\\big)$。<br>(iv) 评论 $\\hat\\mu$ 如何受正则化参数影响。<br>(v) 解释此法在某些情形为何优于基本最大似然。`,
+a:`<b>(i)</b> 以最大似然为基础，另加惩罚函数使估计更倾向预期目标值，惩罚从对数似然中减去后最大化。<br>
+<b>(ii)</b> 预期 $\\mu$ 接近 100，该函数在 $\\mu$ 偏离 100 时取大正值，起惩罚作用。<br>
+<b>(iii)</b> $\\log L=-n\\log\\sigma_0-\\tfrac{1}{2\\sigma_0^2}\\sum(x_i-\\mu)^2+$常数。惩罚对数似然求导置零：
+
+
+$$\\tfrac{n}{\\sigma_0^2}(\\bar x-\\mu)-2\\lambda(\\mu-100)=0\\Rightarrow \\hat\\mu=\\Big(\\tfrac{n}{\\sigma_0^2}\\bar x+200\\lambda\\Big)\\Big/\\Big(\\tfrac{n}{\\sigma_0^2}+2\\lambda\\Big)$$
+
+<b>(iv)</b> $\\lambda\\ge0$。$\\lambda=0$ 退化为 MLE：$\\hat\\mu=\\bar x$；$\\lambda\\to\\infty$ 时 $\\hat\\mu\\to100$（目标值）。<br>
+<b>(v)</b> 无惩罚 MLE 有时不稳健（样本量小或似然平坦时波动大），加惩罚可使估计接近先验预期、更可靠。`},
+{id:"21.3",exam:false,q:`样本量 100，10% 个体具某特征。<br>(a) 为完美识别该特征的测试画出混淆矩阵。<br>(b) 据矩阵计算四项测试有效性度量。`,
+a:`<b>(a)</b><table class="tbl"><tr><th></th><th>PRED YES</th><th>PRED NO</th><th>合计</th></tr><tr><th>ACTUAL YES</th><td>TP=10</td><td>FN=0</td><td>10</td></tr><tr><th>ACTUAL NO</th><td>FP=0</td><td>TN=90</td><td>90</td></tr><tr><th>合计</th><td>10</td><td>90</td><td>100</td></tr></table>
+<b>(b)</b> Precision $=\\tfrac{10}{10}=100\\%$；Recall $=\\tfrac{10}{10}=100\\%$；$F_1=100\\%$；False positive rate $=\\tfrac{0}{90}=0\\%$。`},
+{id:"21.4",exam:false,q:`仓库存四种单一麦芽威士忌。品鉴师按 Smoky、Fruity、Colour（各 1–3）分类。标准描述正确概率 80%，其他描述 10%。标准描述与库存比例：Mactavish(1,3,1,40%)、Western Isle(2,1,1,30%)、Glenragh(2,2,3,10%)、Dogavulin(3,2,2,20%)。<br>(i) 证明朴素贝叶斯下 $P(y=A\\mid x_1,x_2,x_3)\\propto P(A)P(x_1|A)P(x_2|A)P(x_3|A)$。<br>某箱描述为 Smoky=2, Fruity=2, Colour=2。<br>(ii) 估计该箱属各类型的可能性，并推荐如何标记。<br>(iii) 说明朴素贝叶斯法的两个优点和一个缺点。`,
+a:`<b>(i)</b> 由条件概率定义 $P(A|x_1,x_2,x_3)=\\tfrac{P(x_1,x_2,x_3|A)P(A)}{P(x_1,x_2,x_3)}$，再用独立性假设 $P(x_1,x_2,x_3|A)=\\prod P(x_i|A)$，忽略常数分母即得比例式。<br>
+<b>(ii)</b> 对 (2,2,2)（与标准一致取 0.8 否则 0.1）：
+
+
+$$M:0.4(0.1)(0.1)(0.1)=0.0004$$
+
+$$W:0.3(0.8)(0.1)(0.1)=0.0024$$
+
+$$G:0.1(0.8)(0.8)(0.1)=0.0064$$
+
+$$D:0.2(0.1)(0.8)(0.8)=0.0128$$
+
+比例 $4:24:64:128$（总 220），归一化 $0.0182:0.1091:0.2909:0.5818$。推荐标为 <b>Dogavulin</b>（约 58%）。<br>
+<b>(iii)</b> 优点：易应用、所需数据少。缺点：假设各条件概率独立（变量相关时近似较差）。`},
+{id:"21.5",exam:false,q:`医生用 $k=5$ 的 k-means 按身高体重分类患者。原始数据 m 和 kg，但身高已转为 cm。用欧氏距离，3 次迭代后收敛：<br>组1(165,55) 组2(160,65) 组3(175,80) 组4(150,90) 组5(185,100)（cm,kg）。<br>(i) 解释 $k$ 的含义。<br>(ii) 解释医生选择单位的原因。<br>(iii) 解释此处收敛的含义。<br>(iv) 三名新患者 Mr Blobby(1.64m,91kg)、Miss Twiggy(1.87m,54kg)、Mrs Average(1.66m,64kg)，据身高体重判断各应分入哪组。<br>(v) 若改用绝对距离 $D_{abs}=\\sum_j|x_j-k_j|$，(iv) 的结果是否会不同。`,
+a:`<b>(i)</b> $k$ 为超参数，指定簇数——此处 5。<br>
+<b>(ii)</b> 若用 (kg,m)，体重跨度约为身高的 100 倍会主导计算、身高被忽略；转 cm 后两变量数值跨度相近、权重相当。<br>
+<b>(iii)</b> 反复计算质心并重新分配点到最近质心，直至不再变化即收敛。<br>
+<b>(iv)</b> 最短欧氏距离：Mr Blobby $D_4=\\sqrt{14^2+1^2}=14.04\\Rightarrow$ 组4；Miss Twiggy $D_1=\\sqrt{22^2+1^2}=22.02\\Rightarrow$ 组1；Mrs Average $D_2=\\sqrt{6^2+1^2}=6.08\\Rightarrow$ 组2。<br>
+<b>(v)</b> 用绝对距离（如 Mr Blobby 到组4 为 $14+1=15$）检验三人，分组结果与欧氏距离相同。`},
+{id:"21.6",exam:false,q:`(i)(a) 若 $p_1+\\cdots+p_m=1$，证明 $\\sum_k\\sum_{j\\ne k}p_kp_j=1-\\sum_k p_k^2$。(b) 说明该恒等式如何用于计算决策树有效性度量。<br>两棵树将 15 项分为 A,B,C,D 四类。<br>树1 终节点：{AAAB}、{BCCC}、{DDDD}、{BBB}。<br>树2 终节点：{BBBBD}、{AAAC}、{CC}、{BDDD}。<br>(ii)(a) 计算各树基尼指数。(b) 评论结果。`,
+a:`<b>(i)(a)</b> $\\sum_k\\sum_{j\\ne k}p_kp_j=\\sum_k p_k(1-p_k)=1-\\sum_k p_k^2$。<br>
+<b>(i)(b)</b> 各节点各类比例两两相乘求和（即 $1-\\sum p_k^2$），按节点元素数加权得整体基尼指数 $G=\\sum_{\\text{nodes}}\\tfrac{n_{\\text{node}}}{n}(1-\\sum p_k^2)$。<br>
+<b>(ii)(a) 树1：</b>{AAAB} $=1-(\\tfrac9{16}+\\tfrac1{16})=\\tfrac38$；{BCCC} 同 $\\tfrac38$；其余纯节点 0。
+
+
+$$G_1=\\tfrac4{15}\\cdot\\tfrac38+\\tfrac4{15}\\cdot\\tfrac38=\\tfrac15=0.2$$
+
+<b>树2：</b>{BBBBD}(5) $=1-(\\tfrac{16}{25}+\\tfrac1{25})=\\tfrac8{25}$；{AAAC}(4) $=\\tfrac38$；{CC} 纯=0；{BDDD}(4) $=\\tfrac38$。
+
+
+$$G_2=\\tfrac5{15}\\cdot\\tfrac8{25}+\\tfrac4{15}\\cdot\\tfrac38+\\tfrac4{15}\\cdot\\tfrac38=\\tfrac{23}{75}=0.307$$
+
+<b>(ii)(b)</b> 树1 基尼指数（0.2）低于树2（0.307），按此准则应优先选树1。`},
+{id:"21.7",exam:false,q:`对运动员重复 $k=5$ 的 k-means，得到一张图（骑师、自行车手、篮球、橄榄球被正确分开；足球与网球合并为一组）。<br>(i) 解释为何可能选 $k=5$。<br>(ii) 用图判断三名运动员最可能的项目：Thor(105kg,200cm)、Mo(85kg,195cm)、Claude(70kg,165cm)。`,
+a:`<b>(i)</b> $k=6$ 时曾正确识别骑师、自行车手、篮球、橄榄球，但足球与网球特征太相似无法有效区分。故合理做法是将两者合并，寻找 5 个逻辑簇。<br>
+<b>(ii)</b> 分配到最近质心的组：Thor → <b>橄榄球</b>；Mo → <b>篮球</b>；Claude → <b>自行车</b>。`}
+];
+let selected=new Set();
+function renderChips(){const b=document.getElementById('chips');b.innerHTML='';questions.forEach(q=>{const c=document.createElement('span');c.className='chip'+(q.exam?' exam':'')+(selected.has(q.id)?' active':'');c.textContent='Q '+q.id;c.onclick=()=>{selected.has(q.id)?selected.delete(q.id):selected.add(q.id);renderChips();renderQuiz();};b.appendChild(c);});document.getElementById('count').textContent=`已选 ${selected.size} / ${questions.length} 题（★ 表示 Exam style 考试风格题）`;}
+function renderQuiz(){const z=document.getElementById('quiz');z.innerHTML='';const l=questions.filter(q=>selected.has(q.id));if(!l.length){z.innerHTML='<div class="card empty">还没有选择题目，请在上方点击标签选择。</div>';return;}l.forEach(q=>{const c=document.createElement('div');c.className='card';c.innerHTML=`<div class="qhead"><span class="qnum">Q ${q.id}</span>${q.exam?'<span class="badge">★ Exam style</span>':''}</div><div class="qbody">${q.q}</div><button class="toggle-ans">显示答案</button><div class="answer"><div class="atitle">解答 Solution</div>${q.a}</div>`;const b=c.querySelector('.toggle-ans'),a=c.querySelector('.answer');b.onclick=()=>{a.classList.toggle('show');b.textContent=a.classList.contains('show')?'隐藏答案':'显示答案';};z.appendChild(c);});if(window.MathJax&&MathJax.typesetPromise)MathJax.typesetPromise([z]);}
+function selectAll(v){selected=v?new Set(questions.map(q=>q.id)):new Set();renderChips();renderQuiz();}
+function randomPick(){const n=parseInt(document.getElementById('randCount').value);const p=[...questions.map(q=>q.id)];for(let i=p.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[p[i],p[j]]=[p[j],p[i]];}selected=new Set(p.slice(0,n));renderChips();renderQuiz();}
+function toggleAllAns(s){document.querySelectorAll('.card').forEach(c=>{const a=c.querySelector('.answer'),b=c.querySelector('.toggle-ans');if(!a)return;if(s){a.classList.add('show');if(b)b.textContent='隐藏答案';}else{a.classList.remove('show');if(b)b.textContent='显示答案';}});}
+renderChips();renderQuiz();
+</script></body></html>

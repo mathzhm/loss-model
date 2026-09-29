@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个体风险模型分析工具</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="vendor/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>个体风险模型演示工具</h1>
+            <p class="subtitle">伯努利分布下个体风险模型的均值、方差及损毁情形分析</p>
+        </header>
+
+        <section class="theory-section">
+            <h2>📊 理论背景</h2>
+            <div class="theory-content">
+                <h3>个体风险模型定义</h3>
+                <p>个体风险模型描述的是 n 个独立但不一定同分布的保单损失之和：</p>
+                <div class="formula">S = X₁ + X₂ + ... + Xₙ</div>
+                
+                <h3>基本假设</h3>
+                <ul>
+                    <li>每份保单最多发生一次索赔</li>
+                    <li>索赔次数服从伯努利分布</li>
+                    <li>最初应用于寿险场景（固定保额、固定死亡利率）</li>
+                </ul>
+
+                <h3>应用场景</h3>
+                <p>该模型最初用于寿险分析，特别适用于：</p>
+                <ul>
+                    <li>固定保额的寿险产品</li>
+                    <li>固定死亡利率的精算计算</li>
+                    <li>风险评估和准备金计算</li>
+                </ul>
+            </div>
+        </section>
+
+        <section class="input-section">
+            <h2>⚙️ 参数设置</h2>
+            
+            <!-- 情景选择 -->
+            <div class="scenario-section">
+                <h3>📋 预设情景</h3>
+                <div class="scenario-buttons">
+                    <button class="scenario-btn" data-scenario="conservative">保守情景</button>
+                    <button class="scenario-btn" data-scenario="moderate">中性情景</button>
+                    <button class="scenario-btn" data-scenario="aggressive">激进情景</button>
+                    <button class="scenario-btn" data-scenario="custom">自定义</button>
+                </div>
+                <div class="scenario-info" id="scenarioInfo">
+                    <span>当前情景：自定义</span>
+                    <button id="saveScenarioBtn" class="save-btn">保存当前配置</button>
+                </div>
+            </div>
+
+            <!-- 风险阈值设置 -->
+            <div class="threshold-section">
+                <h3>⚠️ 风险阈值设置</h3>
+                <div class="threshold-grid">
+                    <div class="threshold-group">
+                        <label for="riskThreshold">风险阈值 (CV):</label>
+                        <input type="number" id="riskThreshold" value="30" min="5" max="100" step="5">
+                        <span class="threshold-hint">% (现实业务参考范围)</span>
+                    </div>
+                    <div class="threshold-group">
+                        <label for="warningThreshold">预警阈值 (CV):</label>
+                        <input type="number" id="warningThreshold" value="15" min="5" max="100" step="5">
+                        <span class="threshold-hint">% (现实业务参考范围)</span>
+                    </div>
+                </div>
+                <div class="threshold-status" id="thresholdStatus">
+                    <span class="status-indicator safe">风险状态：安全</span>
+                </div>
+            </div>
+
+            <div class="input-grid">
+                <div class="input-group">
+                    <label for="policyCount">保单数量 (n):</label>
+                    <input type="number" id="policyCount" value="100" min="1" max="10000">
+                    <span class="input-hint">1-10000份</span>
+                </div>
+                <div class="input-group">
+                    <label for="claimAmount">每份保单赔付金额 (元):</label>
+                    <input type="number" id="claimAmount" value="100000" min="1" step="1000">
+                    <span class="input-hint">单位：元</span>
+                </div>
+                <div class="input-group">
+                    <label for="damageProbability">损毁概率 (q):</label>
+                    <input type="range" id="damageProbability" value="0.01" min="0" max="0.1" step="0.001">
+                    <div class="range-value">
+                        <span id="damageProbabilityValue">0.01</span>
+                        <span class="range-percent">(1.0%)</span>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label for="damageType">损毁类型:</label>
+                    <select id="damageType">
+                        <option value="full">全部损毁</option>
+                        <option value="partial">部分损毁</option>
+                        <option value="mixed">混合损毁</option>
+                    </select>
+                </div>
+                
+                <!-- 部分损毁参数 -->
+                <div class="input-group damage-params" id="partialDamageGroup" style="display: none;">
+                    <label for="partialRatio">部分损毁赔付比例 (α):</label>
+                    <input type="number" id="partialRatio" value="0.3" min="0" max="1" step="0.1">
+                    <span class="input-hint">0-1之间，如0.3表示30%</span>
+                </div>
+                
+                <!-- 混合损毁参数 -->
+                <div class="input-group damage-params" id="mixedDamageGroup" style="display: none;">
+                    <div class="mixed-inputs">
+                        <div class="mixed-input">
+                            <label for="fullDamageProb">全损概率 (q₁):</label>
+                            <input type="number" id="fullDamageProb" value="0.005" min="0" max="1" step="0.001">
+                        </div>
+                        <div class="mixed-input">
+                            <label for="partialDamageProb">部分损概率 (q₂):</label>
+                            <input type="number" id="partialDamageProb" value="0.005" min="0" max="1" step="0.001">
+                        </div>
+                        <div class="mixed-input">
+                            <label for="mixedPartialRatio">部分损赔付比例 (α):</label>
+                            <input type="number" id="mixedPartialRatio" value="0.3" min="0" max="1" step="0.1">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 控制按钮组 -->
+            <div class="control-buttons">
+                <button id="calculateBtn" class="calculate-btn">计算理赔分布</button>
+                <button id="realTimeToggle" class="real-time-btn">实时计算：关闭</button>
+                <button id="exportBtn" class="export-btn">导出报告</button>
+                <button id="resetBtn" class="reset-btn">重置参数</button>
+            </div>
+        </section>
+
+        <section class="results-section">
+            <h2>📈 计算结果</h2>
+            <div class="results-grid">
+                <div class="result-card">
+                    <h3>理赔总额均值 E(S)</h3>
+                    <div id="meanResult" class="result-value">-</div>
+                </div>
+                <div class="result-card">
+                    <h3>理赔总额方差 Var(S)</h3>
+                    <div id="varianceResult" class="result-value">-</div>
+                </div>
+                <div class="result-card">
+                    <h3>标准差 σ(S)</h3>
+                    <div id="stdDevResult" class="result-value">-</div>
+                </div>
+                <div class="result-card">
+                    <h3>变异系数 CV(S)</h3>
+                    <div id="cvResult" class="result-value">-</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="charts-section">
+            <h2>📊 可视化分析</h2>
+            <div class="charts-container">
+                <div class="chart-wrapper">
+                    <canvas id="distributionChart"></canvas>
+                    <p class="chart-title">不同损毁情形下的期望损失和方差</p>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="probabilityChart"></canvas>
+                    <p class="chart-title">损毁概率变化对期望损失与方差的影响</p>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="simulationChart"></canvas>
+                    <p class="chart-title">损失分布模拟（10000次伯努利试验）</p>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="comparisonChart"></canvas>
+                    <p class="chart-title">不同损毁类型对比分析</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="analysis-section">
+            <h2>🔍 模型分析与风险管理启示</h2>
+            <div class="analysis-grid">
+                <div class="analysis-card">
+                    <h3>📊 主要计算结果总结</h3>
+                    <div id="summaryResults" class="analysis-content">
+                        <p>当前参数下的风险特征分析：</p>
+                        <ul>
+                            <li>预期理赔总额反映了保险公司的预期赔付成本</li>
+                            <li>方差大小体现了理赔金额的波动性风险</li>
+                            <li>变异系数衡量了风险的相对大小</li>
+                            <li><strong>提示</strong>：详细CV解读请查看页面末尾的附录</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="analysis-card">
+                    <h3>⚖️ 模型优缺点分析</h3>
+                    <div class="analysis-content">
+                        <h4>优点：</h4>
+                        <ul>
+                            <li><strong>计算简单</strong>：基于伯努利分布，数学推导清晰</li>
+                            <li><strong>适用性强</strong>：适用于多种保险产品类型</li>
+                            <li><strong>风险量化</strong>：能够精确计算期望损失和风险波动</li>
+                        </ul>
+                        <h4>局限性：</h4>
+                        <ul>
+                            <li><strong>独立性假设</strong>：现实中保单之间可能存在相关性</li>
+                            <li><strong>单次索赔限制</strong>：不适用于可能发生多次索赔的情形</li>
+                            <li><strong>参数敏感性</strong>：结果对损毁概率q高度敏感</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="analysis-card">
+                    <h3>📈 结果趋势分析</h3>
+                    <div class="analysis-content">
+                        <h4>参数变化影响：</h4>
+                        <ul>
+                            <li><strong>保单数量n</strong>：线性影响期望损失，线性影响方差</li>
+                            <li><strong>损毁概率q</strong>：期望损失随q线性增长，方差在q=0.5时最大</li>
+                            <li><strong>赔付金额c</strong>：期望损失线性增长，方差平方增长</li>
+                        </ul>
+                        <h4>风险特征：</h4>
+                        <p>当q较小时，理赔分布近似泊松分布；当q较大时，分布更接近正态分布。</p>
+                    </div>
+                </div>
+
+                <div class="analysis-card">
+                    <h3>🎯 损毁类型对风险的影响</h3>
+                    <div class="analysis-content">
+                        <h4>风险波动比较：</h4>
+                        <ul>
+                            <li><strong>全部损毁</strong>：风险最大，方差最高</li>
+                            <li><strong>部分损毁</strong>：风险适中，可通过赔付比例调节</li>
+                            <li><strong>混合损毁</strong>：风险结构最复杂，需要精细管理</li>
+                        </ul>
+                        <h4>风险管理启示：</h4>
+                        <p>通过设计不同的赔付结构，可以在保证保障效果的同时控制风险水平。</p>
+                    </div>
+                </div>
+
+                <div class="analysis-card">
+                    <h3>🏢 保险风险管理启示</h3>
+                    <div class="analysis-content">
+                        <h4>定价策略：</h4>
+                        <ul>
+                            <li>保费应覆盖期望损失加上风险附加</li>
+                            <li>考虑不同损毁类型的风险溢价</li>
+                            <li>建立动态定价机制应对参数变化</li>
+                        </ul>
+                        <h4>准备金管理：</h4>
+                        <ul>
+                            <li>根据方差大小设置风险准备金</li>
+                            <li>考虑极端情况下的资本充足性</li>
+                            <li>建立风险对冲策略</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="analysis-card">
+                    <h3>🔮 模型扩展与应用前景</h3>
+                    <div class="analysis-content">
+                        <h4>模型扩展方向：</h4>
+                        <ul>
+                            <li>引入相关性结构（Copula模型）</li>
+                            <li>考虑时间因素的动态模型</li>
+                            <li>加入再保险机制的影响</li>
+                        </ul>
+                        <h4>实际应用：</h4>
+                        <ul>
+                            <li>寿险产品的精算定价</li>
+                            <li>财产保险的风险评估</li>
+                            <li>保险组合的风险管理</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="explanation-section">
+            <h2>💡 计算原理说明</h2>
+            <div class="explanation-content">
+                <h3>全部损毁情形计算公式</h3>
+                <div class="formula">E(S) = n × q × 赔付金额</div>
+                <div class="formula">Var(S) = n × q × (1 - q) × (赔付金额)²</div>
+
+                <h3>部分损毁情形计算公式</h3>
+                <div class="formula">E(S) = n × q × (赔付金额 × 赔付比例)</div>
+                <div class="formula">Var(S) = n × q × (1 - q) × (赔付金额 × 赔付比例)²</div>
+
+                <h3>混合损毁情形计算公式</h3>
+                <div class="formula">E(Xi) = q₁c + q₂αc</div>
+                <div class="formula">Var(Xi) = q₁c² + q₂(αc)² - [E(Xi)]²</div>
+                <div class="formula">E(S) = n × E(Xi)</div>
+                <div class="formula">Var(S) = n × Var(Xi)</div>
+
+                <h3>精算意义</h3>
+                <ul>
+                    <li><strong>均值 E(S)</strong>: 预期理赔总额，用于保费定价</li>
+                    <li><strong>方差 Var(S)</strong>: 理赔风险的不确定性度量</li>
+                    <li><strong>变异系数 CV(S)</strong>: 相对风险水平指标</li>
+                    <li><strong>标准差</strong>: 绝对风险大小的度量</li>
+                </ul>
+            </div>
+        </section>
+        <!-- 附录：变异系数(CV)专业解读 -->
+        <section class="appendix-section">
+            <h2>📚 附录：变异系数(CV)专业解读</h2>
+            <div class="appendix-content">
+                <div class="appendix-card">
+                    <h3>📈 什么是变异系数(CV)?</h3>
+                    <div class="appendix-text">
+                        <p>变异系数(Coefficient of Variation)是标准差与均值的比值：</p>
+                        <div class="formula">CV = 标准差 / 均值 × 100%</div>
+                        
+                        <h4>CV在保险风险管理中的意义：</h4>
+                        <ul>
+                            <li><strong>相对风险度量</strong>：消除绝对值影响，便于不同规模业务的比较</li>
+                            <li><strong>风险分类标准</strong>：国际保险业通用的风险等级划分依据</li>
+                            <li><strong>业务稳定性指标</strong>：CV值越低，业务稳定性越好</li>
+                        </ul>
+                        
+                        <h4>现实保险业务CV参考范围：</h4>
+                        <table class="cv-reference-table">
+                            <thead>
+                                <tr>
+                                    <th>风险等级</th>
+                                    <th>CV范围</th>
+                                    <th>业务含义</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="status-indicator safe">安全</span></td>
+                                    <td>CV < 15%</td>
+                                    <td>风险可控，业务稳定</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="status-indicator warning">预警</span></td>
+                                    <td>15% ≤ CV < 30%</td>
+                                    <td>需要关注，加强监控</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="status-indicator danger">危险</span></td>
+                                    <td>CV ≥ 30%</td>
+                                    <td>风险较高，需要干预</td>
+                                </tr>
+                                <tr>
+                                    <td><span class="status-indicator extreme">极度危险</span></td>
+                                    <td>CV > 50%</td>
+                                    <td>风险极高，紧急处理</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        
+                        <h4>影响CV值的关键因素：</h4>
+                        <ul>
+                            <li><strong>保单数量</strong>：数量越多，CV值越低（大数定律）</li>
+                            <li><strong>损毁概率</strong>：概率越低，CV值越高</li>
+                            <li><strong>业务类型</strong>：不同险种有不同风险特征</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <script src="script-individual.js"></script>
+</body>
+</html>

@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>极值 Copula (Extreme Value Copulas)</title>
+    <script src="vendor/tailwind.js"></script>
+    <script src="vendor/chart.umd.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; }
+        .canvas-container { position: relative; height: 400px; width: 100%; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 10px; }
+        .control-panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .slider-container { margin-bottom: 15px; }
+        .slider-label { display: flex; justify-content: space-between; margin-bottom: 5px; font-weight: 500; color: #4b5563; }
+        .math-card { background: #fff; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #3b82f6; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    </style>
+</head>
+<body class="p-6">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">极值 Copula (Extreme Value Copulas)</h1>
+            <p class="text-gray-600">
+                极值 Copula 是一类具有最大稳定性的 Copula，通常用于建模极端风险的相依结构。
+                所有极值 Copula 都可以由 Pickands 依赖函数 \( A(w) \) 唯一确定：
+                \[ C(u, v) = \exp\left[ \ln(uv) A\left( \frac{\ln v}{\ln(uv)} \right) \right] \]
+                其中 \( A(w) \) 是定义在 \( [0, 1] \) 上的凸函数，满足 \( \max(w, 1-w) \le A(w) \le 1 \)。
+            </p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- Controls & Info -->
+            <div class="lg:col-span-4 space-y-6">
+                
+                <!-- Copula Selection -->
+                <div class="control-panel">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-700">模型选择 (Model Selection)</h3>
+                    <select id="copulaType" class="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none transition" onchange="updateCopulaUI()">
+                        <option value="gumbel">Gumbel Copula</option>
+                        <option value="galambos">Galambos Copula</option>
+                        <option value="husler">Hüsler-Reiss Copula</option>
+                        <option value="tev">t-EV Copula</option>
+                    </select>
+                </div>
+
+                <!-- Parameters -->
+                <div class="control-panel">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-700">参数调整 (Parameters)</h3>
+                    <div id="paramControls">
+                        <!-- Dynamic controls will be injected here -->
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-gray-100">
+                        <button onclick="runSimulation()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition duration-200">
+                            重新生成样本 (Regenerate Samples)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Formula Card -->
+                <div id="formulaCard" class="math-card overflow-x-auto">
+                    <!-- Dynamic Formula -->
+                </div>
+                
+                <div class="bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-blue-800">
+                    <strong>图例说明：</strong>
+                    <ul class="list-disc pl-5 mt-2 space-y-1">
+                        <li><strong>Pickands 函数 A(w)</strong>: 描述极值依赖结构。\( A(w)=1 \) 表示独立，\( A(w)=\max(w, 1-w) \) 表示完全依赖。</li>
+                        <li><strong>散点图</strong>: 模拟 \( n=2000 \) 个样本点的分布，展示实际依赖形态。</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Visualizations -->
+            <div class="lg:col-span-8 space-y-6">
+                <!-- Pickands Function Plot -->
+                <div class="canvas-container">
+                    <h3 class="text-center font-semibold text-gray-700 mb-2">Pickands 依赖函数 \( A(w) \)</h3>
+                    <canvas id="pickandsChart"></canvas>
+                </div>
+
+                <!-- Scatter Plot -->
+                <div class="canvas-container">
+                    <h3 class="text-center font-semibold text-gray-700 mb-2">随机样本散点图 (Simulation)</h3>
+                    <canvas id="scatterChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Statistical Utilities ---
+        const Stats = {
+            normCDF: function(x) {
+                var t = 1 / (1 + .2316419 * Math.abs(x));
+                var d = .3989423 * Math.exp(-x * x / 2);
+                var p = d * t * (.3193815 + t * (-.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+                if (x > 0) return 1 - p;
+                return p;
+            },
+            // Log Gamma function approximation
+            logGamma: function(z) {
+                const c = [76.18009172947146, -86.50532032941677, 24.01409824083091, -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5];
+                let x = z, y = z, tmp = x + 5.5;
+                tmp -= (x + 0.5) * Math.log(tmp);
+                let ser = 1.000000000190015;
+                for (let j = 0; j < 6; j++) ser += c[j] / ++y;
+                return -tmp + Math.log(2.5066282746310005 * ser / x);
+            },
+            // Beta function B(a,b) = Gamma(a)Gamma(b)/Gamma(a+b)
+            beta: function(a, b) {
+                return Math.exp(this.logGamma(a) + this.logGamma(b) - this.logGamma(a + b));
+            },
+            // Student t CDF (approximate or rigorous)
+            // Using a numerical integration of PDF or simple approximation is hard.
+            // Let's use the incomplete beta function relation: F(t) = 1 - 0.5 * I_x(v/2, 1/2) where x = v/(v+t^2)
+            studentTCDF: function(t, v) {
+                if (t === 0) return 0.5;
+
+                // Optimization: Calculate constant part once
+                const constantPart = Math.exp(this.logGamma((v + 1) / 2) - this.logGamma(v / 2)) / Math.sqrt(v * Math.PI);
+                
+                const pdf = (x) => {
+                    return constantPart * Math.pow(1 + x * x / v, -(v + 1) / 2);
+                };
+                
+                // Simple integration (Simpson's or Trapezoidal)
+                let sum = 0;
+                const n = 20; // Reduced steps for performance, 20 is usually enough for visual accuracy
+                const dt = Math.abs(t) / n;
+                
+                // Trapezoidal rule for better accuracy with fewer steps
+                sum += pdf(0) / 2;
+                for(let i=1; i<n; i++) {
+                    sum += pdf(i*dt);
+                }
+                sum += pdf(Math.abs(t)) / 2;
+                sum *= dt;
+                
+                return t > 0 ? 0.5 + sum : 0.5 - sum;
+            }
+        };
+
+        // --- Copula Definitions ---
+        const Copulas = {
+            gumbel: {
+                name: "Gumbel Copula",
+                params: [
+                    { id: 'theta', label: 'Theta (θ) [1, 10]', min: 1.0, max: 10.0, step: 0.1, val: 2.0 }
+                ],
+                getAw: function(w, params) {
+                    const theta = params.theta;
+                    return Math.pow(Math.pow(w, theta) + Math.pow(1 - w, theta), 1 / theta);
+                },
+                getLatex: function() {
+                    return `$$ C(u,v) = \\exp\\left(-\\left[ (-\\ln u)^\\theta + (-\\ln v)^\\theta \\right]^{1/\\theta}\\right) $$
+                            $$ A(w) = (w^\\theta + (1-w)^\\theta)^{1/\\theta}, \\quad \\theta \\ge 1 $$`;
+                }
+            },
+            galambos: {
+                name: "Galambos Copula",
+                params: [
+                    { id: 'theta', label: 'Theta (θ) [0.1, 10]', min: 0.1, max: 10.0, step: 0.1, val: 1.0 }
+                ],
+                getAw: function(w, params) {
+                    const theta = params.theta;
+                    return 1 - Math.pow(Math.pow(w, -theta) + Math.pow(1 - w, -theta), -1 / theta);
+                },
+                getLatex: function() {
+                    return `$$ C(u,v) = uv \\exp\\left( \\left[ (-\\ln u)^{-\\theta} + (-\\ln v)^{-\\theta} \\right]^{-1/\\theta} \\right) $$
+                            $$ A(w) = 1 - (w^{-\\theta} + (1-w)^{-\\theta})^{-1/\\theta}, \\quad \\theta > 0 $$`;
+                }
+            },
+            husler: {
+                name: "Hüsler-Reiss Copula",
+                params: [
+                    { id: 'lambda', label: 'Lambda (λ) [0.1, 5]', min: 0.1, max: 5.0, step: 0.1, val: 1.0 }
+                ],
+                getAw: function(w, params) {
+                    const lam = params.lambda;
+                    if (w === 0 || w === 1) return 1;
+                    const z1 = 1/lam + (lam/2) * Math.log(w/(1-w));
+                    const z2 = 1/lam + (lam/2) * Math.log((1-w)/w); // Symmetric term
+                    // Correct formula:
+                    // A(w) = w * Phi( 1/lam + lam/2 * ln(w/(1-w)) ) + (1-w) * Phi( 1/lam + lam/2 * ln((1-w)/w) )
+                    return w * Stats.normCDF(z1) + (1 - w) * Stats.normCDF(z2);
+                },
+                getLatex: function() {
+                    return `$$ A(w) = w \\Phi\\left( \\frac{1}{\\lambda} + \\frac{\\lambda}{2} \\ln \\frac{w}{1-w} \\right) + (1-w) \\Phi\\left( \\frac{1}{\\lambda} + \\frac{\\lambda}{2} \\ln \\frac{1-w}{w} \\right) $$`;
+                }
+            },
+            tev: {
+                name: "t-EV Copula",
+                params: [
+                    { id: 'rho', label: 'Rho (ρ) [-0.9, 0.9]', min: -0.9, max: 0.9, step: 0.1, val: 0.5 },
+                    { id: 'nu', label: 'Nu (ν) [1, 20]', min: 1, max: 20, step: 1, val: 4 }
+                ],
+                getAw: function(w, params) {
+                    const rho = params.rho;
+                    const nu = params.nu;
+                    if (w === 0 || w === 1) return 1;
+                    
+                    // z_w formula
+                    // z1 = sqrt(nu+1) * [ (w/(1-w))^(1/nu) - rho ] / sqrt(1-rho^2)
+                    // z2 = sqrt(nu+1) * [ ((1-w)/w)^(1/nu) - rho ] / sqrt(1-rho^2)
+                    const term1 = Math.pow(w / (1 - w), 1 / nu);
+                    const term2 = Math.pow((1 - w) / w, 1 / nu);
+                    
+                    const z1 = Math.sqrt(nu + 1) * (term1 - rho) / Math.sqrt(1 - rho * rho);
+                    const z2 = Math.sqrt(nu + 1) * (term2 - rho) / Math.sqrt(1 - rho * rho);
+                    
+                    return w * Stats.studentTCDF(z1, nu + 1) + (1 - w) * Stats.studentTCDF(z2, nu + 1);
+                },
+                getLatex: function() {
+                    return `$$ A(w) = w T_{\\nu+1}\\left( z_w \\right) + (1-w) T_{\\nu+1}\\left( z_{1-w} \\right) $$
+                            $$ z_w = \\frac{\\sqrt{\\nu+1}}{\\sqrt{1-\\rho^2}} \\left[ \\left(\\frac{w}{1-w}\\right)^{1/\\nu} - \\rho \\right] $$`;
+                }
+            }
+        };
+
+        // --- Global State ---
+        let currentCopula = 'gumbel';
+        let currentParams = {};
+        let pickandsChart = null;
+        let scatterChart = null;
+
+        // --- Initialization ---
+        window.onload = function() {
+            initCharts();
+            updateCopulaUI();
+        };
+
+        // --- UI Logic ---
+        function updateCopulaUI() {
+            currentCopula = document.getElementById('copulaType').value;
+            const copula = Copulas[currentCopula];
+            
+            // Update Parameters
+            const paramContainer = document.getElementById('paramControls');
+            paramContainer.innerHTML = '';
+            currentParams = {};
+            
+            copula.params.forEach(p => {
+                currentParams[p.id] = p.val;
+                const div = document.createElement('div');
+                div.className = 'slider-container';
+                div.innerHTML = `
+                    <div class="slider-label">
+                        <span>${p.label}</span>
+                        <span id="val_${p.id}">${p.val}</span>
+                    </div>
+                    <input type="range" id="input_${p.id}" 
+                        min="${p.min}" max="${p.max}" step="${p.step}" value="${p.val}" 
+                        class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                        oninput="updateParam('${p.id}', this.value)">
+                `;
+                paramContainer.appendChild(div);
+            });
+
+            // Update Formula
+            const formulaCard = document.getElementById('formulaCard');
+            formulaCard.innerHTML = copula.getLatex();
+            MathJax.Hub.Queue(["Typeset", MathJax.Hub, formulaCard]);
+
+            runSimulation();
+        }
+
+        function updateParam(id, val) {
+            currentParams[id] = parseFloat(val);
+            document.getElementById(`val_${id}`).innerText = val;
+            runSimulation();
+        }
+
+        // --- Simulation Logic ---
+        function runSimulation() {
+            const copula = Copulas[currentCopula];
+            
+            // 1. Update A(w) Chart
+            updatePickandsChart(copula);
+            
+            // 2. Generate Scatter Data
+            // Algorithm: Conditional Distribution Method
+            // Generate u ~ U[0,1], t ~ U[0,1]
+            // Solve C_u(v) = t for v
+            const n = 2000;
+            const data = [];
+            
+            for(let i=0; i<n; i++) {
+                const u = Math.random();
+                const t = Math.random();
+                const v = solveConditional(u, t, copula);
+                data.push({x: u, y: v});
+            }
+            
+            updateScatterChart(data);
+        }
+
+        // Numerical Derivative of A(w)
+        function getAp(copula, w) {
+            const h = 0.0001;
+            let w1 = w - h; if(w1 < 0) w1 = 0;
+            let w2 = w + h; if(w2 > 1) w2 = 1;
+            const y1 = copula.getAw(w1, currentParams);
+            const y2 = copula.getAw(w2, currentParams);
+            return (y2 - y1) / (w2 - w1);
+        }
+
+        // Solve C_u(v) = t for v
+        function solveConditional(u, t, copula) {
+            // C_u(v) = (1/u) * C(u,v) * ( A(w) - w * A'(w) )
+            // where w = ln(v) / ln(uv)
+            // Function is monotonic in v? Usually yes for copulas.
+            // Bisection method on v in [0, 1]
+            
+            let min = 0.000001, max = 0.999999;
+            for(let iter=0; iter<20; iter++) { // 20 iterations is enough for float precision
+                const v = (min + max) / 2;
+                
+                // Calculate C_u(v)
+                const ln_u = Math.log(u);
+                const ln_v = Math.log(v);
+                const ln_uv = ln_u + ln_v;
+                const w = ln_v / ln_uv;
+                
+                const Aw = copula.getAw(w, currentParams);
+                const Ap = getAp(copula, w);
+                
+                // C(u,v) = exp( ln(uv) * A(w) )
+                const C = Math.exp(ln_uv * Aw);
+                
+                // Partial derivative
+                // Note: The formula derived earlier: dC/du = (C/u) * (A(w) - w*A'(w))
+                const val = (C / u) * (Aw - w * Ap);
+                
+                if(val > t) {
+                    max = v; // Since C_u(v) is increasing in v? 
+                    // Wait, C_u(v) = P(V <= v | U=u). As v increases, probability increases. 
+                    // So if val > t, we need smaller v.
+                } else {
+                    min = v;
+                }
+            }
+            return (min + max) / 2;
+        }
+
+        // --- Charting ---
+        function initCharts() {
+            // Pickands Chart
+            const ctx1 = document.getElementById('pickandsChart').getContext('2d');
+            pickandsChart = new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    datasets: [
+                        { label: 'A(w)', borderColor: 'blue', data: [], fill: false, tension: 0.1 },
+                        { label: 'Independence (A=1)', borderColor: 'gray', borderDash: [5,5], data: [], pointRadius: 0 },
+                        { label: 'Perfect Dep (max(w, 1-w))', borderColor: 'red', borderDash: [5,5], data: [], pointRadius: 0 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { type: 'linear', min: 0, max: 1, title: {display: true, text: 'w'} },
+                        y: { min: 0.5, max: 1, title: {display: true, text: 'A(w)'} }
+                    },
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+
+            // Scatter Chart
+            const ctx2 = document.getElementById('scatterChart').getContext('2d');
+            scatterChart = new Chart(ctx2, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Samples (u, v)',
+                        data: [],
+                        backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                        pointRadius: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { min: 0, max: 1, title: {display: true, text: 'u'} },
+                        y: { min: 0, max: 1, title: {display: true, text: 'v'} }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function updatePickandsChart(copula) {
+            const dataA = [];
+            const dataIndep = [];
+            const dataPerf = [];
+            
+            for(let w=0; w<=1.01; w+=0.02) {
+                const wVal = Math.min(w, 1);
+                dataA.push({x: wVal, y: copula.getAw(wVal, currentParams)});
+                dataIndep.push({x: wVal, y: 1});
+                dataPerf.push({x: wVal, y: Math.max(wVal, 1-wVal)});
+            }
+            
+            pickandsChart.data.datasets[0].data = dataA;
+            pickandsChart.data.datasets[1].data = dataIndep;
+            pickandsChart.data.datasets[2].data = dataPerf;
+            pickandsChart.update();
+        }
+
+        function updateScatterChart(data) {
+            scatterChart.data.datasets[0].data = data;
+            scatterChart.update();
+        }
+
+    </script>
+<script src="vendor/mathjax-loader.js"></script>
+<script src="vendor/mathjax-tex-svg.js"></script>
+</body>
+</html>

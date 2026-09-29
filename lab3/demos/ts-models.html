@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>时间序列分析工具</title>
+    <script src="vendor/chart.umd.min.js"></script>
+    <script src="vendor/papaparse.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .tabs {
+            display: flex;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 5px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 15px 20px;
+            text-align: center;
+            background: transparent;
+            border: none;
+            color: white;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .tab.active {
+            background: rgba(255,255,255,0.2);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .tab:hover:not(.active) {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .content-area {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            min-height: 500px;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .input-group {
+            margin-bottom: 25px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .input-group input, .input-group select, .input-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .input-group input:focus, .input-group select:focus, .input-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .file-upload {
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.3s ease;
+        }
+
+        .file-upload:hover {
+            border-color: #667eea;
+        }
+
+        .file-upload.dragover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: transform 0.2s ease;
+            margin-right: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .result-area {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .chart-container {
+            margin: 20px 0;
+            height: 300px;
+        }
+
+        .result-item {
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            border-left: 3px solid #28a745;
+        }
+
+        .error {
+            color: #dc3545;
+            background: #f8d7da;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+
+        .success {
+            color: #155724;
+            background: #d4edda;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+
+        .data-preview {
+            max-height: 200px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        /* 知识介绍样式 */
+        .knowledge-section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .knowledge-section h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 5px;
+        }
+
+        .model-card, .concept-card {
+            background: white;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+            border-left: 4px solid #e74c3c;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .model-card h4, .concept-card h4 {
+            color: #e74c3c;
+            margin-bottom: 10px;
+        }
+
+        .problem-intro {
+            background: #f0f8ff;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            border-left: 4px solid #3498db;
+        }
+
+        .problem-intro h3 {
+            color: #2c3e50;
+            margin: 15px 0 10px 0;
+        }
+
+        .formula {
+            background: #fdf6e3;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            border-left: 3px solid #f39c12;
+        }
+
+        .analysis-section {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #ddd;
+        }
+
+        .navigation-tips {
+            background: #d4edda;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 30px;
+            border-left: 4px solid #28a745;
+        }
+
+        .navigation-tips h3 {
+            color: #155724;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>时间序列分析工具</h1>
+            <p>解决四种常见时间序列分析问题</p>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab(0)">📚 知识介绍</button>
+            <button class="tab" onclick="switchTab(1)">1. Yule-Walker估计</button>
+            <button class="tab" onclick="switchTab(2)">2. MA(1)可逆性</button>
+            <button class="tab" onclick="switchTab(3)">3. ARMA(1,1)模拟</button>
+            <button class="tab" onclick="switchTab(4)">4. 差分与ARMA拟合</button>
+        </div>
+
+        <div class="content-area">
+            <!-- Tab 0: 知识介绍 -->
+            <div id="tab0" class="tab-content active">
+                <h2>📚 时间序列分析基础知识</h2>
+                
+                <div class="knowledge-section">
+                    <h3>什么是时间序列？</h3>
+                    <p>时间序列是按时间顺序排列的一组数据点，例如：</p>
+                    <ul>
+                        <li>📈 股票价格每日变化</li>
+                        <li>🌡️ 气温每小时记录</li>
+                        <li>💰 月度销售额数据</li>
+                        <li>🏥 医院每日就诊人数</li>
+                    </ul>
+                </div>
+
+                <div class="knowledge-section">
+                    <h3>常见时间序列模型</h3>
+                    
+                    <div class="model-card">
+                        <h4>AR模型（自回归模型）</h4>
+                        <p><strong>定义：</strong>当前值 = 过去值的线性组合 + 随机误差</p>
+                        <p><strong>公式：</strong> X<sub>t</sub> = φ<sub>1</sub>X<sub>t-1</sub> + φ<sub>2</sub>X<sub>t-2</sub> + ... + ε<sub>t</sub></p>
+                        <p><strong>应用：</strong>预测股票价格、经济指标等</p>
+                    </div>
+
+                    <div class="model-card">
+                        <h4>MA模型（移动平均模型）</h4>
+                        <p><strong>定义：</strong>当前值 = 过去随机误差的线性组合</p>
+                        <p><strong>公式：</strong> X<sub>t</sub> = ε<sub>t</sub> + θ<sub>1</sub>ε<sub>t-1</sub> + θ<sub>2</sub>ε<sub>t-2</sub> + ...</p>
+                        <p><strong>应用：</strong>处理随机冲击的影响，如突发事件对销售的影响</p>
+                    </div>
+
+                    <div class="model-card">
+                        <h4>ARMA模型（自回归移动平均模型）</h4>
+                        <p><strong>定义：</strong>AR和MA模型的结合</p>
+                        <p><strong>公式：</strong> X<sub>t</sub> = φ<sub>1</sub>X<sub>t-1</sub> + ... + ε<sub>t</sub> + θ<sub>1</sub>ε<sub>t-1</sub> + ...</p>
+                        <p><strong>应用：</strong>综合处理序列的自相关性和随机波动</p>
+                    </div>
+
+                    <div class="model-card">
+                        <h4>平稳性概念</h4>
+                        <p><strong>定义：</strong>时间序列的统计特性不随时间变化</p>
+                        <p><strong>重要性：</strong>大多数时间序列模型要求数据是平稳的</p>
+                        <p><strong>处理方法：</strong>通过差分消除趋势和季节性</p>
+                    </div>
+                </div>
+
+                <div class="knowledge-section">
+                    <h3>关键统计概念</h3>
+                    
+                    <div class="concept-card">
+                        <h4>ACF（自相关函数）</h4>
+                        <p>衡量时间序列与其滞后版本之间的相关性</p>
+                        <p><strong>作用：</strong>识别数据的记忆长度和周期性</p>
+                    </div>
+
+                    <div class="concept-card">
+                        <h4>PACF（偏自相关函数）</h4>
+                        <p>在控制中间滞后项的情况下，衡量两个时间点之间的直接相关性</p>
+                        <p><strong>作用：</strong>帮助确定AR模型的合适阶数</p>
+                    </div>
+
+                    <div class="concept-card">
+                        <h4>可逆性条件</h4>
+                        <p>MA模型参数需要满足的条件，确保模型可以转换为AR模型</p>
+                        <p><strong>条件：</strong>|θ| < 1</p>
+                    </div>
+                </div>
+
+                <div class="navigation-tips">
+                    <h3>💡 使用建议</h3>
+                    <p>点击上方标签开始探索具体的时间序列分析问题！每个问题都包含：</p>
+                    <ul>
+                        <li>🔍 问题背景和实际应用</li>
+                        <li>📊 具体的分析步骤</li>
+                        <li>🎯 实际案例说明</li>
+                        <li>📈 可视化结果展示</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Tab 1: Yule-Walker估计 -->
+            <div id="tab1" class="tab-content">
+                <h2>1. Yule-Walker方程估计AR模型参数</h2>
+                
+                <div class="problem-intro">
+                    <h3>🔍 问题背景</h3>
+                    <p><strong>Yule-Walker方程</strong>是估计自回归(AR)模型参数的一种经典方法，由英国统计学家George Udny Yule和Gilbert Walker在1920年代提出。</p>
+                    
+                    <h3>🎯 实际应用场景</h3>
+                    <ul>
+                        <li><strong>经济预测：</strong>预测GDP增长率、通货膨胀率等经济指标</li>
+                        <li><strong>金融分析：</strong>估计股票收益率的自回归特性</li>
+                        <li><strong>气象预测：</strong>分析气温、降水量的时间依赖性</li>
+                        <li><strong>工业生产：</strong>预测产品需求的时间模式</li>
+                    </ul>
+
+                    <h3>📊 方法原理</h3>
+                    <p>Yule-Walker方法基于样本自相关函数来估计AR模型的参数：</p>
+                    <div class="formula">
+                        <p><strong>AR(p)模型：</strong> X<sub>t</sub> = φ<sub>1</sub>X<sub>t-1</sub> + φ<sub>2</sub>X<sub>t-2</sub> + ... + φ<sub>p</sub>X<sub>t-p</sub> + ε<sub>t</sub></p>
+                        <p><strong>Yule-Walker方程：</strong> ρ<sub>k</sub> = φ<sub>1</sub>ρ<sub>k-1</sub> + φ<sub>2</sub>ρ<sub>k-2</sub> + ... + φ<sub>p</sub>ρ<sub>k-p</sub></p>
+                    </div>
+
+                    <h3>💡 分析步骤</h3>
+                    <ol>
+                        <li>计算时间序列的样本自相关函数(ACF)</li>
+                        <li>建立Yule-Walker方程组</li>
+                        <li>求解方程组得到AR参数估计值</li>
+                        <li>评估参数估计的统计显著性</li>
+                    </ol>
+                </div>
+
+                <div class="analysis-section">
+                    <h3>📈 开始分析</h3>
+                    <div class="input-group">
+                        <label>上传时间序列数据 (CSV格式，单列数据)</label>
+                        <div class="file-upload" onclick="document.getElementById('file1').click()">
+                            <input type="file" id="file1" accept=".csv" style="display: none" onchange="handleFileUpload(this, 'preview1')">
+                            <p>点击上传CSV文件或拖拽文件到这里</p>
+                            <small>支持格式: CSV (单列数值数据)</small>
+                        </div>
+                        <div id="preview1" class="data-preview"></div>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>AR模型阶数 (p)</label>
+                        <select id="arOrder">
+                            <option value="1">AR(1)</option>
+                            <option value="2">AR(2)</option>
+                            <option value="3">AR(3)</option>
+                        </select>
+                    </div>
+
+                    <button class="btn" onclick="analyzeYuleWalker()">开始分析</button>
+                    <button class="btn btn-secondary" onclick="resetTab1()">重置</button>
+
+                    <div id="result1" class="result-area"></div>
+                </div>
+            </div>
+
+            <!-- Tab 2: MA(1)可逆性 -->
+            <div id="tab2" class="tab-content">
+                <h2>2. MA(1)模型可逆性条件及ACF特征</h2>
+                
+                <div class="problem-intro">
+                    <h3>🔍 问题背景</h3>
+                    <p><strong>MA模型的可逆性</strong>是时间序列分析中的重要概念，它决定了移动平均模型是否可以等价地表示为自回归模型。</p>
+                    
+                    <h3>🎯 实际应用场景</h3>
+                    <ul>
+                        <li><strong>金融风险管理：</strong>分析市场冲击的持续性影响</li>
+                        <li><strong>质量控制：</strong>评估生产过程中的随机波动特性</li>
+                        <li><strong>经济政策分析：</strong>研究政策冲击的传导机制</li>
+                        <li><strong>信号处理：</strong>分析噪声信号的统计特性</li>
+                    </ul>
+
+                    <h3>📊 方法原理</h3>
+                    <p>MA(1)模型的可逆性条件确保模型可以转换为无限阶的AR模型：</p>
+                    <div class="formula">
+                        <p><strong>MA(1)模型：</strong> X<sub>t</sub> = ε<sub>t</sub> + θε<sub>t-1</sub></p>
+                        <p><strong>可逆性条件：</strong> |θ| < 1</p>
+                        <p><strong>理论ACF：</strong> ρ₀ = 1, ρ₁ = θ/(1+θ²), ρ<sub>k</sub> = 0 (k > 1)</p>
+                    </div>
+
+                    <h3>💡 分析意义</h3>
+                    <ul>
+                        <li><strong>模型稳定性：</strong>可逆的MA模型具有更好的数值稳定性</li>
+                        <li><strong>预测能力：</strong>可逆模型可以提供更可靠的长期预测</li>
+                        <li><strong>参数解释：</strong>可逆性确保参数有明确的统计意义</li>
+                    </ul>
+                </div>
+
+                <div class="analysis-section">
+                    <h3>📈 开始分析</h3>
+                    <div class="input-group">
+                        <label>MA参数 θ 值</label>
+                        <input type="number" id="theta" step="0.1" value="0.5" min="-0.99" max="0.99">
+                        <small>可逆条件: |θ| &lt; 1</small>
+                    </div>
+
+                    <button class="btn" onclick="analyzeMA1()">开始分析</button>
+                    <button class="btn btn-secondary" onclick="resetTab2()">重置</button>
+
+                    <div id="result2" class="result-area"></div>
+                </div>
+            </div>
+
+            <!-- Tab 3: ARMA(1,1)模拟 -->
+            <div id="tab3" class="tab-content">
+                <h2>3. ARMA(1,1)过程模拟</h2>
+                
+                <div class="problem-intro">
+                    <h3>🔍 问题背景</h3>
+                    <p><strong>ARMA模型</strong>结合了自回归(AR)和移动平均(MA)的特性，是时间序列分析中最常用的模型之一，由George Box和Gwilym Jenkins在1970年代系统化。</p>
+                    
+                    <h3>🎯 实际应用场景</h3>
+                    <ul>
+                        <li><strong>经济预测：</strong>综合预测经济指标的长期趋势和短期波动</li>
+                        <li><strong>金融市场：</strong>分析资产价格的复杂动态特性</li>
+                        <li><strong>气象科学：</strong>模拟气温、降水量的综合时间模式</li>
+                        <li><strong>工程控制：</strong>处理具有记忆性和随机性的系统</li>
+                    </ul>
+
+                    <h3>📊 方法原理</h3>
+                    <p>ARMA(1,1)模型同时考虑了序列的自回归和移动平均特性：</p>
+                    <div class="formula">
+                        <p><strong>ARMA(1,1)模型：</strong> X<sub>t</sub> = φX<sub>t-1</sub> + ε<sub>t</sub> + θε<sub>t-1</sub></p>
+                        <p><strong>ACF特征：</strong>指数衰减模式，不同于纯AR或MA模型</p>
+                        <p><strong>PACF特征：</strong>在滞后1之后截尾或快速衰减</p>
+                    </div>
+
+                    <h3>💡 分析价值</h3>
+                    <ul>
+                        <li><strong>模型灵活性：</strong>能够捕捉更复杂的时间依赖结构</li>
+                        <li><strong>诊断工具：</strong>ACF和PACF图帮助识别合适的模型形式</li>
+                        <li><strong>预测精度：</strong>通常比纯AR或MA模型提供更好的预测效果</li>
+                    </ul>
+                </div>
+
+                <div class="analysis-section">
+                    <h3>📈 开始模拟</h3>
+                    <div class="input-group">
+                        <label>AR参数 φ</label>
+                        <input type="number" id="phi" step="0.1" value="0.6" min="-0.99" max="0.99">
+                    </div>
+
+                    <div class="input-group">
+                        <label>MA参数 θ</label>
+                        <input type="number" id="theta_arma" step="0.1" value="0.4" min="-0.99" max="0.99">
+                    </div>
+
+                    <div class="input-group">
+                        <label>样本量</label>
+                        <input type="number" id="sampleSize" value="1000" min="100" max="10000">
+                    </div>
+
+                    <button class="btn" onclick="simulateARMA11()">开始模拟</button>
+                    <button class="btn btn-secondary" onclick="resetTab3()">重置</button>
+
+                    <div id="result3" class="result-area"></div>
+                </div>
+            </div>
+
+            <!-- Tab 4: 差分与ARMA拟合 -->
+            <div id="tab4" class="tab-content">
+                <h2>4. 趋势序列差分与ARMA拟合</h2>
+                
+                <div class="problem-intro">
+                    <h3>🔍 问题背景</h3>
+                    <p><strong>差分处理</strong>是时间序列分析中的关键技术，用于将非平稳序列转换为平稳序列，从而满足ARMA模型的建模要求。</p>
+                    
+                    <h3>🎯 实际应用场景</h3>
+                    <ul>
+                        <li><strong>股票价格分析：</strong>将价格序列转换为收益率序列进行分析</li>
+                        <li><strong>经济增长研究：</strong>分析GDP增长率而非绝对水平</li>
+                        <li><strong>销售预测：</strong>处理具有明显趋势的销售数据</li>
+                        <li><strong>气候研究：</strong>分析气温变化率而非绝对温度</li>
+                    </ul>
+
+                    <h3>📊 方法原理</h3>
+                    <p>差分处理通过计算相邻观测值之间的差异来消除趋势：</p>
+                    <div class="formula">
+                        <p><strong>一阶差分：</strong> ∇X<sub>t</sub> = X<sub>t</sub> - X<sub>t-1</sub></p>
+                        <p><strong>二阶差分：</strong> ∇²X<sub>t</sub> = ∇X<sub>t</sub> - ∇X<sub>t-1</sub></p>
+                        <p><strong>ARIMA模型：</strong> 对差分后的平稳序列拟合ARMA模型</p>
+                    </div>
+
+                    <h3>💡 分析步骤</h3>
+                    <ol>
+                        <li><strong>平稳性检验：</strong>检查原始序列是否平稳</li>
+                        <li><strong>差分处理：</strong>根据需要选择差分阶数</li>
+                        <li><strong>平稳性验证：</strong>确认差分后序列的平稳性</li>
+                        <li><strong>模型拟合：</strong>对平稳序列拟合ARMA模型</li>
+                        <li><strong>模型诊断：</strong>检验残差的白噪声特性</li>
+                    </ol>
+
+                    <h3>🎯 实际意义</h3>
+                    <ul>
+                        <li><strong>统计有效性：</strong>确保模型估计的统计性质成立</li>
+                        <li><strong>预测可靠性：</strong>提高长期预测的准确性</li>
+                        <li><strong>模型解释：</strong>使模型参数有更清晰的统计意义</li>
+                    </ul>
+                </div>
+
+                <div class="analysis-section">
+                    <h3>📈 开始分析</h3>
+                    <div class="input-group">
+                        <label>上传带趋势的时间序列数据 (CSV格式)</label>
+                        <div class="file-upload" onclick="document.getElementById('file4').click()">
+                            <input type="file" id="file4" accept=".csv" style="display: none" onchange="handleFileUpload(this, 'preview4')">
+                            <p>点击上传CSV文件或拖拽文件到这里</p>
+                            <small>支持格式: CSV (单列数值数据)</small>
+                        </div>
+                        <div id="preview4" class="data-preview"></div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>差分阶数 (d)</label>
+                        <select id="diffOrder">
+                            <option value="1">一阶差分</option>
+                            <option value="2">二阶差分</option>
+                        </select>
+                    </div>
+
+                    <div class="input-group">
+                        <label>ARMA模型阶数 (p,q)</label>
+                        <div style="display: flex; gap: 10px;">
+                            <select id="pOrder">
+                                <option value="0">p=0</option>
+                                <option value="1" selected>p=1</option>
+                                <option value="2">p=2</option>
+                            </select>
+                            <select id="qOrder">
+                                <option value="0">q=0</option>
+                                <option value="1" selected>q=1</option>
+                                <option value="2">q=2</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button class="btn" onclick="analyzeDiffARMA()">开始分析</button>
+                    <button class="btn btn-secondary" onclick="resetTab4()">重置</button>
+
+                    <div id="result4" class="result-area"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

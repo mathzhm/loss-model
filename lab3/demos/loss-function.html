@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loss Function 与 分类阈值</title>
+    <script src="vendor/tailwind.js"></script>
+    <script src="vendor/chart.umd.min.js"></script>
+    <script src="vendor/chartjs-plugin-annotation.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; }
+        .canvas-container { position: relative; height: 300px; width: 100%; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 10px; margin-bottom: 20px; }
+        .control-panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .slider-label { display: flex; justify-content: space-between; font-size: 0.9em; margin-bottom: 2px; }
+        .metric-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; text-align: center; }
+        .metric-val { font-size: 1.2em; font-weight: bold; color: #2563eb; }
+        .metric-label { font-size: 0.8em; color: #64748b; }
+        .confusion-matrix { width: 100%; border-collapse: collapse; text-align: center; margin-top: 10px; }
+        .confusion-matrix th, .confusion-matrix td { border: 1px solid #e2e8f0; padding: 8px; }
+        .confusion-matrix th { background-color: #f1f5f9; font-weight: 600; font-size: 0.9em; }
+        .bg-tp { background-color: #dcfce7; } /* Green-100 */
+        .bg-fp { background-color: #fee2e2; } /* Red-100 */
+        .bg-fn { background-color: #fee2e2; }
+        .bg-tn { background-color: #dcfce7; }
+    </style>
+</head>
+<body class="p-6">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-6">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">Loss Function (损失函数) 与 分类阈值</h1>
+            <p class="text-gray-600">
+                本实验展示在二分类问题中，分类阈值（Threshold）的选择如何影响模型性能（Precision/Recall）及业务成本（Loss）。
+                <br>核心权衡：提高阈值通常会减少 FP (误报) 但增加 FN (漏报)。
+            </p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Left: Controls -->
+            <div class="lg:col-span-4 space-y-6">
+                
+                <div class="control-panel">
+                    <h3 class="text-lg font-semibold mb-3 text-gray-700">1. 模型输出分布 (Model Scores)</h3>
+                    
+                    <div class="mb-4">
+                        <div class="slider-label"><span>正样本比例 (Positive Ratio)</span><span id="disp_pos_ratio">30%</span></div>
+                        <input type="range" id="pos_ratio" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" min="5" max="95" step="5" value="30" oninput="updateUI(); runSimulation();">
+                    </div>
+                    
+                    <div class="mb-4">
+                        <div class="slider-label"><span>正负样本分离度 (Separation)</span><span id="disp_sep">1.5</span></div>
+                        <input type="range" id="separation" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" min="0.5" max="3.0" step="0.1" value="1.5" oninput="updateUI(); runSimulation();">
+                    </div>
+                    
+                    <button onclick="runSimulation()" class="w-full bg-blue-100 hover:bg-blue-200 text-blue-800 font-semibold py-1 px-3 rounded text-sm transition">
+                        重新生成数据 (Regenerate)
+                    </button>
+                </div>
+
+                <div class="control-panel">
+                    <h3 class="text-lg font-semibold mb-3 text-gray-700">2. 决策参数 (Decision Parameters)</h3>
+                    
+                    <div class="mb-4">
+                        <div class="slider-label"><span>分类阈值 (Threshold \(p\))</span><span id="disp_threshold" class="text-purple-600 font-bold">0.50</span></div>
+                        <input type="range" id="threshold" class="w-full h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer" min="0" max="1" step="0.01" value="0.50" oninput="updateUI(); updateThreshold();">
+                    </div>
+
+                    <hr class="my-4 border-gray-200">
+                    <h4 class="text-sm font-semibold text-gray-600 mb-2">误判成本 (Cost Weights)</h4>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">Cost of FP (误报)</label>
+                            <input type="number" id="cost_fp" class="w-full border rounded px-2 py-1 text-sm" value="1" min="0" step="1" oninput="updateThreshold()">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">Cost of FN (漏报)</label>
+                            <input type="number" id="cost_fn" class="w-full border rounded px-2 py-1 text-sm" value="5" min="0" step="1" oninput="updateThreshold()">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-panel">
+                    <h3 class="text-lg font-semibold mb-3 text-gray-700">3. 性能指标 (Metrics)</h3>
+                    
+                    <table class="confusion-matrix mb-4">
+                        <tr>
+                            <th></th>
+                            <th>Pred Neg (0)</th>
+                            <th>Pred Pos (1)</th>
+                        </tr>
+                        <tr>
+                            <th>Actual Neg (0)</th>
+                            <td class="bg-tn" id="val_tn">0</td>
+                            <td class="bg-fp" id="val_fp">0</td>
+                        </tr>
+                        <tr>
+                            <th>Actual Pos (1)</th>
+                            <td class="bg-fn" id="val_fn">0</td>
+                            <td class="bg-tp" id="val_tp">0</td>
+                        </tr>
+                    </table>
+
+                    <div class="grid grid-cols-2 gap-2 mb-2">
+                        <div class="metric-card">
+                            <div class="metric-val" id="val_precision">-</div>
+                            <div class="metric-label">Precision</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-val" id="val_recall">-</div>
+                            <div class="metric-label">Recall (TPR)</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-val" id="val_f1">-</div>
+                            <div class="metric-label">F1 Score</div>
+                        </div>
+                        <div class="metric-card border-red-200 bg-red-50">
+                            <div class="metric-val text-red-600" id="val_total_cost">-</div>
+                            <div class="metric-label">Total Cost</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right: Visuals -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Score Distribution -->
+                <div class="canvas-container">
+                    <h4 class="text-center font-semibold text-gray-600 mb-2">模型评分分布 (Score Distribution)</h4>
+                    <canvas id="distChart"></canvas>
+                </div>
+
+                <!-- ROC Curve -->
+                <div class="canvas-container">
+                    <h4 class="text-center font-semibold text-gray-600 mb-2">ROC 曲线 (ROC Curve)</h4>
+                    <canvas id="rocChart"></canvas>
+                </div>
+
+                <!-- Cost Curve (Optional but good) -->
+                <div class="canvas-container" style="height: 200px;">
+                    <h4 class="text-center font-semibold text-gray-600 mb-2">成本随阈值变化 (Cost vs Threshold)</h4>
+                    <canvas id="costChart"></canvas>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Data & Logic ---
+        let samples = []; // { score: float, label: 0|1 }
+        let rocPoints = []; // { x: fpr, y: tpr, t: threshold }
+        
+        let distChart = null;
+        let rocChart = null;
+        let costChart = null;
+
+        // Gaussian Random
+        function randn_bm() {
+            let u = 0, v = 0;
+            while(u === 0) u = Math.random();
+            while(v === 0) v = Math.random();
+            return Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
+        }
+
+        function generateData() {
+            const N = 2000;
+            const posRatio = parseInt(document.getElementById('pos_ratio').value) / 100;
+            const separation = parseFloat(document.getElementById('separation').value);
+            
+            // Assume Neg ~ N(0.3, 0.15), Pos ~ N(0.3 + separation*0.15, 0.15)
+            // But clamped to [0,1]
+            const sigma = 0.15;
+            const mu0 = 0.35;
+            const mu1 = mu0 + separation * sigma * 1.5; // Scale separation a bit
+
+            samples = [];
+            for(let i=0; i<N; i++) {
+                const isPos = Math.random() < posRatio;
+                let score;
+                if(isPos) {
+                    score = mu1 + randn_bm() * sigma;
+                } else {
+                    score = mu0 + randn_bm() * sigma;
+                }
+                // Clamp
+                if(score < 0) score = 0;
+                if(score > 1) score = 1;
+                
+                samples.push({ score, label: isPos ? 1 : 0 });
+            }
+
+            calculateROC();
+            drawDistChart();
+            drawCostChart(); // Cost curve depends on data, but also weights (updated in updateThreshold)
+        }
+
+        function calculateROC() {
+            // Sort samples by score desc
+            const sorted = [...samples].sort((a,b) => b.score - a.score);
+            const totalPos = sorted.filter(s => s.label === 1).length;
+            const totalNeg = sorted.length - totalPos;
+            
+            rocPoints = [];
+            let tp = 0, fp = 0;
+            
+            // Add (0,0)
+            rocPoints.push({x:0, y:0, t: 1.1});
+
+            // Iterate thresholds (conceptually between points)
+            // But for plotting, we just go through sorted list
+            for(let i=0; i<sorted.length; i++) {
+                if(sorted[i].label === 1) tp++;
+                else fp++;
+                
+                // Only record point if score changes or last point
+                if(i === sorted.length - 1 || sorted[i].score !== sorted[i+1].score) {
+                    rocPoints.push({
+                        x: fp / totalNeg, // FPR
+                        y: tp / totalPos, // TPR
+                        t: sorted[i].score
+                    });
+                }
+            }
+        }
+
+        function calculateMetrics(threshold, costFP, costFN) {
+            let tp=0, fp=0, tn=0, fn=0;
+            samples.forEach(s => {
+                const pred = s.score >= threshold ? 1 : 0;
+                if(pred === 1 && s.label === 1) tp++;
+                else if(pred === 1 && s.label === 0) fp++;
+                else if(pred === 0 && s.label === 0) tn++;
+                else if(pred === 0 && s.label === 1) fn++;
+            });
+            
+            const precision = (tp + fp) > 0 ? tp / (tp + fp) : 0; // Handle div 0
+            const recall = (tp + fn) > 0 ? tp / (tp + fn) : 0;
+            const f1 = (precision + recall) > 0 ? 2 * precision * recall / (precision + recall) : 0;
+            const totalCost = fp * costFP + fn * costFN;
+            
+            // Find corresponding ROC point (approx)
+            // Closest point in rocPoints where t <= threshold
+            // Actually, t is decreasing in rocPoints. Find first t <= threshold? 
+            // rocPoints are sorted by t descending.
+            // But threshold is a continuous slider.
+            // Let's just calculate current FPR/TPR directly
+            const tpr = recall;
+            const fpr = (tn + fp) > 0 ? fp / (tn + fp) : 0;
+
+            return { tp, fp, tn, fn, precision, recall, f1, totalCost, tpr, fpr };
+        }
+
+        // --- UI ---
+        function updateUI() {
+            document.getElementById('disp_pos_ratio').innerText = document.getElementById('pos_ratio').value + '%';
+            document.getElementById('disp_sep').innerText = document.getElementById('separation').value;
+            document.getElementById('disp_threshold').innerText = parseFloat(document.getElementById('threshold').value).toFixed(2);
+        }
+
+        function updateThreshold() {
+            const threshold = parseFloat(document.getElementById('threshold').value);
+            const costFP = parseFloat(document.getElementById('cost_fp').value);
+            const costFN = parseFloat(document.getElementById('cost_fn').value);
+
+            const m = calculateMetrics(threshold, costFP, costFN);
+
+            // Update Matrix
+            document.getElementById('val_tp').innerText = m.tp;
+            document.getElementById('val_fp').innerText = m.fp;
+            document.getElementById('val_tn').innerText = m.tn;
+            document.getElementById('val_fn').innerText = m.fn;
+
+            // Update Cards
+            document.getElementById('val_precision').innerText = (m.precision * 100).toFixed(1) + '%';
+            document.getElementById('val_recall').innerText = (m.recall * 100).toFixed(1) + '%';
+            document.getElementById('val_f1').innerText = m.f1.toFixed(3);
+            document.getElementById('val_total_cost').innerText = m.totalCost;
+
+            // Update Charts
+            drawROCChart(m.fpr, m.tpr);
+            updateDistThresholdLine(threshold);
+            
+            // Re-draw cost chart if costs changed? No, cost curve needs full sweep.
+            // Actually, if cost weights change, the cost curve shape changes.
+            drawCostChart();
+            updateCostMarker(threshold);
+        }
+
+        // --- Charts ---
+        function drawDistChart() {
+            const ctx = document.getElementById('distChart').getContext('2d');
+            
+            // Histogram bins
+            const bins = 50;
+            const negCounts = Array(bins).fill(0);
+            const posCounts = Array(bins).fill(0);
+            
+            samples.forEach(s => {
+                const idx = Math.min(Math.floor(s.score * bins), bins-1);
+                if(s.label === 1) posCounts[idx]++;
+                else negCounts[idx]++;
+            });
+            
+            const labels = Array(bins).fill(0).map((_, i) => (i/bins).toFixed(2));
+
+            if(distChart) distChart.destroy();
+            distChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Negative (0)',
+                            data: negCounts,
+                            backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                            barPercentage: 1.0,
+                            categoryPercentage: 1.0
+                        },
+                        {
+                            label: 'Positive (1)',
+                            data: posCounts,
+                            backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                            barPercentage: 1.0,
+                            categoryPercentage: 1.0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { title: {display:true, text:'Score'} },
+                        y: { stacked: true, display: false }
+                    },
+                    plugins: {
+                        annotation: {
+                            annotations: {
+                                line1: {
+                                    type: 'line',
+                                    xMin: 25, // Placeholder, updated by function
+                                    xMax: 25,
+                                    borderColor: 'purple',
+                                    borderWidth: 2,
+                                    label: { content: 'Threshold', enabled: true, position: 'top' }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateDistThresholdLine(threshold) {
+            if(!distChart) return;
+            const bins = 50;
+            const idx = threshold * bins; // Approximation for categorical axis
+            // Actually, chart.js category axis uses index. 0 to 49.
+            // threshold 0.5 -> index 25.
+            
+            distChart.options.plugins.annotation.annotations.line1.xMin = idx - 0.5; // Align between bars
+            distChart.options.plugins.annotation.annotations.line1.xMax = idx - 0.5;
+            distChart.update();
+        }
+
+        function drawROCChart(currFPR, currTPR) {
+            const ctx = document.getElementById('rocChart').getContext('2d');
+            
+            // Downsample rocPoints for performance if needed
+            const plotPoints = rocPoints.map(p => ({x: p.x, y: p.y}));
+
+            if(rocChart) rocChart.destroy();
+            rocChart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        {
+                            label: 'ROC Curve',
+                            data: plotPoints,
+                            showLine: true,
+                            borderColor: 'blue',
+                            pointRadius: 0,
+                            borderWidth: 2,
+                            fill: true,
+                            backgroundColor: 'rgba(54, 162, 235, 0.1)'
+                        },
+                        {
+                            label: 'Random Guess',
+                            data: [{x:0, y:0}, {x:1, y:1}],
+                            showLine: true,
+                            borderColor: 'gray',
+                            borderDash: [5,5],
+                            pointRadius: 0,
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Current Threshold',
+                            data: [{x: currFPR, y: currTPR}],
+                            backgroundColor: 'purple',
+                            borderColor: 'purple',
+                            pointRadius: 6,
+                            pointHoverRadius: 8
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { min: 0, max: 1, title: {display:true, text:'False Positive Rate (1 - Specificity)'} },
+                        y: { min: 0, max: 1, title: {display:true, text:'True Positive Rate (Recall)'} }
+                    }
+                }
+            });
+        }
+
+        function drawCostChart() {
+            const ctx = document.getElementById('costChart').getContext('2d');
+            const costFP = parseFloat(document.getElementById('cost_fp').value);
+            const costFN = parseFloat(document.getElementById('cost_fn').value);
+            
+            // Sweep thresholds 0 to 1
+            const data = [];
+            const labels = [];
+            for(let t=0; t<=1.0; t+=0.02) {
+                const m = calculateMetrics(t, costFP, costFN);
+                data.push(m.totalCost);
+                labels.push(t.toFixed(2));
+            }
+            
+            if(costChart) costChart.destroy();
+            costChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Total Cost',
+                        data: data,
+                        borderColor: 'red',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { title: {display:true, text:'Threshold'} },
+                        y: { title: {display:true, text:'Cost'} }
+                    },
+                    plugins: {
+                        annotation: {
+                            annotations: {
+                                line1: {
+                                    type: 'line',
+                                    xMin: 25, // Placeholder
+                                    xMax: 25,
+                                    borderColor: 'purple',
+                                    borderWidth: 2
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateCostMarker(threshold) {
+            if(!costChart) return;
+            // threshold 0..1 maps to labels 0..50 (step 0.02)
+            const idx = threshold / 0.02;
+            costChart.options.plugins.annotation.annotations.line1.xMin = idx;
+            costChart.options.plugins.annotation.annotations.line1.xMax = idx;
+            costChart.update();
+        }
+
+        function runSimulation() {
+            generateData();
+            updateThreshold();
+        }
+
+        // Init
+        window.onload = function() {
+            updateUI();
+            runSimulation(); // Generates data and initial charts
+        };
+
+    </script>
+<script src="vendor/mathjax-loader.js"></script>
+<script src="vendor/mathjax-tex-svg.js"></script>
+</body>
+</html>
